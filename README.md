@@ -8,6 +8,10 @@ NuvioMedia doesn't make, endorse or support KE, so bring KE problems here, not t
 
 ![Nuvio KE on a TV: Home, a show's page, picking a source, and Live TV](assets/screenshots/hero.jpg)
 
+
+https://github.com/user-attachments/assets/de75164a-e5c4-408c-b980-94ef0a529095
+
+
 ## Install
 
 - **APK:** [Releases](https://github.com/Arshad-Kamal/Nuvio-KE/releases). Take `armeabi-v7a` (most TV boxes, the
