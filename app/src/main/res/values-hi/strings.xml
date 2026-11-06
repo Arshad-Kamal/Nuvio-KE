@@ -1,0 +1,506 @@
+<resources>
+    <string name="type_movie">फ़िल्म</string>
+    <string name="type_series">सीरीज़</string>
+    <string name="type_unknown">अज्ञात</string>
+
+    <!-- HomeScreen -->
+    <string name="error_generic">कुछ गलत हो गया</string>
+
+    <!-- ErrorState -->
+    <string name="action_retry">फिर से कोशिश करें</string>
+    <string name="error_state_generic_issue">कुछ गलत हो गया।</string>
+    <string name="error_state_possible_fix">संभावित समाधान: %1$s</string>
+    <string name="error_state_fix_retry_soon">कृपया थोड़ी देर बाद फिर से कोशिश करें।</string>
+    <string name="error_state_issue_no_metadata_any_addon">इस आईडी के लिए डिटेल्स लोड नहीं हो सकीं क्योंकि किसी भी इंस्टॉल किए गए ऐडऑन ने मेटाडेटा नहीं दिया।</string>
+    <string name="error_state_fix_no_metadata_any_addon">कोई दूसरा ऐडऑन आज़माएँ, लेआउट सेटिंग्स में "बाहरी ऐडऑन से मेटा को प्राथमिकता दें" बंद करें, या सुनिश्चित करें कि कोई इंस्टॉल किया हुआ ऐडऑन इस आईडी को सपोर्ट करता है।</string>
+    <string name="error_state_prefix_no_supported_metadata">कोई भी इंस्टॉल किया हुआ ऐडऑन इसके लिए मेटाडेटा सपोर्ट नहीं करता</string>
+    <string name="error_state_prefix_no_addon_for_id">किसी भी इंस्टॉल किए गए ऐडऑन के लिए मेटाडेटा प्रदान नहीं किया₹ id=</string>
+    <string name="error_state_fix_no_supported_metadata">ऐसा ऐडऑन इंस्टॉल या अपडेट करें जो इस कंटेंट टाइप को सपोर्ट करता हो, फिर दोबारा कोशिश करें।</string>
+    <string name="error_state_prefix_tried_meta_addons">आजमाए गए मेटा ऐडऑन:</string>
+    <string name="error_state_fix_tried_meta_addons">ऐसा ऐडऑन इंस्टॉल करें जो इस आईडी को सपोर्ट करता हो, या ऐडऑन को दोबारा कॉन्फ़िगर/अपडेट करके फिर से कोशिश करें।</string>
+    <string name="error_state_issue_missing_metadata_for_id">इस आईडी के लिए मेटाडेटा उपलब्ध नहीं है</string>
+    <string name="error_state_fix_missing_metadata_for_id">इस आईडी को किसी दूसरे ऐडऑन से खोलें, "बाहरी ऐडऑन से मेटा को प्राथमिकता दें" बंद करें, या जांचें कि ऐडऑन इस आईडी को सपोर्ट करता है।</string>
+    <string name="error_state_issue_addon_unreachable">ऐडऑन तक पहुँचा नहीं जा सका</string>
+    <string name="error_state_fix_addon_unreachable">अपना इंटरनेट कनेक्शन जांचें, सुनिश्चित करें कि ऐडऑन का URL अभी भी काम कर रहा है, फिर दोबारा कोशिश करें।</string>
+    <string name="error_state_issue_addon_connection_failed">कनेक्शन अस्वीकार कर दिया गया</string>
+    <string name="error_state_fix_addon_connection_failed">सुनिश्चित करें कि ऐडऑन सर्वर ऑनलाइन है और पहुँच योग्य है, फिर दोबारा कोशिश करें।</string>
+    <string name="error_state_issue_addon_timeout">उत्तर देने में बहुत समय लगा</string>
+    <string name="error_state_fix_addon_timeout">थोड़ी देर बाद फिर से कोशिश करें, या अगर यह बार-बार हो रहा है तो कोई दूसरा ऐडऑन आज़माएँ।</string>
+    <string name="error_state_issue_addon_cleartext">यह असुरक्षित HTTP कनेक्शन का उपयोग करता है जिसे Android ने ब्लॉक कर दिया</string>
+    <string name="error_state_fix_addon_cleartext">ऐडऑन URL को HTTPS में बदलें या ऐडऑन कॉन्फ़िगरेशन अपडेट करें।</string>
+    <string name="error_state_fix_addon_generic">फिर से कोशिश करें, ऐडऑन अपडेट या पुनः इंस्टॉल करें, या कोई दूसरा ऐडऑन आज़माएँ।</string>
+    <string name="error_state_addon_issue_template">%1$s: %2$s.</string>
+    <string name="error_meta_not_found">मेटा नहीं मिला</string>
+    <string name="error_meta_no_supported_addon">कोई भी इंस्टॉल किया हुआ ऐडऑन "%1$s" के लिए मेटाडेटा सपोर्ट नहीं करता।</string>
+    <string name="error_meta_no_addon_for_id">किसी भी इंस्टॉल किए गए ऐडऑन ने id=%1$s (type=%2$s) के लिए मेटाडेटा प्रदान नहीं किया।</string>
+    <string name="error_meta_tried_none">आजमाए गए मेटा ऐडऑन: %1$s. इनमें से किसी ने भी id=%2$s (type=%3$s) के लिए मेटाडेटा प्रदान नहीं किया।</string>
+    <string name="error_meta_tried_generic">आजमाए गए मेटा ऐडऑन: %1$s. id=%2$s (type=%3$s) के लिए मेटाडेटा लोड नहीं हो सका।</string>
+    <string name="error_meta_tried_issues">आजमाए गए मेटा ऐडऑन: %1$s. id=%2$s (type=%3$s) के लिए मेटाडेटा लोड नहीं हो सका। समस्याएँ: %4$s।</string>
+
+    <!-- ContinueWatchingSection -->
+    <string name="continue_watching">देखना जारी रखें</string>
+    <string name="cw_upcoming">आने वाला</string>
+    <string name="cw_next_up">अगला</string>
+    <string name="cw_new_episode">नया एपिसोड</string>
+    <string name="cw_resume">जारी रखें</string>
+    <string name="cw_percent_watched">%1$d%% देखा गया</string>
+    <string name="cw_hours_min_left">%1$dh %2$dm बाकी</string>
+    <string name="cw_min_left">%1$dm बाकी</string>
+    <string name="cw_airs_date">%1$s को प्रसारित होगा</string>
+    <string name="cw_airs_today">आज प्रसारित होगा</string>
+    <string name="cw_airs_tomorrow">कल प्रसारित होगा</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="one">%d दिन में प्रसारित होगा</item>
+        <item quantity="other">%d दिनों में प्रसारित होगा</item>
+    </plurals>
+    <string name="cw_action_go_to_details">विवरण देखें</string>
+    <string name="cw_action_start_from_beginning">शुरुआत से चलाएँ</string>
+    <string name="cw_action_remove">हटाएँ</string>
+    <string name="cw_dialog_subtitle">इस आइटम के साथ क्या करना है चुनें।</string>
+    <string name="home_poster_dialog_subtitle">टाइटल एक्शन</string>
+
+    <string name="action_see_all">सब देखें</string>
+
+    <!-- HeroSection -->
+    <string name="hero_creator">निर्माता: %1$s</string>
+    <string name="hero_director">निर्देशक: %1$s</string>
+    <string name="hero_writer">लेखक: %1$s</string>
+    <string name="hero_play">चलाएँ</string>
+    <string name="hero_add_to_library">लाइब्रेरी में जोड़ें</string>
+    <string name="hero_remove_from_library">लाइब्रेरी से हटाएँ</string>
+    <string name="hero_mark_watched">देख लिया</string>
+    <string name="hero_mark_unwatched">नहीं देखा</string>
+    <string name="hero_play_trailer">ट्रेलर चलाएँ</string>
+    <string name="hero_press_back_trailer">ट्रेलर से बाहर निकलने के लिए बैक दबाएँ</string>
+
+    <!-- EpisodesSection -->
+    <string name="episodes_season">सीज़न %1$d</string>
+    <string name="episodes_specials">स्पेशल</string>
+    <string name="episodes_episode">एपिसोड</string>
+    <string name="episodes_cd_watched">देखा गया</string>
+    <string name="episodes_dialog_subtitle">एपिसोड एक्शन</string>
+    <string name="episodes_mark_watched">देखा हुआ मार्क करें</string>
+    <string name="episodes_mark_unwatched">अनदेखा मार्क करें</string>
+    <string name="episodes_mark_season_watched">सीज़न को देखा हुआ मार्क करें</string>
+    <string name="episodes_mark_season_unwatched">सीज़न को अनदेखा मार्क करें</string>
+    <string name="episodes_mark_previous_watched">इस सीज़न के पिछले एपिसोड को देखा हुआ मार्क करें</string>
+    <string name="episodes_play">चलाएँ</string>
+    <string name="play_manually">मैन्युअली चलाएँ</string>
+    <string name="episodes_season_actions">सीज़न एक्शन</string>
+
+    <!-- MetaDetailsViewModel -->
+    <string name="detail_added_to_library">लाइब्रेरी में जोड़ा गया</string>
+    <string name="detail_removed_from_library">लाइब्रेरी से हटाया गया</string>
+    <string name="detail_episode_marked_watched">एपिसोड को देखा हुआ मार्क किया गया</string>
+    <string name="detail_episode_marked_unwatched">एपिसोड को अनदेखा मार्क किया गया</string>
+    <string name="detail_lists_updated">लिस्ट अपडेट हो गई</string>
+    <string name="detail_movie_marked_watched">देखा हुआ मार्क किया गया</string>
+    <string name="detail_movie_marked_unwatched">अनदेखा मार्क किया गया</string>
+    <string name="detail_all_episodes_watched">सभी एपिसोड पहले ही देखे जा चुके हैं</string>
+    <string name="detail_no_watched_episodes">इस सीज़न में कोई देखा हुआ एपिसोड नहीं है</string>
+    <string name="detail_all_previous_watched">सभी पिछले एपिसोड पहले ही देखे जा चुके हैं</string>
+    <string name="detail_marked_episodes_watched">देखे हुए मार्क किए गए एपिसोड: %1$d</string>
+    <string name="detail_marked_episodes_unwatched">अनदेखे मार्क किए गए एपिसोड: %1$d</string>
+    <string name="detail_marked_previous_watched">देखे हुए मार्क किए गए पिछले एपिसोड: %1$d</string>
+
+    <!-- MetaDetailsScreen -->
+    <string name="detail_btn_play">चलाएँ</string>
+    <string name="detail_btn_resume">जारी रखें</string>
+    <string name="detail_btn_play_episode">चलाएँ S%1$d E%2$d</string>
+    <string name="detail_btn_resume_episode">जारी रखें S%1$d E%2$d</string>
+    <string name="detail_btn_next_episode">अगला S%1$d E%2$d</string>
+    <string name="detail_tab_cast">क्रिएटर और कास्ट</string>
+    <string name="cast_role_creator">क्रिएटर</string>
+    <string name="cast_role_director">डायरेक्टर</string>
+    <string name="cast_role_writer">राइटर</string>
+    <string name="detail_tab_ratings">रेटिंग्स</string>
+    <string name="detail_tab_more_like_this">ऐसा ही और</string>
+    <string name="detail_section_network">नेटवर्क</string>
+    <string name="detail_section_production">प्रोडक्शन</string>
+    <string name="episodes_unavailable">उपलब्ध नहीं</string>
+    <string name="series_status_ended">समाप्त</string>
+    <string name="series_status_continuing">जारी</string>
+    <string name="series_status_current">वर्तमान</string>
+    <string name="series_status_cancelled">रद्द</string>
+    <string name="series_status_released">रिलीज़</string>
+    <string name="series_status_planned">योजना में</string>
+    <string name="series_status_rumored">अफवाह</string>
+    <string name="series_status_in_production">प्रोडक्शन में</string>
+    <string name="series_status_post_production">पोस्ट प्रोडक्शन</string>
+    <string name="movie_status_ended">समाप्त</string>
+    <string name="movie_status_continuing">जारी</string>
+    <string name="movie_status_current">वर्तमान</string>
+    <string name="movie_status_cancelled">रद्द</string>
+    <string name="movie_status_released">रिलीज़</string>
+    <string name="movie_status_planned">योजना में</string>
+    <string name="movie_status_rumored">अफवाह</string>
+    <string name="movie_status_in_production">प्रोडक्शन में</string>
+    <string name="movie_status_post_production">पोस्ट प्रोडक्शन</string>
+    <string name="detail_lists_fallback">लिस्ट्स</string>
+    <string name="detail_lists_subtitle">चुनें कि इस टाइटल को किन लिस्ट्स में शामिल करना है।</string>
+    <string name="action_save">सेव</string>
+    <string name="action_saving">सेव हो रहा है…</string>
+
+    <!-- AppLanguage -->
+    <string name="appearance_language_system">सिस्टम डिफ़ॉल्ट</string>
+    <string name="appearance_language_dialog_title">भाषा चुनें</string>
+    <string name="appearance_language_restart_hint">भाषा परिवर्तन लागू करने के लिए ऐप रीस्टार्ट करें।</string>
+
+    <!-- Font -->
+    <string name="appearance_font_dialog_title">फ़ॉन्ट चुनें</string>
+
+    <!-- ThemeSettingsScreen -->
+    <string name="appearance_title">दिखावट</string>
+
+    <!-- AboutScreen -->
+    <string name="about_title">ऐप के बारे में</string>
+
+    <!-- SettingsScreen categories -->
+    <string name="settings_account">अकाउंट</string>
+    <string name="settings_profiles">प्रोफाइल</string>
+    <string name="settings_layout">लेआउट</string>
+    <string name="settings_integration">इंटीग्रेशन</string>
+    <string name="settings_playback">प्लेबैक</string>
+    <string name="settings_debug">डीबग</string>
+    <string name="settings_account_section_subtitle">अकाउंट और सिंक स्थिति।</string>
+    <string name="account_stat_addons">ऐडऑन</string>
+    <string name="account_stat_library">लाइब्रेरी</string>
+    <string name="account_stat_progress">प्रोग्रेस</string>
+    <string name="account_stat_watched">देखा गया</string>
+
+    <!-- PlaybackSettingsScreen -->
+    <string name="cd_decrease">कम करें</string>
+    <string name="cd_increase">बढ़ाएँ</string>
+    <string name="action_cancel">रद्द करें</string>
+    <string name="action_none">कोई नहीं</string>
+
+
+    <!-- PlaybackSettingsSections -->
+    <string name="playback_section_general">सामान्य</string>
+    <string name="playback_loading_overlay">लोडिंग ओवरले</string>
+    <string name="playback_loading_overlay_sub">पहला वीडियो फ्रेम आने तक लोडिंग स्क्रीन दिखाएँ।</string>
+    <string name="playback_pause_overlay">पॉज़ ओवरले</string>
+    <string name="playback_pause_overlay_sub">पॉज़ होने पर 5 सेकंड बाद डिटेल्स ओवरले दिखाएँ।</string>
+    <string name="playback_show_clock_sub">कंट्रोल दिखने पर वर्तमान समय और समाप्ति समय दिखाएँ।</string>
+    <string name="playback_osd_clock">OSD घड़ी</string>
+    <string name="playback_skip_intro">इंट्रो स्किप करें</string>
+    <string name="playback_skip_intro_sub">इंट्रो और रिकैप पहचानने के लिए introdb.app का उपयोग करें।</string>
+    <string name="playback_section_subtitles">सबटाइटल</string>
+    <string name="playback_afr_off">ऑफ</string>
+    <string name="playback_afr_on_start">शुरू होने पर</string>
+    <string name="playback_resolution_matching">रिज़ॉल्यूशन मैचिंग</string>
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_autoplay_trailers">ऑटो-प्ले ट्रेलर</string>
+    <string name="audio_autoplay_trailers_sub">कुछ समय की निष्क्रियता के बाद डिटेल स्क्रीन पर ट्रेलर अपने आप चलाएँ</string>
+    <string name="audio_trailer_delay">ट्रेलर देरी</string>
+    <string name="audio_section">ऑडियो</string>
+    <string name="audio_lang_default">डिफ़ॉल्ट (मीडिया फ़ाइल)</string>
+    <string name="audio_lang_device">डिवाइस भाषा</string>
+    <string name="audio_skip_silence">साइलेंस स्किप करें</string>
+    <string name="audio_skip_silence_sub">प्लेबैक के दौरान ऑडियो के साइलेंट हिस्सों को स्किप करें</string>
+    <string name="audio_advanced_warning">ये सेटिंग्स कुछ डिवाइस पर समस्या पैदा कर सकती हैं। केवल तभी बदलें जब आपको पता हो कि आप क्या कर रहे हैं।</string>
+    <string name="audio_decoder_device_only">केवल डिवाइस डिकोडर</string>
+    <string name="audio_decoder_prefer_device">डिवाइस डिकोडर को प्राथमिकता दें</string>
+    <string name="audio_decoder_prefer_app">ऐप डिकोडर को प्राथमिकता दें (FFmpeg)</string>
+    <string name="audio_decoder_priority">डिकोडर प्राथमिकता</string>
+    <string name="audio_tunneled">टनल्ड प्लेबैक</string>
+    <string name="audio_tunneled_sub">हार्डवेयर स्तर का ऑडियो/वीडियो सिंक। कुछ Android TV डिवाइस पर प्लेबैक बेहतर हो सकता है</string>
+    <string name="audio_decoder_device_only_desc">केवल बिल्ट-इन हार्डवेयर डिकोडर का उपयोग करें। सबसे अधिक संगत लेकिन सभी फॉर्मेट सपोर्ट नहीं हो सकते।</string>
+    <string name="audio_decoder_prefer_device_desc">जहाँ उपलब्ध हो हार्डवेयर डिकोडर उपयोग करें, अन्यथा FFmpeg पर जाएँ। अधिकांश डिवाइस के लिए अनुशंसित।</string>
+    <string name="audio_decoder_prefer_app_desc">जहाँ उपलब्ध हो FFmpeg डिकोडर उपयोग करें। बेहतर फॉर्मेट सपोर्ट लेकिन अधिक CPU उपयोग।</string>
+    <string name="audio_decoder_controls">यह नियंत्रित करता है कि ऑडियो और वीडियो के लिए हार्डवेयर या सॉफ़्टवेयर (FFmpeg) डिकोडर उपयोग होंगे</string>
+
+    <!-- PlaybackSubtitleSettings -->
+    <string name="sub_not_set">सेट नहीं</string>
+    <string name="sub_forced_lang">फोर्स्ड</string>
+    <string name="sub_preferred_lang">पसंदीदा भाषा</string>
+    <string name="sub_secondary_lang">दूसरी पसंदीदा भाषा</string>
+    <string name="sub_use_forced_subtitles">फोर्स्ड सबटाइटल इस्तेमाल करें</string>
+    <string name="sub_use_forced_subtitles_desc">जब ऑडियो सबटाइटल भाषा से मेल खाए तो फोर्स्ड सबटाइटल को प्राथमिकता दें; उपलब्ध न होने पर कुछ भी न चुनें</string>
+    <string name="sub_show_only_preferred_languages">केवल पसंदीदा भाषाएं दिखाएं</string>
+    <string name="sub_show_only_preferred_languages_desc">चयन सूची से अन्य सभी उपशीर्षक भाषाएं छिपाएं</string>
+    <string name="sub_size">आकार</string>
+    <string name="sub_bold">बोल्ड</string>
+    <string name="sub_libass">ASS/SSA सबटाइटल के लिए libass उपयोग करें</string>
+    <string name="sub_libass_sub">प्रायोगिक: उन्नत ASS/SSA रेंडरिंग (स्टाइल, पोज़िशनिंग, एनीमेशन)</string>
+
+    <!-- PlaybackAutoPlaySettings -->
+    <string name="autoplay_last_link_cache">पिछले लिंक का कैश समय</string>
+    <string name="autoplay_mode_manual">मैन्युअल (स्ट्रीम चुनें)</string>
+    <string name="autoplay_mode_first">पहला सोर्स ऑटो-प्ले</string>
+    <string name="autoplay_mode_regex">Regex मैच ऑटो-प्ले</string>
+    <string name="autoplay_prefer_binge_group">बिंज ग्रुप को प्राथमिकता (अगला एपिसोड)</string>
+    <string name="autoplay_prefer_binge_group_sub">सामान्य ऑटो-प्ले नियमों से पहले उसी सोर्स प्रोफाइल को आज़माएँ (उसी ऐडऑन/क्वालिटी ग्रुप)।</string>
+    <string name="autoplay_threshold_pct">प्रतिशत</string>
+    <string name="autoplay_threshold_min">समाप्ति से मिनट पहले</string>
+    <string name="autoplay_threshold_mode">नेक्स्ट एपिसोड थ्रेशोल्ड मोड</string>
+    <string name="autoplay_threshold_pct_title">थ्रेशोल्ड प्रतिशत</string>
+    <string name="autoplay_threshold_pct_sub">जब outro टाइमस्टैम्प उपलब्ध न हो तो फ़ॉलबैक।</string>
+    <string name="autoplay_threshold_min_title">थ्रेशोल्ड मिनट</string>
+    <string name="autoplay_timeout_instant">तुरंत</string>
+    <string name="autoplay_timeout_unlimited">असीमित</string>
+    <string name="autoplay_all_addons">सभी इंस्टॉल किए गए ऐडऑन</string>
+    <string name="autoplay_regex_placeholder">कोई पैटर्न सेट नहीं। उदाहरण: 4K|2160p|Remux</string>
+    <string name="autoplay_regex_title">Regex पैटर्न</string>
+    <string name="autoplay_no_items">कोई आइटम उपलब्ध नहीं</string>
+    <string name="autoplay_mode_first_desc">पहला उपलब्ध सोर्स अपने आप चलाएँ।</string>
+    <string name="autoplay_threshold_pct_desc">जब outro टाइमस्टैम्प उपलब्ध न हो तो प्लेबैक प्रतिशत के आधार पर दिखाएँ।</string>
+    <string name="autoplay_threshold_min_desc">जब outro टाइमस्टैम्प उपलब्ध न हो तो एपिसोड समाप्ति से इतने मिनट पहले दिखाएँ।</string>
+    <string name="autoplay_regex_matches">स्ट्रीम नाम/टाइटल/डिस्क्रिप्शन/ऐडऑन/url से मैच करता है। उदाहरण: 4K|2160p|Remux</string>
+    <string name="autoplay_invalid_regex">अमान्य regex पैटर्न</string>
+
+    <!-- LayoutSettingsScreen -->
+    <string name="layout_landscape_posters">लैंडस्केप पोस्टर</string>
+    <string name="layout_catalog_type">कैटलॉग प्रकार दिखाएँ</string>
+    <string name="layout_catalog_type_sub">कैटलॉग नाम के पास प्रकार (मूवी/सीरीज़) दिखाएँ।</string>
+    <string name="layout_hide_unreleased">अनरिलीज़ कंटेंट छुपाएँ</string>
+    <string name="layout_hide_unreleased_sub">जो मूवी या शो अभी रिलीज़ नहीं हुए हैं उन्हें छुपाएँ।</string>
+    <string name="layout_blur_unwatched">अनदेखे एपिसोड ब्लर करें</string>
+    <string name="layout_blur_unwatched_sub">स्पॉइलर से बचने के लिए एपिसोड थंबनेल को देखने तक ब्लर करें।</string>
+    <string name="layout_trailer_button">ट्रेलर बटन दिखाएँ</string>
+    <string name="layout_trailer_button_sub">डिटेल पेज पर ट्रेलर बटन दिखाएँ (जब ट्रेलर उपलब्ध हो)।</string>
+    <string name="layout_prefer_external_meta">बाहरी ऐडऑन से मेटा को प्राथमिकता दें</string>
+    <string name="layout_prefer_external_meta_sub">कैटलॉग ऐडऑन के बजाय बाहरी ऐडऑन से मेटाडेटा उपयोग करें।</string>
+    <string name="layout_trailer_muted">म्यूट ट्रेलर चलाएँ</string>
+    <string name="layout_trailer_muted_sub_preview">ऑटो-प्ले प्रिव्यू के दौरान ट्रेलर ऑडियो म्यूट करें।</string>
+
+
+
+
+    <!-- TmdbSettingsScreen -->
+    <string name="tmdb_language_title">भाषा</string>
+    <string name="tmdb_collections_title">कलेक्शन</string>
+    <string name="tmdb_collections_subtitle">रिलीज़ क्रम में TMDB मूवी कलेक्शन</string>
+
+    <string name="tmdb_language_dialog_title">TMDB भाषा</string>
+
+    <!-- TraktScreen -->
+    <string name="qr_login_pending">आपके फोन पर स्वीकृति की प्रतीक्षा हो रही है…</string>
+
+    <!-- DebugSettingsScreen -->
+    <string name="debug_title">डीबग</string>
+    <string name="debug_subtitle">डेवलपर टूल्स और फीचर फ्लैग्स (केवल डीबग बिल्ड)</string>
+    <string name="debug_section_popup">पॉपअप / डायलॉग टेस्टिंग</string>
+    <string name="debug_playback_error_title">प्लेबैक एरर स्क्रीन</string>
+    <string name="debug_playback_error_subtitle">सिम्युलेटेड प्लेबैक एरर पॉपअप दिखाएँ</string>
+    <string name="debug_section_features">फीचर टॉगल्स</string>
+    <string name="debug_error_dialog_title">प्लेबैक एरर</string>
+    <string name="debug_error_dialog_subtitle">प्लेबैक के दौरान एक त्रुटि हुई.\n\nError: टेस्ट सिम्युलेटेड एरर - यह वास्तविक विफलता नहीं है. सोर्स ने HTTP 503 (Service Unavailable) लौटाया.</string>
+    <string name="debug_dismiss">बंद करें</string>
+
+    <!-- ProfileSettingsContent -->
+    <string name="profile_name_placeholder">प्रोफाइल नाम</string>
+    <string name="profile_create_btn">बनाएँ</string>
+    <string name="profile_choose_avatar">अवतार चुनें</string>
+    <string name="profile_avatar_focus_hint">उसका नाम देखने के लिए अवतार पर फोकस करें</string>
+    <string name="profile_avatar_category_all">सभी</string>
+    <string name="profile_avatar_category_anime">एनीमे</string>
+    <string name="profile_avatar_category_animation">एनिमेशन</string>
+    <string name="profile_avatar_category_movie">मूवी</string>
+    <string name="profile_avatar_category_tv">टीवी</string>
+    <string name="profile_avatar_category_gaming">गेमिंग</string>
+    <string name="profile_cancel">रद्द करें</string>
+    <string name="profile_save">सेव करें</string>
+
+
+    <!-- AddonManagerScreen -->
+    <string name="addon_title">ऐडऑन</string>
+    <string name="addon_readonly_notice">प्राइमरी प्रोफाइल के ऐडऑन उपयोग हो रहे हैं और इन्हें बदला नहीं जा सकता</string>
+    <string name="addon_installing">इंस्टॉल हो रहा है</string>
+    <string name="addon_install_btn">इंस्टॉल</string>
+    <string name="addon_installed_section">इंस्टॉल किए गए</string>
+    <string name="addon_empty">कोई ऐडऑन इंस्टॉल नहीं है। शुरू करने के लिए एक जोड़ें।</string>
+    <string name="addon_remove">हटाएँ</string>
+    <string name="addon_manage_from_phone_title">फोन से मैनेज करें</string>
+    <string name="addon_qr_scan_instruction">ऐडऑन और कैटलॉग मैनेज करने के लिए अपने फोन से स्कैन करें</string>
+    <string name="addon_qr_close">बंद करें</string>
+    <string name="addon_confirm_title">ऐडऑन और कैटलॉग बदलाव की पुष्टि करें</string>
+    <string name="addon_confirm_subtitle">निम्नलिखित बदलाव आपके फोन से किए गए:</string>
+    <string name="addon_confirm_added">जोड़े गए:</string>
+    <string name="addon_confirm_removed">हटाए गए:</string>
+    <string name="addon_confirm_catalog_reordered">कैटलॉग क्रम बदल दिया गया</string>
+    <string name="addon_confirm_catalogs_disabled">होम पर अक्षम किए गए कैटलॉग:</string>
+    <string name="addon_confirm_catalogs_enabled">होम पर सक्षम किए गए कैटलॉग:</string>
+    <string name="addon_confirm_no_changes">कोई दृश्य बदलाव नहीं मिला</string>
+    <string name="addon_confirm_reject">अस्वीकार करें</string>
+    <string name="addon_confirm_confirm">पुष्टि करें</string>
+
+    <!-- CatalogOrderScreen -->
+    <string name="catalog_order_empty">अभी कोई होम कैटलॉग उपलब्ध नहीं है।</string>
+
+
+    <!-- StreamScreen -->
+    <string name="stream_retry">फिर से कोशिश करें</string>
+    <string name="stream_no_streams">कोई स्ट्रीम नहीं मिली</string>
+    <string name="stream_no_streams_hint">स्ट्रीम खोजने के लिए और ऐडऑन इंस्टॉल करने की कोशिश करें</string>
+    <string name="stream_finding_source">स्ट्रीम सोर्स खोजा जा रहा है</string>
+
+    <!-- PlayerScreen -->
+    <string name="player_no_external_player">कोई एक्सटर्नल प्लेयर नहीं मिला</string>
+
+    <!-- ParentalGuideOverlay -->
+    <string name="parental_nudity">नग्नता</string>
+    <string name="parental_violence">हिंसा</string>
+    <string name="parental_profanity">अपशब्द</string>
+    <string name="parental_alcohol">अल्कोहल/ड्रग्स</string>
+    <string name="parental_frightening">डरावना</string>
+    <string name="parental_severity_severe">गंभीर</string>
+    <string name="parental_severity_moderate">मध्यम</string>
+    <string name="parental_severity_mild">हल्का</string>
+    <string name="player_ends_at">%1$s पर समाप्त होगा</string>
+    <string name="player_subtitle_delay">सबटाइटल देरी</string>
+    <string name="player_error_title">प्लेबैक त्रुटि</string>
+    <string name="player_go_back">वापस जाएँ</string>
+    <string name="player_speed_title">प्लेबैक गति</string>
+
+    <!-- StreamSourcesPanel -->
+    <string name="sources_title">सोर्स</string>
+
+    <!-- EpisodesPanel -->
+    <string name="episodes_panel_no_episodes">कोई एपिसोड उपलब्ध नहीं</string>
+    <string name="episodes_panel_title">एपिसोड</string>
+    <string name="player_speed_normal">सामान्य</string>
+    <string name="player_aspect_fit">फिट (मूल)</string>
+    <string name="player_aspect_stretch">स्ट्रेच</string>
+    <string name="player_aspect_fit_width">फिट चौड़ाई</string>
+    <string name="player_aspect_fit_height">फिट ऊँचाई</string>
+    <string name="player_aspect_crop">क्रॉप</string>
+
+    <!-- AudioDialog -->
+    <string name="audio_dialog_title">ऑडियो</string>
+
+    <!-- SubtitleSelectionOverlay -->
+    <string name="subtitle_dialog_title">सबटाइटल</string>
+    <string name="subtitle_loading_addon">ऐडऑन से सबटाइटल लोड हो रहे हैं\u2026</string>
+    <string name="subtitle_reset_defaults">डिफ़ॉल्ट रीसेट करें</string>
+    <string name="subtitle_tab_delay">देरी</string>
+    <string name="subtitle_none">कोई नहीं</string>
+    <string name="subtitle_style_title">सबटाइटल स्टाइल</string>
+    <string name="subtitle_style_font_size">फ़ॉन्ट आकार</string>
+    <string name="subtitle_style_bold">बोल्ड</string>
+    <string name="subtitle_style_text_color">टेक्स्ट रंग</string>
+    <string name="subtitle_style_outline">आउटलाइन</string>
+    <string name="subtitle_style_bottom_offset">बॉटम ऑफसेट</string>
+    <string name="subtitle_style_on">चालू</string>
+    <string name="subtitle_style_off">बंद</string>
+
+    <!-- PauseOverlay -->
+    <string name="pause_you_are_watching">आप देख रहे हैं</string>
+    <string name="pause_cast_label">कास्ट</string>
+    <string name="pause_back_to_details">डिटेल्स पर वापस जाएँ</string>
+    <string name="pause_as_character">%1$s के रूप में</string>
+
+    <!-- PostPlayOverlay -->
+    <string name="next_episode_label">अगला एपिसोड</string>
+    <string name="next_episode_finding_source">सोर्स खोजा जा रहा है…</string>
+    <string name="next_episode_unaired">अनएयर्ड</string>
+    <string name="next_episode_not_aired_yet">अगला एपिसोड अभी प्रसारित नहीं हुआ है</string>
+    <string name="skip_intro">इंट्रो स्किप करें</string>
+    <string name="skip_ending">एंडिंग स्किप करें</string>
+    <string name="skip_recap">रिकैप स्किप करें</string>
+    <string name="skip_generic">स्किप करें</string>
+    <string name="display_mode_refresh">रिफ्रेश</string>
+    <string name="display_mode_resolution">रिज़ॉल्यूशन</string>
+
+
+    <!-- SearchScreen -->
+    <string name="search_placeholder">मूवी और सीरीज़ खोजें</string>
+    <string name="search_start_title">खोज शुरू करें</string>
+    <string name="search_start_subtitle">कम से कम 2 अक्षर दर्ज करें</string>
+    <string name="search_start_subtitle_no_discover">Discover बंद है। कम से कम 2 अक्षर दर्ज करें</string>
+    <string name="search_voice_no_speech">कोई आवाज़ नहीं मिली। फिर से कोशिश करें।</string>
+    <string name="search_voice_mic_permission">वॉइस सर्च के लिए माइक्रोफोन अनुमति आवश्यक है।</string>
+    <string name="search_voice_failed">वॉइस पहचान विफल रही। फिर से कोशिश करें।</string>
+    <string name="search_voice_unavailable">इस डिवाइस पर वॉइस सर्च उपलब्ध नहीं है।</string>
+
+    <!-- LibraryScreen -->
+    <string name="library_filter_type">प्रकार</string>
+    <string name="library_filter_sort">सॉर्ट</string>
+    <string name="library_sort_added_desc">जोड़ा गया ↓</string>
+    <string name="library_sort_added_asc">जोड़ा गया ↑</string>
+    <string name="library_sort_title_asc">टाइटल A-Z</string>
+    <string name="library_sort_title_desc">टाइटल Z-A</string>
+    <string name="library_source_local">लोकल</string>
+    <string name="library_type_all">सभी</string>
+    <string name="library_type_items">आइटम</string>
+    <string name="library_empty_local_title">अभी कोई %1$s नहीं</string>
+    <string name="library_empty_local_subtitle">यहाँ देखने के लिए अपने पसंदीदा सेव करना शुरू करें</string>
+
+    <!-- AccountSettingsContent -->
+    <string name="account_signed_in_label">साइन इन</string>
+    <string name="account_loading_sync">सिंक डेटा लोड हो रहा है\u2026</string>
+
+
+    <!-- AuthQrSignInScreen -->
+    <string name="auth_qr_account_login">अकाउंट लॉगिन</string>
+    <string name="auth_qr_finishing">साइन इन पूरा किया जा रहा है\u2026</string>
+    <string name="auth_qr_expires">%1$s में समाप्त</string>
+    <string name="auth_qr_refresh">QR रीफ्रेश करें</string>
+    <string name="auth_qr_continue_without_account">अकाउंट के बिना जारी रखें</string>
+    <string name="auth_qr_generating">QR बनाया जा रहा है\u2026</string>
+    <string name="auth_qr_unavailable">QR उपलब्ध नहीं। फिर से कोशिश करने के लिए रीफ्रेश करें।</string>
+    <string name="auth_qr_please_wait">कृपया प्रतीक्षा करें\u2026</string>
+    <string name="auth_qr_continue">जारी रखें</string>
+    <string name="auth_qr_back">वापस</string>
+
+
+
+
+    <!-- ProfileSelectionScreen -->
+    <string name="profile_selection_title">कौन देख रहा है?</string>
+    <string name="profile_selection_empty">कोई प्रोफाइल नहीं मिला</string>
+    <string name="profile_selection_primary_badge">प्राइमरी</string>
+    <string name="profile_selection_options_title">प्रोफाइल विकल्प</string>
+    <string name="profile_delete_confirm_title">प्रोफाइल हटाएँ?</string>
+    <string name="profile_delete_confirm_subtitle">यह प्रोफाइल और उससे जुड़ा सभी डेटा स्थायी रूप से हटा देगा जिसमें लाइब्रेरी, वॉच हिस्ट्री और ऐडऑन सेटिंग शामिल हैं। इसे वापस नहीं किया जा सकता।</string>
+
+    <!-- CastDetailScreen -->
+    <string name="cast_detail_error">कुछ गलत हो गया</string>
+
+    <!-- CatalogSeeAllScreen -->
+    <string name="catalog_see_all_from">%1$s से</string>
+    <string name="catalog_see_all_empty_title">कोई आइटम उपलब्ध नहीं</string>
+    <string name="catalog_see_all_empty_subtitle">कोई दूसरा कैटलॉग आज़माएँ या बाद में देखें</string>
+
+
+
+    <!-- EpisodeRatingsSection -->
+    <string name="ratings_loading">एपिसोड रेटिंग लोड हो रही हैं...</string>
+    <string name="ratings_unavailable">एपिसोड रेटिंग उपलब्ध नहीं हैं।</string>
+    <string name="ratings_load_error">एपिसोड रेटिंग लोड नहीं हो सकीं।</string>
+    <string name="ratings_season_summary">सीज़न %1$d - %2$d एपिसोड</string>
+
+    <!-- SearchDiscoverSection -->
+    <string name="discover_title">डिस्कवर</string>
+    <string name="discover_load_more">और लोड करें</string>
+    <string name="discover_loading">लोड हो रहा है...</string>
+    <string name="discover_filter_type">प्रकार</string>
+    <string name="discover_filter_catalog">कैटलॉग</string>
+    <string name="discover_filter_genre">जॉनर</string>
+    <string name="discover_select_catalog">चुनें</string>
+    <string name="discover_genre_default">डिफ़ॉल्ट</string>
+    <string name="discover_empty_no_catalog_title">एक कैटलॉग चुनें</string>
+    <string name="discover_empty_no_catalog_subtitle">ब्राउज़ करने के लिए एक डिस्कवर कैटलॉग चुनें</string>
+    <string name="discover_empty_no_content_title">कोई कंटेंट नहीं मिला</string>
+    <string name="discover_empty_no_content_subtitle">कोई दूसरा जॉनर या कैटलॉग आज़माएँ</string>
+
+    <!-- AddonManagerScreen -->
+    <string name="addon_confirm_total_addons">कुल ऐडऑन: %1$d</string>
+    <string name="addon_confirm_total_catalogs">कुल कैटलॉग: %1$d</string>
+
+
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_passthrough_info">ऑडियो पासथ्रू (TrueHD, DTS, AC-3 आदि) स्वचालित है। HDMI के माध्यम से संगत AV रिसीवर या साउंडबार से जुड़ने पर लॉसलेस ऑडियो बिना डिकोड किए सीधे भेजा जाता है।</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">होम</string>
+    <string name="nav_discover">डिस्कवर</string>
+    <string name="nav_search">खोज</string>
+    <string name="nav_library">लाइब्रेरी</string>
+    <string name="nav_settings">सेटिंग्स</string>
+
+    <string name="playback_player_auto">ऑटो (सामग्री के लिए सर्वश्रेष्ठ)</string>
+    <string name="playback_player_auto_desc">ExoPlayer मूवीज़ और टीवी शोज़ के लिए · MPV एनीमे के लिए</string>
+</resources>

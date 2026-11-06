@@ -1,0 +1,46 @@
+timestampMs=1700000000000
+header=AssessmentHeaderFacts(deviceRamLabel=4 GB, safeLimitMb=1000, warningLimitMb=1200, displaySummary=3840x2160 · 23.976/24/50/59.94/60 Hz, streamLabel=Movie.2160p.REMUX.mkv, streamBitrateMbps=80.0, streamDvProfile=7, streamHdrType=DV)
+sweepRan=true verdict=verdict:RECOMMEND_CONFIG errorText=null
+stability=0.1/3 suggested=BALANCED
+items:
+  parallel | MEASURED | change=true | mem=SAFE | title=assessment_item_parallel | current=assessment_value_off | rec=assessment_current_parallel_on(4|assessment_unit_mb(8)) | grounds=assessment_grounds_parallel_rec(210.0 Mbps|4|8)
+  chunk | MEASURED | change=true | mem=null | title=assessment_item_chunk | current=assessment_unit_mb(16) | rec=assessment_unit_mb(8) | grounds=assessment_grounds_chunk
+  engine | CALCULATED | change=false | mem=null | title=assessment_item_engine | current=assessment_value_engine_exo | rec=assessment_value_engine_exo | grounds=assessment_grounds_engine_ok
+  network_master | CALCULATED | change=true | mem=null | title=assessment_item_network_master | current=assessment_value_off | rec=assessment_value_on | grounds=assessment_grounds_network_master
+  http2 | CALCULATED | change=false | mem=null | title=assessment_item_http2 | current=assessment_value_off | rec=assessment_value_off | grounds=assessment_grounds_http2
+  perf_mode | CALCULATED | change=true | mem=null | title=assessment_item_perf_mode | current=assessment_value_off | rec=assessment_value_on | grounds=assessment_grounds_perf_mode(4 GB|1000|1200|4)
+  buffer_master | CALCULATED | change=true | mem=null | title=assessment_item_buffer_master | current=assessment_value_off | rec=assessment_value_on | grounds=assessment_grounds_buffer_master
+  managed_budget | CALCULATED | change=true | mem=null | title=assessment_item_managed_budget | current=assessment_value_on | rec=assessment_value_off | grounds=assessment_grounds_managed_budget
+  target_buffer | CALCULATED | change=true | mem=SAFE | title=assessment_item_target_buffer | current=assessment_unit_mb(150) | rec=assessment_unit_mb(950) | grounds=assessment_grounds_target_buffer(950|48|998|1000|25)
+  allow_large | CALCULATED | change=true | mem=null | title=assessment_item_allow_large | current=assessment_value_off | rec=assessment_value_on | grounds=assessment_grounds_allow_large_on(950)
+  max_buffer | CALCULATED | change=true | mem=null | title=assessment_item_max_buffer | current=assessment_value_seconds(45) | rec=assessment_value_seconds(95) | grounds=assessment_grounds_max_buffer(950|95|80.0 Mbps)\nassessment_grounds_max_buffer_current(150|15)
+  back_buffer | CALCULATED | change=false | mem=null | title=assessment_item_back_buffer | current=assessment_value_seconds(5) | rec=assessment_value_leave_as_is | grounds=assessment_grounds_back_buffer_high
+  retain_keyframe | CALCULATED | change=false | mem=null | title=assessment_item_retain_keyframe | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_retain_high
+  force_ac3 | CALCULATED | change=false | mem=null | title=assessment_item_ac3 | current=assessment_value_off | rec=assessment_value_off | grounds=assessment_grounds_ac3_hdmi(HDMI|AVR)
+  denied_handling | CALCULATED | change=false | mem=null | title=denied_handling_title | current=denied_mode_pcm | rec=denied_mode_pcm | grounds=assessment_grounds_denied_multich(8)
+  pt_ac3 | VERIFY | change=false | mem=null | title=audio_passthrough_ac3 | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_pt_direct(AC-3)
+  pt_eac3 | VERIFY | change=false | mem=null | title=audio_passthrough_eac3 | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_pt_direct(E-AC-3)
+  pt_truehd | VERIFY | change=false | mem=null | title=audio_passthrough_truehd | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_pt_direct(TrueHD)
+  pt_dts | VERIFY | change=false | mem=null | title=audio_passthrough_dts | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_pt_direct(DTS)
+  pt_dtshd | VERIFY | change=false | mem=null | title=audio_passthrough_dtshd | current=assessment_value_on | rec=assessment_value_leave_as_is | grounds=assessment_grounds_pt_direct(DTS-HD)
+  afr | CALCULATED | change=false | mem=null | title=assessment_item_afr | current=assessment_value_afr_start_stop | rec=assessment_value_your_call | grounds=assessment_grounds_afr_already
+  res_match | CALCULATED | change=false | mem=null | title=assessment_item_res_match | current=assessment_value_off | rec=assessment_value_your_call | grounds=assessment_grounds_res_choice(3840x2160/1920x1080)
+  dv7_mode | CALCULATED | change=false | mem=null | title=assessment_item_dv7 | current=assessment_value_auto | rec=assessment_value_auto | grounds=assessment_grounds_dv7_auto(assessment_dv7_native)
+  dv5 | VERIFY | change=false | mem=null | title=assessment_item_dv5 | current=assessment_value_off | rec=assessment_value_off | grounds=assessment_grounds_dv5_off_display
+  strip_hdr10plus | VERIFY | change=false | mem=null | title=assessment_item_strip_hdr10plus | current=assessment_value_off | rec=assessment_value_off | grounds=assessment_grounds_strip_off
+  tunneling | VERIFY | change=false | mem=null | title=assessment_item_tunneling | current=assessment_value_off | rec=assessment_value_off | grounds=assessment_grounds_tunneling
+profiles:
+  IntentProfileOption(kind=FAST_START, title=assessment_profile_fast_title, subtitle=assessment_profile_fast_sub(2), initialBufferMs=2000, rebufferMs=3000, minBufferMs=10000, minCappedFromMs=null)
+  IntentProfileOption(kind=BALANCED, title=assessment_profile_balanced_title, subtitle=assessment_profile_balanced_sub(3), initialBufferMs=3000, rebufferMs=5000, minBufferMs=20000, minCappedFromMs=null)
+  IntentProfileOption(kind=STALL_RESISTANT, title=assessment_profile_stall_title, subtitle=assessment_profile_stall_sub(5), initialBufferMs=5000, rebufferMs=8000, minBufferMs=30000, minCappedFromMs=null)
+plan (non-null fields; touched=10):
+  nuvioPerformanceModeEnabled=true
+  bufferEngineEnabled=true
+  parallelNetworkEnabled=true
+  bufferBudgetManaged=false
+  allowLargeTargetBuffer=true
+  targetBufferSizeMb=950
+  maxBufferMs=95000
+  useParallelConnections=true
+  parallelConnectionCount=4
+  parallelChunkSizeKb=8192

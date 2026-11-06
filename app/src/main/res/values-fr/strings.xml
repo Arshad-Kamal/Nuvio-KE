@@ -1,0 +1,1530 @@
+<resources>
+    <string name="type_movie">Film</string>
+    <string name="type_movies">Films</string>
+    <string name="type_series">Série</string>
+    <string name="type_series_plural">Séries</string>
+    <string name="type_unknown">Inconnu</string>
+
+    <!-- WebConfigServers -->
+    <string name="web_manage_addons_title">Gérer les addons</string>
+    <string name="web_manage_addons_subtitle">Gérer les addons, les catalogues et les collections</string>
+    <string name="web_add_addon_url">Ajouter un addon par URL</string>
+    <string name="web_placeholder_url">https://example.com/manifest.json</string>
+    <string name="web_btn_add">Ajouter</string>
+    <string name="web_installed_addons">Addons installés</string>
+    <string name="web_no_addons">Aucun addon installé</string>
+    <string name="web_home_catalogs">Catalogues et collections d’accueil</string>
+    <string name="web_no_catalogs">Aucun catalogue d’accueil disponible</string>
+    <string name="web_btn_save">Enregistrer les modifications</string>
+    <string name="web_connection_lost">Connexion à la TV perdue</string>
+    <string name="web_btn_remove">Supprimer</string>
+    <string name="web_badge_new">Nouveau</string>
+    <string name="web_badge_disabled">Désactivé</string>
+    <string name="web_btn_enable">Activer</string>
+    <string name="web_btn_disable">Désactiver</string>
+    <string name="web_error_addon_exists">Cet addon est déjà dans la liste</string>
+    <string name="web_status_waiting_tv">En attente de la TV</string>
+    <string name="web_status_msg_waiting_tv">Confirmez les modifications sur votre TV pour les appliquer.</string>
+    <string name="web_status_changes_applied">Modifications appliquées</string>
+    <string name="web_status_msg_addon_updated">La configuration de vos addons a été mise à jour sur la TV.</string>
+    <string name="web_status_changes_rejected">Modifications refusées</string>
+    <string name="web_status_msg_changes_rejected">Les modifications ont été refusées sur la TV. Votre liste a été restaurée.</string>
+    <string name="web_status_error">Un problème est survenu</string>
+    <string name="web_error_failed_save">Échec de l’enregistrement. Vérifiez votre connexion à la TV.</string>
+    <string name="web_btn_dismiss">Fermer</string>
+    <string name="web_status_timeout">Délai dépassé</string>
+    <string name="web_status_msg_timeout">Aucune réponse de la TV. Réessayez.</string>
+    <string name="web_status_msg_connection_lost">Le serveur TV n’est plus joignable. Les modifications ont peut-être été appliquées.</string>
+    <string name="web_manage_collections_title">Gérer les collections</string>
+    <string name="web_manage_collections_subtitle">Créer et gérer vos collections personnalisées</string>
+    <string name="web_status_msg_collections_updated">Vos collections ont été mises à jour sur la TV.</string>
+    <string name="web_tab_addons">Addons</string>
+    <string name="web_tab_home_layout">Disposition de l’accueil</string>
+    <string name="web_tab_collections">Collections</string>
+    <string name="web_btn_enable_all">Tout activer</string>
+    <string name="web_btn_disable_all">Tout désactiver</string>
+    <string name="web_btn_show_all">Tout afficher</string>
+    <string name="web_btn_hide_all">Tout masquer</string>
+    <string name="web_btn_new_collection">+ Nouvelle collection</string>
+    <string name="web_btn_export">Exporter</string>
+    <string name="web_btn_import">Importer</string>
+    <string name="web_no_collections">Aucune collection pour le moment</string>
+    <string name="web_badge_collection">Collection</string>
+    <string name="web_import_collections_title">Importer des collections</string>
+    <string name="web_import_tab_paste">Coller</string>
+    <string name="web_import_tab_file">Fichier</string>
+    <string name="web_import_tab_url">URL</string>
+    <string name="web_import_paste_placeholder">Collez le JSON des collections ici…</string>
+    <string name="web_import_file_select">Appuyez pour sélectionner un fichier .json</string>
+    <string name="web_order_send_to_top">Envoyer tout en haut</string>
+    <string name="web_order_send_to_bottom">Envoyer tout en bas</string>
+    <string name="web_title_show">Afficher</string>
+    <string name="web_title_hide">Masquer</string>
+    <string name="web_issue_singular">problème</string>
+    <string name="web_issue_plural">problèmes</string>
+    <string name="web_source_singular">source</string>
+    <string name="web_source_plural">sources</string>
+    <string name="web_source_added">Ajouté</string>
+    <string name="web_no_sources_added">Aucune source ajoutée pour le moment</string>
+    <string name="web_import_select_file_first">Sélectionnez d’abord un fichier</string>
+    <string name="web_import_enter_url">Saisissez une URL</string>
+    <string name="web_import_failed_fetch_url">Échec de la récupération de l’URL</string>
+    <string name="web_import_no_json">Aucun JSON fourni</string>
+    <string name="web_import_expected_array">Un tableau JSON de collections est attendu</string>
+    <string name="web_import_empty_array">Tableau vide : aucune collection trouvée</string>
+    <string name="web_import_error_collection_invalid_id">Collection {index} : \"id\" manquant ou invalide</string>
+    <string name="web_import_error_collection_invalid_title">Collection \"{collection}\" : \"title\" manquant ou invalide</string>
+    <string name="web_import_error_collection_folders_array">Collection \"{collection}\" : \"folders\" doit être un tableau</string>
+    <string name="web_import_error_folder_invalid_format">Collection \"{collection}\", dossier {index} : format invalide</string>
+    <string name="web_import_error_folder_missing_id">Collection \"{collection}\", dossier {index} : \"id\" manquant</string>
+    <string name="web_import_error_folder_missing_title">Collection \"{collection}\", dossier \"{folder}\" : \"title\" manquant</string>
+    <string name="web_import_error_sources_array">Collection \"{collection}\", dossier \"{folder}\" : \"sources\" doit être un tableau</string>
+    <string name="web_import_error_invalid_tile_shape">Collection \"{collection}\", dossier \"{folder}\" : tileShape invalide \"{shape}\"</string>
+    <string name="web_import_error_source_invalid_format">Collection \"{collection}\", dossier \"{folder}\", source {index} : format invalide</string>
+    <string name="web_import_error_source_missing_addon_fields">Collection \"{collection}\", dossier \"{folder}\", source {index} : champs requis manquants (addonId, type, catalogId)</string>
+    <string name="web_import_error_source_missing_tmdb_type">Collection \"{collection}\", dossier \"{folder}\", source {index} : type de source TMDB manquant</string>
+    <string name="web_import_error_source_missing_trakt_id">Collection \"{collection}\", dossier \"{folder}\", source {index} : ID de liste Trakt manquant</string>
+    <string name="web_import_success">{count} collection(s) importée(s). Vérifiez puis appuyez sur « Enregistrer les modifications » pour appliquer.</string>
+    <string name="web_import_invalid_json">JSON invalide</string>
+
+    <!-- HomeScreen -->
+    <string name="auth_notice_nuvio_logged_out">Vous avez été déconnecté de Nuvio. Reconnectez-vous.</string>
+    <string name="error_generic">Une erreur est survenue</string>
+
+    <!-- ErrorState -->
+    <string name="action_retry">Réessayer</string>
+    <string name="error_state_generic_issue">Une erreur est survenue.</string>
+    <string name="error_state_possible_fix">Solution possible : %1$s</string>
+    <string name="error_state_fix_retry_soon">réessayez dans un instant.</string>
+    <string name="error_state_issue_no_metadata_any_addon">Impossible de charger les détails, car aucun des addons installés n’a renvoyé de métadonnées.</string>
+    <string name="error_state_fix_no_metadata_any_addon">essayez un autre addon, désactivez « Préférer les métadonnées de l’addon externe » dans les paramètres de disposition ou vérifiez qu’un addon installé prend en charge cet ID.</string>
+    <string name="error_state_prefix_no_supported_metadata">Aucun addon installé ne fournit de métadonnées pour</string>
+    <string name="error_state_prefix_no_addon_for_id">Aucun addon installé n’a pu fournir de métadonnées pour l’ID=</string>
+    <string name="error_state_fix_no_supported_metadata">installez ou mettez à jour un addon qui prend en charge ce type de contenu, puis réessayez.</string>
+    <string name="error_state_prefix_tried_meta_addons">Addons de métadonnées tentés :</string>
+    <string name="error_state_fix_tried_meta_addons">installez un addon qui prend en charge cet ID, ou reconfigurez/mettez à jour l’addon et réessayez.</string>
+    <string name="error_state_issue_missing_metadata_for_id">ne contient pas de métadonnées pour cet ID</string>
+    <string name="error_state_fix_missing_metadata_for_id">ouvrez cet ID depuis un autre addon, désactivez « Préférer les métadonnées de l’addon externe », ou vérifiez que l’addon prend en charge cet ID.</string>
+    <string name="error_state_issue_addon_unreachable">n’a pas pu être joint</string>
+    <string name="error_state_fix_addon_unreachable">vérifiez votre connexion internet, assurez-vous que l’URL de l’addon est valide, puis réessayez.</string>
+    <string name="error_state_issue_addon_connection_failed">a refusé la connexion</string>
+    <string name="error_state_fix_addon_connection_failed">vérifiez que le serveur de l’addon est en ligne et accessible, puis réessayez.</string>
+    <string name="error_state_issue_addon_timeout">a mis trop de temps à répondre</string>
+    <string name="error_state_fix_addon_timeout">réessayez plus tard, ou tentez un autre addon si cela se reproduit.</string>
+    <string name="error_state_issue_addon_cleartext">utilise une connexion HTTP non sécurisée bloquée par Android</string>
+    <string name="error_state_fix_addon_cleartext">passez l’URL de l’addon en HTTPS ou mettez à jour sa configuration.</string>
+    <string name="error_state_fix_addon_generic">réessayez, mettez à jour ou réinstallez l’addon, ou tentez-en un autre.</string>
+    <string name="error_state_addon_issue_template">%1$s : %2$s.</string>
+    <string name="error_meta_not_found">Métadonnées introuvables</string>
+    <string name="error_meta_no_supported_addon">Aucun addon installé ne fournit de métadonnées pour \"%1$s\".</string>
+    <string name="error_meta_no_addon_for_id">Aucun addon installé n’a pu fournir de métadonnées pour l’ID=%1$s (type=%2$s).</string>
+    <string name="error_meta_tried_none">Addons de métadonnées tentés : %1$s. Aucun d’entre eux n’a fourni de métadonnées pour l’ID=%2$s (type=%3$s).</string>
+    <string name="error_meta_tried_generic">Addons de métadonnées tentés : %1$s. Impossible de charger les métadonnées pour l’ID=%2$s (type=%3$s).</string>
+    <string name="error_meta_tried_issues">Addons de métadonnées tentés : %1$s. Impossible de charger les métadonnées pour l’ID=%2$s (type=%3$s). Problèmes : %4$s.</string>
+    <string name="error_stream_no_supported_addon">Aucun addon installé ne prend en charge les flux pour \"%1$s\".</string>
+    <string name="error_stream_tried_none">Addons de flux tentés : %1$s. Aucun d’entre eux n’a renvoyé de flux pour l’ID=%2$s (type=%3$s).</string>
+    <string name="error_stream_tried_generic">Addons de flux tentés : %1$s. Les flux n’ont pas pu être chargés pour l’ID=%2$s (type=%3$s).</string>
+    <string name="error_stream_tried_issues">Addons de flux tentés : %1$s. Les flux n’ont pas pu être chargés pour l’ID=%2$s (type=%3$s). Problèmes : %4$s.</string>
+
+    <!-- ContinueWatchingSection -->
+    <string name="continue_watching">Continuer à regarder</string>
+    <string name="cw_upcoming">À venir</string>
+    <string name="cw_next_up">Épisode suivant</string>
+    <string name="cw_new_episode">Nouvel épisode</string>
+    <string name="cw_new_season">Nouvelle saison</string>
+    <string name="cw_resume">Reprendre</string>
+    <string name="cw_percent_watched">%1$d%% regardé</string>
+    <string name="cw_hours_min_left">%1$dh %2$dm restantes</string>
+    <string name="cw_min_left">%1$dm restantes</string>
+    <string name="cw_airs_date">Diffusion le %1$s</string>
+    <string name="cw_airs_today">Diffusion aujourd’hui</string>
+    <string name="cw_airs_tomorrow">Diffusion demain</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="one">Diffusion dans %d jour</item>
+        <item quantity="many">Diffusion dans %d jours</item>
+        <item quantity="other">Diffusion dans %d jours</item>
+    </plurals>
+    <string name="cw_action_go_to_details">Voir les détails</string>
+    <string name="cw_action_start_from_beginning">Revoir depuis le début</string>
+    <string name="cw_action_remove">Supprimer</string>
+    <string name="cw_dialog_subtitle">Choisissez ce que vous souhaitez faire avec cet élément.</string>
+    <string name="home_poster_dialog_subtitle">Actions sur le titre</string>
+
+    <string name="action_see_all">Voir tout</string>
+
+    <!-- HeroSection -->
+    <string name="hero_creator">Créateur : %1$s</string>
+    <string name="hero_director">Réalisateur : %1$s</string>
+    <string name="hero_writer">Scénariste : %1$s</string>
+    <string name="hero_play">Regarder</string>
+    <string name="hero_add_to_library">Ajouter à la bibliothèque</string>
+    <string name="hero_remove_from_library">Retirer de la bibliothèque</string>
+    <string name="hero_mark_watched">Marquer comme vu</string>
+    <string name="hero_mark_unwatched">Marquer comme non vu</string>
+    <string name="hero_play_trailer">Regarder la bande-annonce</string>
+    <string name="hero_press_back_trailer">Appuyez sur «&#160;Retour&#160;» pour quitter la bande-annonce</string>
+    <string name="hero_synopsis_read_more">Lire la suite</string>
+    <string name="hero_synopsis_dismiss_hint">Appuyez sur Retour pour fermer</string>
+
+    <!-- EpisodesSection -->
+    <string name="episodes_season">Saison %1$d</string>
+    <string name="episodes_specials">Spéciaux</string>
+    <string name="episodes_episode">Épisode</string>
+    <string name="episodes_cd_watched">Vu</string>
+    <string name="episodes_dialog_subtitle">Actions sur l’épisode</string>
+    <string name="episodes_mark_watched">Marquer comme vu</string>
+    <string name="episodes_mark_unwatched">Marquer comme non vu</string>
+    <string name="episodes_mark_season_watched">Marquer la saison comme vue</string>
+    <string name="episodes_mark_season_unwatched">Marquer la saison comme non vue</string>
+    <string name="episodes_mark_previous_watched">Marquer les précédents de cette saison comme vus</string>
+    <string name="episodes_play">Regarder</string>
+    <string name="episodes_open_comments">Ouvrir les commentaires de l’épisode</string>
+    <string name="play_manually">Regarder manuellement</string>
+    <string name="episodes_season_actions">Actions sur la saison</string>
+
+    <!-- MetaDetailsViewModel -->
+    <string name="detail_added_to_library">Ajouté à la bibliothèque</string>
+    <string name="detail_removed_from_library">Retiré de la bibliothèque</string>
+    <string name="detail_episode_marked_watched">Épisode marqué comme vu</string>
+    <string name="detail_episode_marked_unwatched">Épisode marqué comme non vu</string>
+    <string name="detail_lists_updated">Listes mises à jour</string>
+    <string name="detail_movie_marked_watched">Marqué comme vu</string>
+    <string name="detail_movie_marked_unwatched">Marqué comme non vu</string>
+    <string name="detail_all_episodes_watched">Tous les épisodes sont déjà vus</string>
+    <string name="detail_no_watched_episodes">Aucun épisode vu dans cette saison</string>
+    <string name="detail_all_previous_watched">Tous les épisodes précédents sont déjà vus</string>
+    <string name="detail_marked_episodes_watched">Épisodes marqués comme vus : %1$d</string>
+    <string name="detail_marked_episodes_unwatched">Épisodes marqués comme non vus : %1$d</string>
+    <string name="detail_marked_previous_watched">Épisodes précédents marqués comme vus : %1$d</string>
+
+    <!-- MetaDetailsScreen -->
+    <string name="detail_btn_play">Regarder</string>
+    <string name="detail_btn_resume">Reprendre</string>
+    <string name="detail_btn_play_episode">Regarder S%1$d E%2$d</string>
+    <string name="detail_btn_resume_episode">Reprendre S%1$d E%2$d</string>
+    <string name="detail_btn_next_episode">Suivant S%1$d E%2$d</string>
+    <string name="detail_tab_cast">Créateur et distribution</string>
+    <string name="cast_role_creator">Créateur</string>
+    <string name="cast_role_director">Réalisateur</string>
+    <string name="cast_role_writer">Scénariste</string>
+    <string name="detail_tab_ratings">Notes</string>
+    <string name="detail_tab_more_like_this">Similaires</string>
+    <string name="detail_tab_trailer">Bande-annonce</string>
+    <string name="detail_more_like_this_powered_by_tmdb">Données fournies par TMDB</string>
+    <string name="detail_section_network">Chaîne</string>
+    <string name="detail_section_production">Production</string>
+    <string name="detail_trailer_error">Impossible de charger la bande-annonce pour le moment.</string>
+    <string name="tmdb_entity_kind_company">Société de production</string>
+    <string name="tmdb_entity_kind_network">Chaîne</string>
+    <string name="tmdb_entity_rail_popular">Populaires</string>
+    <string name="tmdb_entity_rail_top_rated">Mieux notés</string>
+    <string name="tmdb_entity_rail_recent">Nouveautés</string>
+    <string name="tmdb_error_load_source">Impossible de charger la source TMDB</string>
+    <string name="tmdb_error_list_not_found">Liste TMDB introuvable</string>
+    <string name="tmdb_error_collection_not_found">Collection TMDB introuvable</string>
+    <string name="tmdb_error_company_not_found">Société TMDB introuvable</string>
+    <string name="tmdb_error_network_not_found">Chaîne TMDB introuvable</string>
+    <string name="tmdb_error_person_not_found">Personne TMDB introuvable</string>
+    <string name="tmdb_error_missing_list_id">ID de liste TMDB manquant</string>
+    <string name="tmdb_error_missing_collection_id">ID de collection TMDB manquant</string>
+    <string name="tmdb_error_missing_person_id">ID de personne TMDB manquant</string>
+    <string name="tmdb_error_person_credits_not_found">Crédits de personne TMDB introuvables</string>
+    <string name="tmdb_error_discover_no_data">La découverte TMDB n’a renvoyé aucune donnée</string>
+    <string name="tmdb_entity_empty_title">Aucun titre trouvé</string>
+    <string name="tmdb_entity_empty_subtitle">TMDB n’a actuellement aucun titre consultable pour cette sélection.</string>
+    <string name="episodes_unavailable">Indisponible</string>
+    <!-- Status labels for series (some languages need gendered forms) -->
+    <string name="series_status_ended">Terminée</string>
+    <string name="series_status_continuing">En cours</string>
+    <string name="series_status_current">Actuelle</string>
+    <string name="series_status_cancelled">Annulée</string>
+    <string name="series_status_released">Sortie</string>
+    <string name="series_status_planned">Prévue</string>
+    <string name="series_status_rumored">Rumeur</string>
+    <string name="series_status_in_production">En production</string>
+    <string name="series_status_post_production">En post-production</string>
+    <!-- Status labels for movies (allows gendered translations in languages that need it) -->
+    <string name="movie_status_ended">Terminé</string>
+    <string name="movie_status_continuing">En cours</string>
+    <string name="movie_status_current">Actuel</string>
+    <string name="movie_status_cancelled">Annulé</string>
+    <string name="movie_status_released">Sorti</string>
+    <string name="movie_status_planned">Prévu</string>
+    <string name="movie_status_rumored">Rumeur</string>
+    <string name="movie_status_in_production">En production</string>
+    <string name="movie_status_post_production">En post-production</string>
+    <string name="detail_lists_fallback">Listes</string>
+    <string name="detail_lists_subtitle">Sélectionnez les listes auxquelles ajouter ce titre.</string>
+    <string name="action_save">Enregistrer</string>
+    <string name="action_saving">Enregistrement…</string>
+
+    <!-- AppLanguage -->
+    <string name="appearance_language_system">Par défaut (système)</string>
+    <string name="appearance_language_dialog_title">Choisir la langue</string>
+    <string name="appearance_language_restart_hint">Redémarrez l’application pour appliquer le changement de langue.</string>
+
+    <!-- Font -->
+    <string name="appearance_font_dialog_title">Choisir la police</string>
+
+    <!-- ThemeSettingsScreen -->
+    <string name="appearance_title">Apparence</string>
+    <string name="theme_color_crimson">Cramoisi</string>
+    <string name="theme_color_ocean">Océan</string>
+    <string name="theme_color_violet">Violet</string>
+    <string name="theme_color_emerald">Émeraude</string>
+    <string name="theme_color_amber">Ambre</string>
+    <string name="theme_color_rose">Rose</string>
+    <string name="theme_color_white">Blanc</string>
+    <string name="appearance_amoled_mode_subtitle">Utiliser un noir pur pour les arrière-plans de l’application</string>
+    <string name="appearance_amoled_surfaces_mode_subtitle">Mettre aussi les cartes, panneaux et conteneurs en noir pur</string>
+
+    <!-- AboutScreen -->
+    <string name="about_title">À propos</string>
+
+    <!-- SettingsScreen categories -->
+    <string name="settings_account">Compte</string>
+    <string name="settings_profiles">Profils</string>
+    <string name="settings_layout">Disposition</string>
+    <string name="settings_content_discovery">Contenu et découverte</string>
+    <string name="settings_integration">Intégrations</string>
+    <string name="settings_playback">Lecture</string>
+    <string name="settings_advanced">Avancé</string>
+    <string name="advanced_section_cache">Cache</string>
+    <string name="advanced_compose_highlighter">Surligneur Compose</string>
+    <string name="advanced_compose_highlighter_subtitle">Faire clignoter les bordures autour des éléments d’interface en recomposition pour le débogage des performances.</string>
+    <string name="advanced_clear_cw_cache">Effacer le cache de Continuer à regarder</string>
+    <string name="advanced_clear_cw_cache_subtitle">Supprimer les miniatures, titres et données d’enrichissement en cache pour Continuer à regarder</string>
+    <string name="advanced_clear_cw_cache_done">Cache effacé</string>
+    <string name="settings_debug">Débogage</string>
+    <string name="settings_account_section_subtitle">Compte et état de la synchronisation</string>
+    <string name="account_stat_addons">addons</string>
+    <string name="account_stat_library">bibliothèque</string>
+    <string name="account_stat_progress">progression</string>
+    <string name="account_stat_watched">vus</string>
+
+    <!-- PlaybackSettingsScreen -->
+    <string name="cd_decrease">Diminuer</string>
+    <string name="cd_increase">Augmenter</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="sub_opacity">Opacité</string>
+    <string name="action_none">Aucun</string>
+
+
+    <!-- PlaybackSettingsSections -->
+    <string name="playback_section_general">Général</string>
+    <string name="playback_loading_overlay">Écran de chargement</string>
+    <string name="playback_loading_overlay_sub">Afficher l’écran de chargement jusqu’à l’apparition de la première image vidéo.</string>
+    <string name="playback_pause_overlay">Superposition en pause</string>
+    <string name="playback_pause_overlay_sub">Afficher les détails après 5 secondes de pause.</string>
+    <string name="playback_show_clock_sub">Afficher l’heure actuelle et l’heure de fin lorsque les contrôles sont visibles.</string>
+    <string name="playback_osd_clock">Horloge OSD</string>
+    <string name="playback_skip_intro">Passer l’intro</string>
+    <string name="playback_skip_intro_sub">Utiliser introdb.app pour détecter les intros et les récapitulatifs.</string>
+    <string name="playback_engine_exoplayer">ExoPlayer</string>
+    <string name="playback_engine_mvplayer">Libmpv (bêta)</string>
+    <string name="playback_auto_switch_internal_player_on_error">Changement auto du moteur en cas d’erreur au démarrage</string>
+    <string name="playback_section_subtitles">Sous-titres</string>
+    <string name="playback_afr_off">Désactivé</string>
+    <string name="playback_afr_on_start">Au démarrage</string>
+    <string name="playback_resolution_matching">Adapter la résolution</string>
+    <string name="playback_resolution_matching_unsupported_sub">L’écran ne signale qu’une seule résolution ; l’adaptation peut ne pas avoir d’effet.</string>
+    <string name="playback_afr_capability_unsupported_title">Certains paramètres peuvent ne pas fonctionner</string>
+    <string name="playback_afr_capability_both_problem_body">Le réglage automatique de la fréquence d’images et l’adaptation de résolution sont tous deux activés, mais votre écran ne signale qu’une seule fréquence de rafraîchissement et une seule résolution. Aucun des deux ne prendra peut-être effet, et il est recommandé de désactiver les deux.</string>
+    <string name="playback_afr_capability_only_afr_unsupported_body">Le réglage automatique de la fréquence d’images est activé, mais votre écran ne signale qu’une seule fréquence de rafraîchissement. Le changement peut ne pas avoir d’effet et il est recommandé de le désactiver.</string>
+    <string name="playback_afr_capability_only_res_unsupported_body">L’adaptation de résolution est activée, mais votre écran ne signale qu’une seule résolution. L’adaptation peut ne pas avoir d’effet et il est recommandé de la désactiver.</string>
+    <string name="playback_afr_capability_disable_button">Désactiver AFR</string>
+    <string name="playback_afr_capability_disable_resolution_button">Désactiver l’adaptation de résolution</string>
+    <string name="playback_afr_capability_disable_both_button">Désactiver les deux</string>
+    <string name="playback_player_auto">Auto (meilleur pour le contenu)</string>
+    <string name="playback_player_auto_desc">ExoPlayer pour les films et séries · MPV pour les animés</string>
+    <string name="playback_engine_exoplayer_desc">Meilleure compatibilité avec les fonctionnalités actuelles de Nuvio.</string>
+    <string name="playback_engine_mvplayer_desc">Utilise libmpv avec les contrôles OSD de Nuvio. Expérimental.</string>
+
+    <!-- PlaybackAudioSettings -->
+    <string name="video_section">Vidéo</string>
+    <string name="audio_autoplay_trailers">Lecture automatique des bandes-annonces</string>
+    <string name="audio_autoplay_trailers_sub">Lire automatiquement les bandes-annonces sur l’écran de détail après une période d’inactivité</string>
+    <string name="audio_trailer_delay">Délai de la bande-annonce</string>
+    <string name="audio_section">Audio</string>
+    <string name="audio_lang_default">Par défaut (fichier média)</string>
+    <string name="audio_lang_device">Langue de l’appareil</string>
+    <string name="audio_lang_original">Langue originale</string>
+    <string name="audio_lang_original_hint">Nécessite que l’enrichissement TMDB soit activé</string>
+    <string name="audio_skip_silence">Passer les silences</string>
+    <string name="audio_skip_silence_sub">Passer les passages silencieux de l’audio pendant la lecture</string>
+    <string name="audio_remember_delay_per_device">Mémoriser le délai audio par appareil</string>
+    <string name="audio_remember_delay_per_device_sub">Enregistrer et restaurer le délai audio du lecteur pour la sortie audio actuelle</string>
+    <string name="audio_advanced_warning">Ces paramètres peuvent causer des problèmes sur certains appareils. Ne modifiez que si vous savez ce que vous faites.</string>
+    <string name="audio_decoder_device_only">Décodeurs de l’appareil uniquement</string>
+    <string name="audio_decoder_prefer_device">Préférer les décodeurs de l’appareil</string>
+    <string name="audio_decoder_prefer_app">Préférer les décodeurs de l’application (FFmpeg)</string>
+    <string name="audio_decoder_priority">Priorité du décodeur</string>
+    <string name="audio_tunneled">Lecture tunnelisée</string>
+    <string name="audio_tunneled_sub">Synchronisation audio/vidéo au niveau matériel. Peut améliorer la lecture sur certains appareils Android TV</string>
+    <string name="audio_force_optical_passthrough">Forcer le transcodage AC-3 (optique/SPDIF)</string>
+    <string name="audio_force_optical_passthrough_sub">Transcode les formats multicanaux (TrueHD, DTS, AAC, etc.) en Dolby Digital 5.1 en temps réel pour les connexions optiques/SPDIF.</string>
+    <string name="audio_mpv_hwdec_title">Décodage matériel (MPV uniquement)</string>
+    <string name="audio_mpv_hwdec_dialog_subtitle">Choisissez comment libmpv doit utiliser les décodeurs matériels.</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy">Ancien mode (direct -&gt; copy)</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy_desc">Comportement précédent par défaut : essaie d’abord le matériel direct, puis le copy-back.</string>
+    <string name="audio_mpv_hwdec_auto_safe">Auto (auto-safe)</string>
+    <string name="audio_mpv_hwdec_auto_safe_desc">Mode automatique plus sûr avec repli quand certains décodeurs matériels échouent.</string>
+    <string name="audio_mpv_hwdec_hardware_copy">Matériel (copy) (mediacodec-copy)</string>
+    <string name="audio_mpv_hwdec_hardware_copy_desc">Utilise le décodage matériel avec copie vers la mémoire logicielle.</string>
+    <string name="audio_mpv_hwdec_hardware_direct">Matériel (direct) (mediacodec)</string>
+    <string name="audio_mpv_hwdec_hardware_direct_desc">Utilise le décodage matériel direct. Le chemin le plus rapide sur les appareils compatibles.</string>
+    <string name="audio_mpv_hwdec_disabled">Désactivé (no)</string>
+    <string name="audio_mpv_hwdec_disabled_desc">Désactive le décodage matériel et utilise uniquement le décodage logiciel.</string>
+    <string name="audio_decoder_device_only_desc">Utiliser uniquement les décodeurs matériels intégrés. Plus compatible, mais ne prend pas en charge tous les formats.</string>
+    <string name="audio_decoder_prefer_device_desc">Utiliser les décodeurs matériels si disponibles, sinon FFmpeg. Recommandé pour la plupart des appareils.</string>
+    <string name="audio_decoder_prefer_app_desc">Utiliser les décodeurs FFmpeg si disponibles. Meilleure prise en charge des formats, mais consommation CPU plus élevée.</string>
+    <string name="audio_decoder_controls">Contrôle l’utilisation des décodeurs matériels ou logiciels (FFmpeg) pour l’audio et la vidéo</string>
+
+    <!-- PlaybackSubtitleSettings -->
+    <string name="sub_not_set">Non défini</string>
+    <string name="sub_forced_lang">Forcés</string>
+    <string name="sub_preferred_lang">Langue préférée</string>
+    <string name="sub_secondary_lang">Langue préférée secondaire</string>
+    <string name="sub_use_forced_subtitles">Utiliser les sous-titres forcés</string>
+    <string name="sub_use_forced_subtitles_desc">Préférer les sous-titres forcés lorsque l’audio correspond à la langue des sous-titres&#160;; si indisponibles, ne rien sélectionner</string>
+    <string name="sub_show_only_preferred_languages">Afficher uniquement les langues préférées</string>
+    <string name="sub_show_only_preferred_languages_desc">Masquer toutes les autres langues de sous-titres dans la liste de sélection</string>
+    <string name="sub_size">Taille</string>
+    <string name="sub_bold">Gras</string>
+    <string name="sub_libass">Utiliser libass pour les sous-titres ASS/SSA</string>
+    <string name="sub_libass_sub">Expérimental : rendu ASS/SSA avancé (styles, positionnement, animations)</string>
+
+    <!-- PlaybackAutoPlaySettings -->
+    <string name="autoplay_last_link_cache">Durée du cache du dernier lien</string>
+    <string name="cache_duration_hour_one">%1$d heure</string>
+    <string name="cache_duration_hour_other">%1$d heures</string>
+    <string name="cache_duration_day_one">%1$d jour</string>
+    <string name="cache_duration_day_other">%1$d jours</string>
+    <string name="cache_duration_days_hours">%1$dj %2$dh</string>
+    <string name="autoplay_mode_manual">Manuel (choisir le flux)</string>
+    <string name="autoplay_mode_first">Lecture automatique de la première source</string>
+    <string name="autoplay_mode_regex">Lecture automatique par correspondance regex</string>
+    <string name="autoplay_prefer_binge_group">Préférer le groupe Binge (épisode suivant)</string>
+    <string name="autoplay_prefer_binge_group_sub">Essayer d’abord le même profil de source (même addon/groupe de qualité) avant les règles normales de lecture automatique.</string>
+    <string name="autoplay_reuse_binge_group">Réutiliser le groupe Binge</string>
+    <string name="autoplay_reuse_binge_group_sub">Mémoriser et réutiliser le dernier groupe Binge entre les sessions (Continuer à regarder, Détails, etc.).</string>
+    <string name="autoplay_threshold_pct">Pourcentage</string>
+    <string name="autoplay_threshold_min">Minutes avant la fin</string>
+    <string name="autoplay_threshold_mode">Mode du seuil de l’épisode suivant</string>
+    <string name="autoplay_threshold_pct_title">Pourcentage du seuil</string>
+    <string name="autoplay_threshold_pct_sub">Solution de repli en l’absence de marqueur de fin.</string>
+    <string name="autoplay_threshold_min_title">Minutes du seuil</string>
+    <string name="autoplay_timeout_instant">Instantané</string>
+    <string name="autoplay_timeout_unlimited">Illimité</string>
+    <string name="autoplay_all_addons">Tous les addons installés</string>
+    <string name="autoplay_regex_placeholder">Aucun motif défini. Exemple : 4K|2160p|Remux</string>
+    <string name="autoplay_regex_title">Motif regex</string>
+    <string name="autoplay_no_items">Aucun élément disponible</string>
+    <string name="autoplay_mode_first_desc">Lire automatiquement la première source disponible.</string>
+    <string name="autoplay_threshold_pct_desc">Afficher par pourcentage de lecture en l’absence de marqueur de fin.</string>
+    <string name="autoplay_threshold_min_desc">Afficher ce nombre de minutes avant la fin de l’épisode en l’absence de marqueur de fin.</string>
+    <string name="autoplay_regex_matches">Compare le nom/titre/description/addon/url du flux. Exemple : 4K|2160p|Remux</string>
+    <string name="autoplay_invalid_regex">Motif regex invalide</string>
+
+    <!-- LayoutSettingsScreen -->
+    <string name="layout_landscape_posters">Affiches paysage</string>
+    <string name="layout_catalog_type">Afficher le type de catalogue</string>
+    <string name="layout_catalog_type_sub">Afficher le suffixe de type à côté du nom du catalogue (film/série).</string>
+    <string name="layout_hide_unreleased">Masquer le contenu non sorti</string>
+    <string name="layout_hide_unreleased_sub">Masquer les films et séries qui ne sont pas encore sortis.</string>
+    <string name="layout_use_episode_thumbnails_cw">Utiliser les miniatures d’épisodes dans Continuer à regarder</string>
+    <string name="layout_use_episode_thumbnails_cw_sub">Utilise les miniatures d’épisodes comme image par défaut. Quand désactivé, utilise l’image de fond.</string>
+    <string name="layout_blur_unwatched">Flouter les épisodes non vus</string>
+    <string name="layout_blur_unwatched_sub">Flouter les miniatures d’épisodes jusqu’à ce qu’ils soient vus pour éviter les spoilers.</string>
+    <string name="layout_blur_cw_next_up">Flouter les épisodes non vus dans Continuer à regarder</string>
+    <string name="layout_blur_cw_next_up_sub">Flouter les miniatures des épisodes suivants dans Continuer à regarder pour éviter les spoilers.</string>
+    <string name="layout_next_up_furthest_episode">Suivant à partir de l’épisode le plus avancé</string>
+    <string name="layout_next_up_furthest_episode_sub">Affiche l’épisode suivant à partir de l’épisode le plus avancé que vous avez regardé. Désactivez cette option pour les revisionnages afin d’utiliser plutôt l’épisode regardé le plus récemment.</string>
+    <string name="layout_show_unaired_next_up">Afficher les épisodes à venir</string>
+    <string name="layout_show_unaired_next_up_sub">Inclut les épisodes à venir dans Continuer à regarder avant leur diffusion.</string>
+    <string name="layout_trailer_button">Afficher le bouton bande-annonce</string>
+    <string name="layout_trailer_button_sub">Afficher le bouton bande-annonce sur la page de détail (uniquement quand une bande-annonce est disponible).</string>
+    <string name="layout_prefer_external_meta">Préférer les métadonnées de l’addon externe</string>
+    <string name="layout_prefer_external_meta_sub">Utiliser les métadonnées de l’addon externe au lieu de l’addon de catalogue.</string>
+    <string name="layout_show_full_release_date">Afficher la date de sortie complète</string>
+    <string name="layout_show_full_release_date_sub">Pour les films, afficher la date de sortie complète au lieu de l’année seulement.</string>
+    <string name="layout_trailer_muted">Lire la bande-annonce en sourdine</string>
+    <string name="layout_trailer_muted_sub_preview">Couper le son de la bande-annonce pendant l’aperçu automatique.</string>
+
+
+
+
+    <!-- TmdbSettingsScreen -->
+    <string name="tmdb_language_title">Langue</string>
+    <string name="tmdb_trailers_title">Bandes-annonces</string>
+    <string name="tmdb_collections_title">Collections</string>
+    <string name="tmdb_collections_subtitle">Collections de films par date de sortie TMDB</string>
+
+    <string name="tmdb_language_dialog_title">Langue TMDB</string>
+
+    <!-- TraktScreen -->
+    <string name="qr_login_pending">En attente d’approbation sur votre téléphone…</string>
+    <string name="qr_login_preparing">Préparation de la connexion QR…</string>
+    <string name="qr_login_scan_prompt">Scannez le code QR et connectez-vous sur votre téléphone</string>
+    <string name="qr_login_signing_in">Connexion en cours…</string>
+    <string name="qr_login_success">Connexion réussie</string>
+    <string name="trakt_library_source_nuvio">Bibliothèque Nuvio</string>
+
+    <!-- DebugSettingsScreen -->
+    <string name="debug_title">Débogage</string>
+    <string name="debug_subtitle">Outils développeur et options expérimentales (builds de débogage uniquement)</string>
+    <string name="debug_section_popup">Test de popup / boîte de dialogue</string>
+    <string name="debug_playback_error_title">Écran d’erreur de lecture</string>
+    <string name="debug_playback_error_subtitle">Afficher une erreur de lecture simulée</string>
+    <string name="debug_section_progress">Indicateur de progression</string>
+    <string name="debug_progress_indicator_title">Indicateur de chargement</string>
+    <string name="debug_progress_indicator_subtitle">Prévisualiser l’animation de chargement partagée aux tailles d’interface courantes</string>
+    <string name="debug_progress_indicator_small">Petit</string>
+    <string name="debug_progress_indicator_default">Par défaut</string>
+    <string name="debug_progress_indicator_large">Grand</string>
+    <string name="debug_section_features">Options expérimentales</string>
+    <string name="debug_buffer_logs_title">Activer les logs BUFFER</string>
+    <string name="debug_buffer_logs_subtitle">Émettre périodiquement les diagnostics du buffer du lecteur dans logcat (désactivé par défaut)</string>
+    <string name="debug_error_dialog_title">Erreur de lecture</string>
+    <string name="debug_error_dialog_subtitle">Une erreur est survenue pendant la lecture.\n\nErreur : erreur simulée de test - ceci n’est pas une vraie erreur. La source a renvoyé HTTP 503 (service indisponible).</string>
+    <string name="debug_dismiss">Fermer</string>
+
+    <!-- ProfileSettingsContent -->
+    <string name="profile_name_placeholder">Nom du profil</string>
+    <string name="profile_create_btn">Créer</string>
+    <string name="profile_choose_avatar">Choisir un avatar</string>
+    <string name="profile_avatar_focus_hint">Sélectionnez un avatar pour voir son nom</string>
+    <string name="profile_avatar_category_all">Tous</string>
+    <string name="profile_avatar_category_anime">Animés</string>
+    <string name="profile_avatar_category_animation">Animation</string>
+    <string name="profile_avatar_category_movie">Films</string>
+    <string name="profile_avatar_category_tv">Séries</string>
+    <string name="profile_avatar_category_gaming">Jeux vidéo</string>
+    <string name="profile_cancel">Annuler</string>
+    <string name="profile_save">Enregistrer</string>
+    <string name="profile_pin_set">Définir le code PIN</string>
+    <string name="profile_pin_change">Modifier le code PIN</string>
+    <string name="profile_pin_remove">Supprimer le code PIN</string>
+    <string name="profile_pin_verifying">Vérification…</string>
+    <string name="profile_pin_overlay_unlock_heading">Saisissez votre code PIN pour accéder à %1$s.</string>
+    <string name="profile_pin_overlay_set_heading">Créez un code PIN à 4 chiffres pour %1$s.</string>
+    <string name="profile_pin_overlay_confirm_heading">Confirmez votre nouveau code PIN.</string>
+    <string name="profile_pin_overlay_change_verify_heading">Saisissez le code PIN actuel de %1$s pour le modifier.</string>
+    <string name="profile_pin_overlay_change_verify_support">Saisissez le code PIN actuel à 4 chiffres avant d’en définir un nouveau.</string>
+    <string name="profile_pin_overlay_remove_verify_heading">Saisissez le code PIN actuel de %1$s pour le supprimer.</string>
+    <string name="profile_pin_overlay_remove_verify_support">Saisissez le code PIN actuel à 4 chiffres pour le supprimer.</string>
+    <string name="profile_pin_overlay_delete_verify_heading">Saisissez le code PIN actuel pour supprimer %1$s.</string>
+    <string name="profile_pin_overlay_delete_verify_support">Saisissez le code PIN actuel à 4 chiffres avant de supprimer ce profil.</string>
+    <string name="profile_pin_overlay_set_support">Le code PIN sera requis pour accéder à ce profil.</string>
+    <string name="profile_pin_overlay_confirm_support">Saisissez à nouveau les 4 chiffres pour terminer la configuration.</string>
+    <string name="profile_pin_overlay_mismatch">Les codes PIN ne correspondent pas. Recommencez la saisie.</string>
+
+
+    <!-- Repli éditeur de collection -->
+    <string name="collection_editor_untitled_folder">Sans titre</string>
+    <string name="collection_editor_untitled_collection">Collection sans titre</string>
+    <!-- AddonManagerScreen -->
+    <string name="addon_title">Addons</string>
+    <string name="addon_readonly_notice">Utilise les addons du profil principal et ne peut pas être modifié</string>
+    <string name="addon_installing">Installation en cours</string>
+    <string name="addon_install_btn">Installer</string>
+    <string name="addon_install_success">%1$s installé</string>
+    <string name="addon_error_invalid_url">Entrez une URL d’addon valide</string>
+    <string name="addon_error_invalid_scheme">L’URL de l’addon doit commencer par http ou https</string>
+    <string name="addon_installed_section">Installés</string>
+    <string name="addon_empty">Aucun addon installé. Ajoutez-en un pour commencer.</string>
+    <string name="addon_remove">Supprimer</string>
+    <string name="addon_manage_from_phone_title">Gérer depuis le téléphone</string>
+    <string name="addon_qr_scan_instruction">Scannez avec votre téléphone pour gérer les addons et les catalogues</string>
+    <string name="addon_qr_collections_scan_instruction">Scannez avec votre téléphone pour gérer les collections</string>
+    <string name="addon_qr_close">Fermer</string>
+    <string name="addon_confirm_title">Confirmer les modifications d’addons et de catalogues</string>
+    <string name="addon_confirm_subtitle">Les modifications suivantes ont été effectuées depuis votre téléphone :</string>
+    <string name="addon_confirm_added">Ajoutés :</string>
+    <string name="addon_confirm_removed">Supprimés :</string>
+    <string name="addon_confirm_catalog_reordered">L’ordre des catalogues a été modifié</string>
+    <string name="addon_confirm_catalogs_disabled">Catalogues désactivés sur l’accueil :</string>
+    <string name="addon_confirm_catalogs_enabled">Catalogues activés sur l’accueil :</string>
+    <string name="addon_confirm_no_changes">Aucune modification visible détectée</string>
+    <string name="addon_confirm_reject">Rejeter</string>
+    <string name="addon_confirm_confirm">Confirmer</string>
+    <string name="addon_refresh_done_subtitle">Addons actualisés à l’instant</string>
+    <string name="addon_pending_collections_updated">Collections mises à jour</string>
+    <string name="addon_pending_collections_replace">%1$d collection(s) vont remplacer les collections actuelles</string>
+
+    <!-- CatalogOrderScreen -->
+    <string name="catalog_order_follow_addons">Suivre l’ordre des addons</string>
+    <string name="catalog_order_empty">Aucun catalogue d’accueil disponible pour le moment.</string>
+
+
+    <!-- StreamScreen -->
+    <string name="stream_retry">Réessayer</string>
+    <string name="stream_no_streams">Aucun flux trouvé</string>
+    <string name="stream_no_streams_hint">Essayez d’installer plus d’addons pour trouver des flux</string>
+    <string name="stream_finding_source">Recherche de la source du flux</string>
+    <string name="p2p_consent_title">Streaming P2P</string>
+    <string name="p2p_consent_body">Ce flux utilise la technologie pair-à-pair (P2P). En activant le P2P, vous reconnaissez et acceptez que :\n\n\u2022 Votre adresse IP sera visible par les autres pairs du réseau\n\u2022 Vous êtes seul responsable du contenu auquel vous accédez\n\u2022 Vous confirmez avoir le droit légal de visionner ce contenu dans votre juridiction\n\u2022 Nuvio n’héberge, ne distribue ni ne contrôle aucun contenu P2P\n\u2022 Nuvio ne peut être tenu responsable des conséquences légales liées à votre utilisation du streaming P2P\n\nVous utilisez cette fonctionnalité entièrement à vos propres risques. Le P2P peut être désactivé à tout moment dans les paramètres.</string>
+    <string name="p2p_consent_enable">Activer le P2P</string>
+    <string name="p2p_consent_cancel">Annuler</string>
+    <string name="settings_p2p_title">Streaming P2P</string>
+    <string name="settings_p2p_subtitle">Autoriser les flux pair-à-pair (torrent)</string>
+    <string name="settings_p2p_hide_stats_title">Masquer les statistiques torrent</string>
+    <string name="settings_p2p_hide_stats_subtitle">Masquer la mémoire tampon, les seeders, les pairs et la vitesse de téléchargement pendant le chargement et la lecture</string>
+    <string name="stream_filter_all">Tous</string>
+
+    <!-- PlayerScreen -->
+    <string name="player_no_external_player">Aucun lecteur externe trouvé</string>
+    <string name="player_loading_preparing">Préparation du flux…</string>
+    <string name="player_loading_detecting_format">Détection du format du flux…</string>
+    <string name="player_loading_building">Initialisation du lecteur…</string>
+    <string name="player_loading_starting">Démarrage du flux…</string>
+    <string name="player_loading_buffering">Mise en mémoire tampon…</string>
+    <string name="player_engine_switching_title">Changement du moteur de lecture</string>
+    <string name="player_engine_switching_message">Échec au démarrage. Bascule vers %1$s…</string>
+    <string name="player_engine_switching_manual_message">Bascule vers %1$s…</string>
+    <string name="playback_show_loading_status">Afficher l’état de chargement</string>
+    <string name="playback_show_loading_status_sub">Afficher la progression étape par étape pendant l’initialisation du lecteur.</string>
+    <string name="player_sync_line">Synchroniser la ligne</string>
+    <string name="subtitle_timing_press_sync">Appuyez sur « Synchroniser » quand vous entendez une réplique.</string>
+    <string name="subtitle_timing_sync_button">Synchroniser</string>
+    <string name="subtitle_timing_select_addon_first">Sélectionnez d’abord une piste de sous-titres d’addon.</string>
+    <string name="subtitle_auto_sync_select_addon_track">Sélectionnez une piste de sous-titres d’addon pour utiliser la synchronisation automatique.</string>
+    <string name="subtitle_auto_sync_applied">Synchronisation appliquée : %1$s</string>
+    <string name="subtitle_timing_loading">Chargement des lignes de sous-titres…</string>
+    <string name="subtitle_timing_no_lines_found">Aucune ligne de sous-titre trouvée autour de ce moment.</string>
+    <string name="subtitle_timing_press_back_cancel">Appuyez sur « Retour » pour annuler</string>
+    <string name="subtitle_timing_captured_at">Capturé à %1$s</string>
+    <string name="subtitle_timing_capturing">Capture…</string>
+
+    <!-- ParentalGuideOverlay -->
+    <string name="parental_nudity">Nudité</string>
+    <string name="parental_violence">Violence</string>
+    <string name="parental_profanity">Langage grossier</string>
+    <string name="parental_alcohol">Alcool / drogues</string>
+    <string name="parental_frightening">Images effrayantes</string>
+    <string name="parental_severity_severe">Sévère</string>
+    <string name="parental_severity_moderate">Modéré</string>
+    <string name="parental_severity_mild">Léger</string>
+    <string name="player_ends_at">Fin à %1$s</string>
+    <!-- Season/episode code shown in player UI (e.g. S01E02). %1$d = season, %2$d = episode. -->
+    <string name="season_episode_format">S%1$d E%2$d</string>
+    <string name="player_subtitle_delay">Délai des sous-titres</string>
+    <string name="player_error_title">Erreur de lecture</string>
+    <string name="player_go_back">Retour</string>
+    <plurals name="player_report_loading_issue_prompt">
+        <item quantity="one">Toujours en chargement après %1$d seconde</item>
+        <item quantity="other">Toujours en chargement après %1$d secondes</item>
+    </plurals>
+    <string name="player_speed_title">Vitesse de lecture</string>
+
+    <!-- StreamSourcesPanel -->
+    <string name="sources_title">Sources</string>
+
+    <!-- EpisodesPanel -->
+    <string name="episodes_panel_no_episodes">Aucun épisode disponible</string>
+    <string name="episodes_panel_title">Épisodes</string>
+    <string name="player_speed_normal">Normal</string>
+    <string name="player_aspect_fit">Ajuster (original)</string>
+    <string name="player_aspect_stretch">Étirer</string>
+    <string name="player_aspect_fit_width">Ajuster à la largeur</string>
+    <string name="player_aspect_fit_height">Ajuster à la hauteur</string>
+    <string name="player_aspect_crop">Remplir</string>
+    <string name="player_aspect_tunneling_unavailable">Indisponible pendant la lecture tunnelisée</string>
+    <string name="player_aspect_mode_slight_zoom">Léger zoom</string>
+    <string name="player_aspect_mode_cinema_zoom">Zoom cinéma</string>
+
+    <!-- AudioDialog -->
+    <string name="audio_dialog_title">Audio</string>
+    <string name="audio_delay_label">Délai audio</string>
+    <string name="audio_delay_range">Plage : %1$.2fs à %2$.2fs</string>
+    <string name="audio_mix_label">Amplification (PCM)</string>
+    <string name="audio_mix_value_db">%1$d dB</string>
+    <string name="audio_mix_persist_on">Conserver entre les sessions : activé</string>
+    <string name="audio_mix_persist_off">Conserver entre les sessions : désactivé</string>
+    <string name="audio_mix_range">Plage : %1$d dB à %2$d dB</string>
+    <string name="audio_mix_range_saved">Plage : %1$d dB à %2$d dB (enregistré)</string>
+    <string name="audio_mix_unavailable">L’amplification n’est pas disponible sur cet appareil</string>
+
+    <!-- SubtitleSelectionOverlay -->
+    <string name="subtitle_dialog_title">Sous-titres</string>
+    <string name="subtitle_loading_addon">Chargement des sous-titres depuis les addons\u2026</string>
+    <string name="subtitle_reset_defaults">Réinitialiser les paramètres par défaut</string>
+    <string name="subtitle_tab_delay">Délai</string>
+    <string name="subtitle_none">Aucun</string>
+    <string name="subtitle_built_in">Intégré</string>
+    <string name="subtitle_style_title">Style des sous-titres</string>
+    <string name="subtitle_style_font_size">Taille de la police</string>
+    <string name="subtitle_style_bold">Gras</string>
+    <string name="subtitle_style_text_color">Couleur du texte</string>
+    <string name="subtitle_style_text_opacity">Opacité du texte</string>
+    <string name="subtitle_style_outline">Contour</string>
+    <string name="subtitle_style_bottom_offset">Décalage inférieur</string>
+    <string name="subtitle_style_on">Activé</string>
+    <string name="subtitle_style_off">Désactivé</string>
+
+    <!-- PauseOverlay -->
+    <string name="pause_you_are_watching">Vous regardez</string>
+    <string name="pause_cast_label">Distribution</string>
+    <string name="pause_back_to_details">Retour aux détails</string>
+    <string name="pause_as_character">dans le rôle de %1$s</string>
+
+    <!-- PostPlayOverlay -->
+    <string name="next_episode_label">Épisode suivant</string>
+    <string name="next_episode_finding_source">Recherche de la source…</string>
+    <string name="next_episode_unaired">Non diffusé</string>
+    <string name="next_episode_not_aired_yet">L’épisode suivant n’est pas encore diffusé</string>
+    <string name="skip_intro">Passer l’intro</string>
+    <string name="skip_ending">Passer les crédits</string>
+    <string name="skip_recap">Passer le résumé</string>
+    <string name="skip_generic">Passer</string>
+    <string name="display_mode_refresh">Fréquence d’images</string>
+    <string name="display_mode_resolution">Résolution</string>
+
+
+    <!-- SearchScreen -->
+    <string name="search_placeholder">Rechercher des films et séries</string>
+    <string name="search_start_title">Lancer une recherche</string>
+    <string name="search_start_subtitle">Saisissez au moins 2 caractères</string>
+    <string name="search_start_subtitle_no_discover">Découvrir est désactivé. Saisissez au moins 2 caractères</string>
+    <string name="search_recent_title">Recherches récentes</string>
+    <string name="search_recent_clear">Effacer l’historique</string>
+    <string name="search_voice_no_speech">Aucune voix détectée. Réessayez.</string>
+    <string name="search_voice_mic_permission">L’autorisation d’utiliser le micro est requise pour la recherche vocale.</string>
+    <string name="search_voice_failed">Échec de la reconnaissance vocale. Réessayez.</string>
+    <string name="search_voice_unavailable">La recherche vocale n’est pas disponible sur cet appareil.</string>
+
+    <!-- LibraryScreen -->
+    <string name="library_filter_type">Type</string>
+    <string name="library_filter_sort">Tri</string>
+    <string name="library_filter_genre">Genre</string>
+    <string name="library_filter_year">Année</string>
+    <!-- Genre names (from TMDB movie + TV) -->
+    <string name="genre_action">Action</string>
+    <string name="genre_adventure">Aventure</string>
+    <string name="genre_animation">Animation</string>
+    <string name="genre_comedy">Comédie</string>
+    <string name="genre_crime">Policier</string>
+    <string name="genre_documentary">Documentaire</string>
+    <string name="genre_drama">Drame</string>
+    <string name="genre_family">Famille</string>
+    <string name="genre_fantasy">Fantastique</string>
+    <string name="genre_history">Histoire</string>
+    <string name="genre_horror">Horreur</string>
+    <string name="genre_music">Musique</string>
+    <string name="genre_mystery">Mystère</string>
+    <string name="genre_romance">Romance</string>
+    <string name="genre_science_fiction">Science-fiction</string>
+    <string name="genre_tv_movie">Téléfilm</string>
+    <string name="genre_thriller">Thriller</string>
+    <string name="genre_war">Guerre</string>
+    <string name="genre_western">Western</string>
+    <!-- TV-specific genres -->
+    <string name="genre_action_adventure">Action et aventure</string>
+    <string name="genre_kids">Enfants</string>
+    <string name="genre_news">Actualités</string>
+    <string name="genre_reality">Téléréalité</string>
+    <string name="genre_sci_fi_fantasy">Science-fiction et fantastique</string>
+    <string name="genre_soap">Soap</string>
+    <string name="genre_talk">Talk-show</string>
+    <string name="genre_war_politics">Guerre et politique</string>
+    <string name="library_sort_added_desc">Ajoutés ↓</string>
+    <string name="library_sort_added_asc">Ajoutés ↑</string>
+    <string name="library_sort_title_asc">Titre A-Z</string>
+    <string name="library_sort_title_desc">Titre Z-A</string>
+    <string name="library_source_local">Local</string>
+    <string name="library_source_nuvio">Nuvio</string>
+    <string name="library_type_all">Tout</string>
+    <string name="library_type_items">éléments</string>
+    <string name="library_empty_local_title">Aucun %1$s pour le moment</string>
+    <string name="library_empty_local_subtitle">Commencez à enregistrer vos favoris pour les voir ici</string>
+
+    <!-- AccountSettingsContent -->
+    <string name="account_signin_email_title">Se connecter</string>
+    <string name="account_signin_email_subtitle">Saisissez l’e-mail et le mot de passe de votre compte auto-hébergé</string>
+    <string name="account_signed_in_label">Connecté</string>
+    <string name="account_loading_sync">Chargement des données de synchronisation\u2026</string>
+    <string name="account_sign_out_confirm_title">Se déconnecter ?</string>
+
+    <!-- AuthSignInScreen -->
+    <string name="auth_email_hint">Connectez-vous directement avec le compte de votre serveur auto-hébergé.</string>
+    <string name="auth_email_instruction">Saisissez votre e-mail et votre mot de passe pour continuer.</string>
+    <string name="auth_email_placeholder">Adresse e-mail</string>
+    <string name="auth_password_placeholder">Mot de passe</string>
+    <string name="auth_email_sign_in">Se connecter</string>
+    <string name="auth_email_signing_in">Connexion en cours…</string>
+
+    <!-- AuthQrSignInScreen -->
+    <string name="auth_qr_tagline">Regardez votre bibliothèque, où que vous soyez</string>
+    <string name="auth_qr_account_login">Connexion au compte</string>
+    <string name="auth_qr_finishing">Finalisation de la connexion\u2026</string>
+    <string name="auth_qr_expires">Expire dans %1$s</string>
+    <string name="auth_qr_refresh">Actualiser le code QR</string>
+    <string name="auth_qr_continue_without_account">Continuer sans compte</string>
+    <string name="auth_qr_generating">Génération du code QR\u2026</string>
+    <string name="auth_qr_unavailable">Code QR indisponible. Actualisez pour réessayer.</string>
+    <string name="auth_qr_please_wait">Patientez\u2026</string>
+    <string name="auth_qr_continue">Continuer</string>
+    <string name="auth_qr_back">Retour</string>
+
+
+
+
+    <!-- ProfileSelectionScreen -->
+    <string name="profile_selection_title">Qui regarde ?</string>
+    <string name="profile_selection_empty">Aucun profil trouvé</string>
+    <string name="profile_selection_primary_badge">Principal</string>
+    <string name="profile_selection_options_title">Options du profil</string>
+    <string name="profile_delete_confirm_title">Supprimer le profil ?</string>
+    <string name="profile_delete_confirm_subtitle">Cela supprimera définitivement ce profil et toutes ses données, y compris la bibliothèque, l’historique de visionnage et les paramètres des addons. Cette opération est irréversible.</string>
+
+    <!-- CastDetailScreen -->
+    <string name="cast_detail_error">Un problème est survenu</string>
+
+    <!-- CatalogSeeAllScreen -->
+    <string name="catalog_see_all_from">depuis %1$s</string>
+    <string name="catalog_see_all_empty_title">Aucun élément disponible</string>
+    <string name="catalog_see_all_empty_subtitle">Essayez un autre catalogue ou revenez plus tard</string>
+
+
+
+    <!-- EpisodeRatingsSection -->
+    <string name="ratings_loading">Chargement des notes des épisodes…</string>
+    <string name="ratings_unavailable">Les notes des épisodes ne sont pas disponibles.</string>
+    <string name="ratings_load_error">Impossible de charger les notes des épisodes.</string>
+    <string name="ratings_season_summary">Saison %1$d – %2$d épisodes</string>
+
+    <!-- SearchDiscoverSection -->
+    <string name="discover_title">Découvrir</string>
+    <string name="discover_load_more">Charger plus</string>
+    <string name="discover_loading">Chargement…</string>
+    <string name="discover_filter_type">Type</string>
+    <string name="discover_filter_catalog">Catalogue</string>
+    <string name="discover_filter_genre">Genre</string>
+    <string name="discover_select_catalog">Sélectionner</string>
+    <string name="discover_genre_default">Par défaut</string>
+    <string name="discover_empty_no_catalog_title">Sélectionnez un catalogue</string>
+    <string name="discover_empty_no_catalog_subtitle">Choisissez un catalogue à parcourir</string>
+    <string name="discover_empty_no_content_title">Aucun contenu trouvé</string>
+    <string name="discover_empty_no_content_subtitle">Essayez un autre genre ou catalogue</string>
+
+    <!-- AddonManagerScreen -->
+    <string name="addon_confirm_total_addons">Total des addons : %1$d</string>
+    <string name="addon_confirm_total_catalogs">Total des catalogues : %1$d</string>
+
+
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_passthrough_info">Le passthrough audio (TrueHD, DTS, AC-3, etc.) est automatique. Lorsqu’il est connecté à un récepteur AV ou une barre de son compatible via HDMI, l’audio sans perte est envoyé tel quel sans décodage.</string>
+
+    <!-- DV7 Handling Mode -->
+    <string name="dv7_handling_dialog_subtitle">Choisissez comment les flux DV Profile 7 sont traités à la lecture.</string>
+    <string name="dv7_mode_auto">Auto (recommandé)</string>
+    <string name="dv7_mode_auto_desc">Détecte votre écran et choisit le meilleur mode. En cas de problème de lecture, essayez «&#160;Couche HDR10 de base&#160;».</string>
+    <string name="dv7_mode_hdr10_base_layer">Couche HDR10 de base</string>
+    <string name="dv7_mode_hdr10_base_layer_desc">Supprime systématiquement Dolby Vision et lit la couche HEVC HDR10 de base.</string>
+    <string name="dv7_mode_dv81_libdovi">Convertir en DV8.1</string>
+    <string name="dv7_mode_dv81_libdovi_desc">Convertit DV7 en DV8.1 mono-couche. Nécessite un écran Dolby Vision.</string>
+    <string name="dv7_mode_off">Désactivé (natif)</string>
+    <string name="dv7_mode_off_desc">Passe DV7 sans modification. Peut causer des artefacts sur le matériel qui ne prend pas en charge DV Profile 7.</string>
+    <string name="dv7_mode_strip_dv">Toujours supprimer la DV</string>
+    <string name="dv7_mode_strip_dv_desc">Supprime la couche RPU Dolby Vision de tous les flux.</string>
+    <string name="audio_dv5_to_dv81_title">Convertir DV5 en DV8.1</string>
+    <string name="audio_dv5_to_dv81_sub">Signale les flux Profile 5 comme Profile 8.1 pour une sortie compatible HDR10. Utile sur les appareils sans décodeur DV5 natif.</string>
+    <string name="audio_strip_hdr10plus_title">Supprimer les métadonnées HDR10+</string>
+    <string name="audio_strip_hdr10plus_sub">Supprime les métadonnées dynamiques HDR10+ des flux. Quand « Convertir en DV8.1 » est aussi activé, la suppression a lieu après la conversion.</string>
+    <string name="dv7_libdovi_mode_caption">Mode de conversion (sélectionné automatiquement, ne pas changer sauf indication contraire). Choisissez-en un pour le forcer ; « Aucun » utilise le mode auto. Actif uniquement lorsque la gestion DV7 est réglée sur Convertir en DV8.1.</string>
+    <string name="dv7_libdovi_mode_row_title">Mode de conversion</string>
+    <string name="dv7_libdovi_mode_none_title">Aucun</string>
+    <string name="dv7_libdovi_mode_none_sub">Aucun remplacement. Utilise le mode de conversion sélectionné automatiquement.</string>
+    <string name="dv7_libdovi_mode_0_title">Mode 0 — Copie (sans conversion)</string>
+    <string name="dv7_libdovi_mode_0_sub">Analyse le RPU et le réécrit tel quel. Aucune conversion de profil.</string>
+    <string name="dv7_libdovi_mode_1_title">Mode 1 — MEL</string>
+    <string name="dv7_libdovi_mode_1_sub">Convertit le RPU pour le rendre compatible MEL (Minimum Enhancement Layer).</string>
+    <string name="dv7_libdovi_mode_2_title">Mode 2 — 8.1 (mappage no-op)</string>
+    <string name="dv7_libdovi_mode_2_sub">Convertit vers le Profile 8.1 avec le mappage luma et chroma réglé sur no-op. La conversion standard.</string>
+    <string name="dv7_libdovi_mode_3_title">Mode 3 — Profile 5 vers 8.1</string>
+    <string name="dv7_libdovi_mode_3_sub">Convertit les flux Profile 5 (DV5) en Profile 8.1. Même conversion que celle utilisée par l’option Convertir DV5 en DV8.1.</string>
+    <string name="dv7_libdovi_mode_4_title">Mode 4 — 8.4 (statique)</string>
+    <string name="dv7_libdovi_mode_4_sub">Convertit vers le Profile 8.4 statique.</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_discover">Découvrir</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_library">Bibliothèque</string>
+    <string name="nav_settings">Paramètres</string>
+    <string name="action_select">Sélectionner</string>
+
+
+
+
+    <!-- Profile PIN errors -->
+    <string name="profile_pin_save_error">Impossible d’enregistrer le code PIN. Réessayez.</string>
+    <string name="profile_pin_locked">Profil verrouillé. Réessayez dans %1$ds.</string>
+    <string name="profile_pin_invalid">Code PIN invalide. Réessayez.</string>
+    <string name="profile_pin_verify_error">Impossible de vérifier le code PIN. Réessayez.</string>
+    <string name="profile_pin_incorrect">Le code PIN actuel est incorrect.</string>
+    <string name="profile_pin_current_required">Ce profil a déjà un code PIN. Saisissez le code PIN actuel pour le modifier.</string>
+
+
+
+    <!-- Search -->
+    <string name="discover_disabled_title">Découvrir est désactivé</string>
+    <string name="discover_disabled_subtitle">Activez Découvrir dans les paramètres</string>
+
+
+    <!-- Error messages (shared) -->
+    <string name="error_network_required">Connectez-vous au Wi-Fi ou à l’Ethernet pour utiliser cette fonctionnalité</string>
+    <string name="error_server_ports_unavailable">Impossible de démarrer le serveur. Tous les ports sont utilisés.</string>
+
+
+
+    <!-- General errors -->
+    <string name="error_unknown">Erreur inconnue</string>
+    <string name="addon_error_not_found">Addon introuvable</string>
+
+
+    <!-- Search errors -->
+    <string name="search_error_no_catalogs">Aucun catalogue de recherche trouvé dans les addons installés</string>
+
+    <!-- Home errors -->
+    <string name="home_error_no_addons">Aucun addon installé</string>
+    <string name="home_error_no_catalog_addons">Aucun addon de catalogue installé</string>
+
+    <!-- Player errors -->
+    <string name="player_error_no_stream_url">Aucune URL de flux fournie</string>
+    <string name="player_error_failed_start_torrent">Impossible de démarrer le torrent : %1$s</string>
+
+
+    <!-- Stream screen -->
+    <string name="stream_episode_label">S%1$d E%2$d</string>
+
+    <!-- Évaluations d’épisodes -->
+    <string name="ratings_season_label">S%1$d</string>
+    <string name="ratings_episode_label">E%1$d</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_subtitles">Sous-titres</string>
+    <string name="cd_audio_tracks">Pistes audio</string>
+    <string name="cd_sources">Sources</string>
+    <string name="cd_switch_player_engine">Changer le moteur de lecture</string>
+    <string name="cd_playback_speed">Vitesse de lecture</string>
+    <string name="cd_aspect_ratio">Format d’image</string>
+    <string name="cd_open_external_player">Ouvrir dans un lecteur externe</string>
+    <string name="cd_more_actions">Plus d’actions</string>
+    <string name="cd_close_more_actions">Fermer les actions</string>
+    <string name="cd_back">Retour</string>
+    <string name="cd_next_episode_thumbnail">Miniature de l’épisode suivant</string>
+    <string name="cd_move_up">Monter</string>
+    <string name="cd_move_down">Descendre</string>
+    <string name="cd_edit">Modifier</string>
+    <string name="cd_delete">Supprimer</string>
+    <string name="cd_qr_code">Code QR</string>
+    <string name="cd_refresh">Actualiser</string>
+    <string name="cd_remove">Supprimer</string>
+    <string name="cd_nuvio_logo">NuvioTV</string>
+    <string name="cd_open_discover">Ouvrir Découvrir</string>
+    <string name="cd_voice_search">Recherche vocale</string>
+    <string name="cd_expand">Développer %1$s</string>
+    <string name="cd_collapse">Réduire %1$s</string>
+    <string name="cd_qr_login">Code QR de connexion</string>
+    <string name="cd_nuvio">Nuvio</string>
+
+    <!-- Debug -->
+
+    <!-- Collection Management -->
+    <string name="collections_header">Collections</string>
+    <string name="collections_new">Nouvelle collection</string>
+    <string name="collections_import">Importer</string>
+    <string name="collections_export_file">Exporter le fichier</string>
+    <string name="collections_saved_downloads">Enregistré dans le dossier Téléchargements</string>
+    <string name="collections_export_failed">Échec de l’export</string>
+    <string name="collections_import_header">Importer des collections</string>
+    <string name="collections_import_url_placeholder">https://example.com/collections.json</string>
+    <string name="collections_import_failed_fetch_http">Échec de la récupération : HTTP %1$d</string>
+    <string name="collections_import_failed_fetch_url">Échec de la récupération de l’URL : %1$s</string>
+    <string name="collections_import_no_data">Aucune donnée à importer</string>
+    <string name="collections_import_invalid_or_empty">Format invalide ou collections vides</string>
+    <string name="collections_import_file_not_found_downloads">Fichier introuvable dans Téléchargements.\nExportez d’abord les collections pour le créer.</string>
+    <string name="collections_import_failed_read_file">Échec de la lecture du fichier : %1$s</string>
+    <string name="collections_cancel">Annuler</string>
+    <string name="collections_mode_file">Depuis un fichier</string>
+    <string name="collections_mode_url">Depuis une URL</string>
+    <string name="collections_file_description">Lit nuvio-collections.json depuis le dossier Téléchargements.</string>
+    <string name="collections_load_file">Charger le fichier</string>
+    <string name="collections_fetch_url">Récupérer l’URL</string>
+    <string name="collections_fetching">Récupération…</string>
+    <string name="collections_confirm_import">Confirmer l’import</string>
+
+    <!-- Collection Editor -->
+    <string name="collections_editor_save">Enregistrer</string>
+    <string name="collections_editor_backdrop">Image d’arrière-plan</string>
+    <string name="collections_editor_pin_above">Épingler au-dessus des catalogues</string>
+    <string name="collections_editor_focus_glow">Halo de sélection</string>
+    <string name="collections_editor_view_mode">Mode d’affichage</string>
+    <string name="collections_editor_show_all_tab">Afficher l’onglet « Tout »</string>
+    <string name="collections_editor_show_all_tab_desc">Regrouper tous les catalogues dans un seul onglet</string>
+    <string name="collections_editor_folders">Dossiers</string>
+    <string name="collections_editor_add_folder">Ajouter un dossier</string>
+    <string name="collections_editor_new_folder">Nouveau dossier</string>
+    <string name="collections_editor_edit_folder">Modifier le dossier</string>
+    <string name="collections_editor_cover">Couverture</string>
+    <string name="collections_editor_cover_none">Aucune</string>
+    <string name="collections_editor_cover_emoji">Emoji</string>
+    <string name="collections_editor_cover_image_url">URL de l’image</string>
+    <string name="collections_editor_focus_gif">GIF à la sélection</string>
+    <string name="collections_editor_play_gif">Lire le GIF à la sélection</string>
+    <string name="collections_editor_tile_shape">Forme de tuile</string>
+    <string name="collections_editor_shape_poster">Affiche</string>
+    <string name="collections_editor_shape_wide">Large</string>
+    <string name="collections_editor_shape_square">Carré</string>
+    <string name="collections_editor_hide_title">Masquer le titre</string>
+    <string name="collections_editor_display">Affichage</string>
+    <string name="collections_editor_catalogs">Catalogues</string>
+    <string name="collections_editor_add_catalog">Ajouter un catalogue</string>
+    <string name="collections_editor_view_mode_tabs">Onglets</string>
+    <string name="collections_editor_view_mode_rows">Rangées</string>
+    <string name="collections_editor_view_mode_follow">Suivre la disposition de l’accueil</string>
+    <string name="collections_editor_addon_missing">Addon non installé : %1$s</string>
+    <string name="collections_editor_add_tmdb_source">Ajouter une source TMDB</string>
+    <string name="collections_editor_edit_tmdb_source">Modifier la source TMDB</string>
+    <string name="collections_editor_tmdb_sources">Sources TMDB</string>
+    <string name="collections_editor_trakt_list">Liste Trakt</string>
+    <string name="collections_editor_tmdb_id_or_url">ID ou URL TMDB</string>
+    <string name="collections_editor_tmdb_public_list">Liste TMDB publique</string>
+    <string name="collections_editor_tmdb_network_id">ID de la chaîne</string>
+    <string name="collections_editor_tmdb_collection_id">ID de collection</string>
+    <string name="collections_editor_tmdb_company_search">Nom, ID ou URL de société de production</string>
+    <string name="collections_editor_tmdb_display_title">Titre d’affichage</string>
+    <string name="collections_editor_tmdb_search">Recherche</string>
+    <string name="collections_editor_add_source">Ajouter une source</string>
+    <string name="collections_editor_save_source">Enregistrer la source</string>
+    <string name="collections_editor_tmdb_collection">Collection TMDB</string>
+    <string name="collections_editor_tmdb_default_list">Liste TMDB</string>
+    <string name="collections_editor_tmdb_default_production">Production TMDB</string>
+    <string name="collections_editor_tmdb_default_network">Chaîne TMDB</string>
+    <string name="collections_editor_tmdb_default_discover">Découverte TMDB</string>
+    <string name="collections_editor_tmdb_movie_collection">Collection de films TMDB</string>
+    <string name="collections_editor_tmdb_mode_presets">Préréglages</string>
+    <string name="collections_editor_tmdb_mode_public_list">Liste publique</string>
+    <string name="collections_editor_tmdb_mode_production">Production</string>
+    <string name="collections_editor_tmdb_mode_network">Chaîne</string>
+    <string name="collections_editor_tmdb_mode_custom">Personnalisé</string>
+    <string name="collections_editor_tmdb_person_credits">Crédits de personne</string>
+    <string name="collections_editor_tmdb_director_credits">Crédits de réalisateur</string>
+    <string name="collections_editor_tmdb_company_fallback">Société TMDB %1$d</string>
+    <string name="collections_editor_tmdb_help_presets">Choisissez une source prête à l’emploi. Vous pouvez la modifier ou la supprimer après l’ajout.</string>
+    <string name="collections_editor_tmdb_help_list">Collez une URL de liste TMDB publique ou uniquement le numéro de l’URL.</string>
+    <string name="collections_editor_tmdb_help_production">Recherchez par nom de studio ou collez un ID/URL de société TMDB et ajoutez-la directement.</string>
+    <string name="collections_editor_tmdb_help_network">Saisissez un ID de chaîne. Les chaînes courantes sont disponibles dans les préréglages et les filtres rapides.</string>
+    <string name="collections_editor_tmdb_help_collection">Recherchez le nom d’une collection de films ou collez l’ID de collection depuis TMDB.</string>
+    <string name="collections_editor_tmdb_help_discover">Créez une rangée TMDB dynamique avec des filtres optionnels. Laissez les champs vides quand vous n’avez pas besoin de ce filtre.</string>
+    <string name="collections_editor_tmdb_search_helper">Exemples : Marvel Studios, 420 ou https://www.themoviedb.org/company/420.</string>
+    <string name="collections_editor_tmdb_collection_helper">Exemple : Star Wars Collection, Harry Potter Collection ou une URL de collection.</string>
+    <string name="collections_editor_tmdb_network_helper">Exemples d’ID : Netflix 213, HBO 49, Disney+ 2739.</string>
+    <string name="collections_editor_tmdb_list_helper">Exemple : https://www.themoviedb.org/list/8504994 ou 8504994.</string>
+    <string name="collections_editor_tmdb_title_helper">Affiché comme nom de rangée/onglet. Si vide, Nuvio en génère un à partir de la source.</string>
+    <string name="collections_editor_tmdb_quick_genres">Genres rapides</string>
+    <string name="collections_editor_tmdb_quick_languages">Langues rapides</string>
+    <string name="collections_editor_tmdb_quick_countries">Pays rapides</string>
+    <string name="collections_editor_tmdb_quick_keywords">Mots-clés rapides</string>
+    <string name="collections_editor_tmdb_quick_companies">Studios rapides</string>
+    <string name="collections_editor_tmdb_quick_networks">Chaînes rapides</string>
+    <string name="collections_editor_tmdb_genres">ID de genre</string>
+    <string name="collections_editor_tmdb_date_from">Date de sortie ou de diffusion à partir du</string>
+    <string name="collections_editor_tmdb_date_to">Date de sortie ou de diffusion jusqu’au</string>
+    <string name="collections_editor_tmdb_rating_min">Note minimale</string>
+    <string name="collections_editor_tmdb_rating_max">Note maximale</string>
+    <string name="collections_editor_tmdb_votes_min">Nombre minimum de votes</string>
+    <string name="collections_editor_tmdb_language">Langue originale</string>
+    <string name="collections_editor_tmdb_country">Pays d’origine</string>
+    <string name="collections_editor_tmdb_keywords">ID de mots-clés</string>
+    <string name="collections_editor_tmdb_companies">ID de société</string>
+    <string name="collections_editor_tmdb_networks">ID de chaîne</string>
+    <string name="collections_editor_tmdb_year">Année</string>
+    <string name="collections_editor_sort_original">Original</string>
+    <string name="collections_editor_sort_list_order">Ordre de la liste</string>
+    <string name="collections_editor_sort_recently_added">Ajouté récemment</string>
+    <string name="collections_editor_sort_title">Titre</string>
+    <string name="collections_editor_sort_released">Sortie</string>
+    <string name="collections_editor_sort_votes">Votes</string>
+    <string name="collections_editor_trakt_list_with_id">Liste Trakt %1$d</string>
+    <string name="collections_editor_error_valid_tmdb_id_or_url">Saisissez un ID ou une URL TMDB valide</string>
+    <string name="collections_editor_error_load_tmdb_source">Impossible de charger la source TMDB</string>
+    <string name="collections_editor_tmdb_placeholder_list">https://www.themoviedb.org/list/8504994 ou 8504994</string>
+    <string name="collections_editor_tmdb_placeholder_collection">10 pour la collection Star Wars</string>
+    <string name="collections_editor_tmdb_placeholder_company">Marvel Studios, 420 ou URL de société</string>
+    <string name="collections_editor_tmdb_placeholder_network">213 pour Netflix, 49 pour HBO, 2739 pour Disney+</string>
+    <string name="collections_editor_tmdb_genres_movie_placeholder">28,12</string>
+    <string name="collections_editor_tmdb_genres_tv_placeholder">18,35</string>
+    <string name="collections_editor_tmdb_date_from_placeholder">2020-01-01</string>
+    <string name="collections_editor_tmdb_date_to_placeholder">2024-12-31</string>
+    <string name="collections_editor_tmdb_rating_min_placeholder">7.0</string>
+    <string name="collections_editor_tmdb_rating_max_placeholder">10</string>
+    <string name="collections_editor_tmdb_votes_min_placeholder">100</string>
+    <string name="collections_editor_tmdb_language_placeholder">en, ko, ja, hi</string>
+    <string name="collections_editor_tmdb_country_placeholder">US, KR, JP, IN</string>
+    <string name="collections_editor_tmdb_year_placeholder">2024</string>
+    <string name="collections_editor_language_english">Anglais</string>
+    <string name="collections_editor_language_korean">Coréen</string>
+    <string name="collections_editor_language_japanese">Japonais</string>
+    <string name="collections_editor_language_hindi">Hindi</string>
+    <string name="collections_editor_language_spanish">Espagnol</string>
+    <string name="collections_editor_country_us">États-Unis</string>
+    <string name="collections_editor_country_korea">Corée</string>
+    <string name="collections_editor_country_japan">Japon</string>
+    <string name="collections_editor_country_india">Inde</string>
+    <string name="collections_editor_country_uk">Royaume-Uni</string>
+    <string name="collections_editor_keyword_superhero">Super-héros</string>
+    <string name="collections_editor_keyword_based_on_novel">Adapté d’un roman</string>
+    <string name="collections_editor_keyword_time_travel">Voyage temporel</string>
+    <string name="collections_editor_keyword_space">Espace</string>
+    <string name="collections_editor_placeholder_name">Nom de la collection</string>
+    <string name="collections_editor_placeholder_backdrop">URL de l’image d’arrière-plan (optionnel)</string>
+    <string name="collections_editor_placeholder_cover_image">URL de l’image de couverture</string>
+    <string name="collections_editor_placeholder_folder">Nom du dossier</string>
+    <string name="collections_editor_placeholder_gif">URL du GIF animé (lecture uniquement à la sélection)</string>
+    <string name="collections_editor_hero_backdrop">Arrière-plan hero (accueil moderne)</string>
+    <string name="collections_editor_placeholder_hero_backdrop">URL personnalisée d’arrière-plan hero (optionnel)</string>
+    <string name="collections_editor_hero_video">Vidéo hero (accueil moderne)</string>
+    <string name="collections_editor_placeholder_hero_video">URL personnalisée de vidéo hero (optionnel)</string>
+    <string name="collections_editor_title_logo">Logo du titre (accueil moderne)</string>
+    <string name="collections_editor_placeholder_title_logo">URL personnalisée du logo du titre (optionnel)</string>
+    <string name="collections_editor_search_emoji_placeholder">Chercher un emoji…</string>
+    <string name="collections_editor_filter_active_sources_placeholder">Filtrer les sources actives…</string>
+    <string name="collections_editor_search_catalogs_placeholder">Chercher des catalogues…</string>
+    <string name="collections_editor_genre_filter">Filtre de genre</string>
+    <string name="collections_editor_all_genres">Tous les genres</string>
+    <string name="collections_editor_genre_required">Genre requis</string>
+    <string name="collections_editor_genre_optional">Filtre de genre disponible</string>
+    <string name="collections_tab_all">Tout</string>
+    <string name="collection_editor_choice_both">Les deux</string>
+    <string name="collections_editor_tmdb_keywords_placeholder">9715 pour super-héros</string>
+    <string name="collections_editor_tmdb_companies_placeholder">420 pour Marvel Studios</string>
+    <string name="collections_editor_tmdb_networks_placeholder">213 pour Netflix</string>
+    <string name="folder_detail_not_found">Dossier introuvable</string>
+    <string name="cast_error_load_details_for">Impossible de charger les détails de %1$s</string>
+    <string name="tmdb_entity_error_load_named">Impossible de charger %1$s</string>
+    <string name="tmdb_entity_error_load">Impossible de charger l’élément TMDB</string>
+
+
+    <!-- Locale parity (matches values/strings.xml additions on dev) -->
+    <string name="auto_skip_intro">Intro / Générique de début</string>
+    <string name="auto_skip_intro_sub">Passer automatiquement les intros et les génériques d’anime.</string>
+    <string name="auto_skip_outro">Outro / Générique de fin</string>
+    <string name="auto_skip_outro_sub">Passer automatiquement les outros et les génériques de fin d’anime.</string>
+    <string name="auto_skip_recap">Résumé</string>
+    <string name="auto_skip_recap_sub">Passer automatiquement les segments de résumé.</string>
+    <string name="collections_editor_tmdb_help_director">Saisissez un ID ou une URL de personne TMDB pour construire une rangée à partir des crédits de réalisation.</string>
+    <string name="collections_editor_tmdb_help_person">Saisissez un ID ou une URL de personne TMDB pour construire une rangée à partir des crédits de casting.</string>
+    <string name="collections_editor_tmdb_mode_director">Réalisateur</string>
+    <string name="collections_editor_tmdb_mode_person">Personne</string>
+    <string name="collections_editor_tmdb_person_helper">Exemple&#160;: https://www.themoviedb.org/person/31-tom-hanks ou 31.</string>
+    <string name="collections_editor_tmdb_person_id">ID de personne</string>
+    <string name="collections_editor_tmdb_person_placeholder">31 pour Tom Hanks, ou URL de personne</string>
+    <string name="external_auto_next_loading">Chargement de l’épisode suivant…</string>
+    <!-- Messages d’erreur compte / connexion -->
+    <string name="account_error_generic_retry">Une erreur est survenue. Réessayez.</string>
+    <string name="account_error_invalid_credentials">Adresse e-mail ou mot de passe incorrect.</string>
+    <string name="account_error_email_not_confirmed">Confirmez d’abord votre adresse e-mail.</string>
+    <string name="account_error_email_already_registered">Un compte avec cette adresse existe déjà.</string>
+    <string name="account_error_invalid_email">Saisissez une adresse e-mail valide.</string>
+    <string name="account_error_password_too_short">Le mot de passe est trop court.</string>
+    <string name="account_error_password_too_weak">Le mot de passe est trop faible.</string>
+    <string name="account_error_signup_disabled">Les inscriptions sont actuellement désactivées.</string>
+    <string name="account_error_rate_limited">Trop de tentatives. Réessayez plus tard.</string>
+    <string name="account_error_qr_login_expired">La connexion par QR code a expiré. Réessayez.</string>
+    <string name="account_error_invalid_qr_login">Code de connexion QR invalide.</string>
+    <string name="account_error_qr_login_other_device">Cette connexion QR a été demandée depuis un autre appareil.</string>
+    <string name="account_error_qr_login_outdated">Le service de connexion QR est obsolète. Réappliquez la configuration SQL TV login.</string>
+    <string name="account_error_qr_login_missing_setup">Le backend de connexion QR n’est pas configuré. Mettez à jour la configuration SQL TV login.</string>
+    <string name="account_error_qr_login_misconfigured">L’URL de connexion QR est mal configurée.</string>
+    <string name="account_error_qr_login_invalid_request">La requête de connexion QR est invalide. Réessayez.</string>
+    <string name="account_error_no_internet">Aucune connexion Internet.</string>
+    <string name="account_error_connection_timeout">Délai de connexion dépassé. Réessayez.</string>
+    <string name="account_error_connection_refused">Impossible de se connecter au serveur.</string>
+    <string name="account_error_not_authenticated">Connectez-vous d’abord.</string>
+    <string name="account_error_service_unavailable">Service indisponible. Réessayez plus tard.</string>
+    <string name="account_error_invalid_request">Requête invalide. Vérifiez vos informations.</string>
+    <string name="account_error_unexpected">Une erreur inattendue s’est produite.</string>
+    <string name="profile_custom_avatar_web_panel_note">Les URL d’avatar personnalisé peuvent être configurées depuis le panneau web Nuvio.</string>
+
+    <!-- Repli titre catalogue voir tout -->
+    <string name="catalog_see_all_title_fallback">Catalogue</string>
+
+    <!-- Éditeur de collection&#160;: catégories d’emoji -->
+    <string name="collections_editor_emoji_category_streaming">Streaming</string>
+    <string name="collections_editor_emoji_category_genres">Genres</string>
+    <string name="collections_editor_emoji_category_sports">Sports</string>
+    <string name="collections_editor_emoji_category_music">Musique</string>
+    <string name="collections_editor_emoji_category_nature">Nature</string>
+    <string name="collections_editor_emoji_category_animals">Animaux</string>
+    <string name="collections_editor_emoji_category_food">Cuisine</string>
+    <string name="collections_editor_emoji_category_travel">Voyage</string>
+    <string name="collections_editor_emoji_category_people">Personnes</string>
+    <string name="collections_editor_emoji_category_objects">Objets</string>
+    <string name="collections_editor_emoji_category_flags">Drapeaux</string>
+    <string name="collections_editor_emoji_category_symbols">Symboles</string>
+    <!-- Éditeur de collection&#160;: exemples de placeholder + genres TMDB -->
+    <string name="collections_editor_tmdb_network_placeholder_example">213 pour Netflix, 49 pour HBO, 2739 pour Disney+</string>
+    <string name="collections_editor_tmdb_collection_placeholder_example">10 pour la collection Star Wars</string>
+    <string name="collections_editor_tmdb_company_placeholder_example">Marvel Studios, 420 ou URL de société</string>
+    <string name="collections_editor_tmdb_genre_action">Action</string>
+    <string name="collections_editor_tmdb_genre_adventure">Aventure</string>
+    <string name="collections_editor_tmdb_genre_animation">Animation</string>
+    <string name="collections_editor_tmdb_genre_comedy">Comédie</string>
+    <string name="collections_editor_tmdb_genre_horror">Horreur</string>
+    <string name="collections_editor_tmdb_genre_scifi">Science-fiction</string>
+    <string name="collections_editor_tmdb_genre_drama">Drame</string>
+    <string name="collections_editor_tmdb_genre_crime">Policier</string>
+    <string name="collections_editor_tmdb_genre_reality">Téléréalité</string>
+    <!-- Préréglages regex de lecture automatique -->
+    <string name="autoplay_regex_preset_any_1080p_plus">1080p ou supérieur</string>
+    <string name="autoplay_regex_preset_4k_remux">4K / Remux</string>
+    <string name="autoplay_regex_preset_1080p_standard">1080p standard</string>
+    <string name="autoplay_regex_preset_720p_smaller">720p ou inférieur</string>
+    <string name="autoplay_regex_preset_web_sources">Sources WEB</string>
+    <string name="autoplay_regex_preset_bluray_quality">Qualité BluRay</string>
+    <string name="autoplay_regex_preset_hevc_x265">HEVC / x265</string>
+    <string name="autoplay_regex_preset_avc_x264">AVC / x264</string>
+    <string name="autoplay_regex_preset_hdr_dolby_vision">HDR / Dolby Vision</string>
+    <string name="autoplay_regex_preset_dolby_atmos_dts">Dolby Atmos / DTS</string>
+    <string name="autoplay_regex_preset_english">Anglais</string>
+    <string name="autoplay_regex_preset_no_cam_ts">Sans CAM/TS</string>
+    <string name="autoplay_regex_preset_no_remux_hdr">Sans REMUX/HDR</string>
+
+
+    <!-- Lecteur&#160;: torrent + pistes -->
+    <string name="player_torrent_peer_info">%1$d sources · %2$d pairs</string>
+    <string name="player_torrent_buffered_status">%1$s en mémoire tampon · %2$s · %3$s</string>
+    <string name="player_torrent_status">%1$s · %2$s</string>
+    <string name="player_torrent_connecting_peers">Connexion aux pairs…</string>
+    <string name="player_track_audio_fallback">Audio %1$d</string>
+    <string name="player_track_subtitle_fallback">Sous-titres %1$d</string>
+
+    <!-- Lecteur&#160;: récupération d’erreur -->
+    <string name="player_error_stream_blocked">\n\nLa source du flux est bloquée ou restreinte. Essayez une autre source.</string>
+    <string name="player_error_stream_removed">\n\nLe lien du flux a expiré ou a été supprimé. Essayez une autre source.</string>
+    <string name="player_error_stream_expired">\n\nLe lien du flux a expiré. Essayez une autre source.</string>
+    <string name="player_error_stream_rate_limited">\n\nTrop de requêtes vers la source du flux. Patientez un instant et réessayez.</string>
+    <string name="player_error_stream_unavailable">\n\nLe serveur du flux est actuellement indisponible. Essayez une autre source.</string>
+    <string name="player_error_source_invalid_content">Erreur de source&#160;: la source du flux a renvoyé du contenu invalide ou non lisible. Le lien a peut-être expiré ou le serveur a renvoyé une page d’erreur au lieu de la vidéo.\n\nEssayez une autre source. [%1$s]</string>
+    <string name="player_error_decoder">Erreur de décodeur</string>
+    <string name="player_error_unsupported_format">Ce flux utilise un format que votre appareil ne prend peut-être pas en charge. Essayez une autre source. [%1$s]</string>
+    <string name="player_error_initialize_failed">Échec de l’initialisation du lecteur</string>
+    <string name="player_error_mpv_surface_failed">Échec de l’initialisation de la surface libmpv</string>
+    <string name="player_error_mpv_playback_failed">Échec de l’initialisation de la lecture libmpv</string>
+    <string name="player_error_torrent">Erreur de torrent&#160;: %1$s</string>
+    <string name="player_error_playback_fallback">Erreur de lecture</string>
+    <!-- Sous-titres&#160;: récupération horloge -->
+    <string name="subtitle_timing_file_no_lines">Aucune ligne de sous-titre trouvée dans ce fichier.</string>
+    <string name="subtitle_timing_load_lines_failed">Échec du chargement des lignes de sous-titres.</string>
+    <string name="subtitle_download_failed_http">Échec du téléchargement des sous-titres (HTTP %1$d)</string>
+    <string name="subtitle_download_empty_content">Le téléchargement des sous-titres a retourné un contenu vide.</string>
+
+    <!-- Erreurs d’import de collection -->
+    <string name="collections_import_error_empty_input">Entrée vide</string>
+    <string name="collections_import_error_empty_array">Tableau vide&#160;: aucune collection trouvée</string>
+    <string name="collections_import_error_missing_id">Collection %1$d&#160;: \"id\" manquant ou invalide</string>
+    <string name="collections_import_error_missing_title">Collection \"%1$s\"&#160;: \"title\" manquant ou invalide</string>
+    <string name="collections_import_error_folders_array">Collection \"%1$s\"&#160;: \"folders\" doit être un tableau</string>
+    <string name="collections_import_error_folder_invalid">Collection \"%1$s\", dossier %2$d&#160;: format invalide</string>
+    <string name="collections_import_error_folder_missing_id">Collection \"%1$s\", dossier %2$d&#160;: \"id\" manquant</string>
+    <string name="collections_import_error_folder_missing_title">Collection \"%1$s\", dossier \"%2$s\"&#160;: \"title\" manquant</string>
+    <string name="collections_import_error_sources_array">Collection \"%1$s\", dossier \"%2$s\"&#160;: \"sources\" doit être un tableau</string>
+    <string name="collections_import_error_invalid_tile_shape">Collection \"%1$s\", dossier \"%2$s\"&#160;: tileShape \"%3$s\" invalide</string>
+    <string name="collections_import_error_source_invalid">Collection \"%1$s\", dossier \"%2$s\", source %3$d&#160;: format invalide</string>
+    <string name="collections_import_error_source_required_fields">Collection \"%1$s\", dossier \"%2$s\", source %3$d&#160;: champs requis manquants</string>
+    <string name="collections_import_error_missing_tmdb_type">Collection \"%1$s\", dossier \"%2$s\", source %3$d&#160;: type de source TMDB manquant</string>
+    <string name="collections_import_error_missing_trakt_list_id">Collection \"%1$s\", dossier \"%2$s\", source %3$d&#160;: ID de liste Trakt manquant</string>
+    <string name="collections_import_error_json_parse">Erreur d’analyse JSON&#160;: %1$s</string>
+
+
+
+    <!-- Erreurs détails / poster options -->
+    <string name="detail_error_update_library_failed">Échec de la mise à jour de la bibliothèque</string>
+    <string name="detail_error_load_lists_failed">Échec du chargement des listes</string>
+    <string name="detail_error_update_lists_failed">Échec de la mise à jour des listes</string>
+    <string name="detail_error_update_watched_failed">Échec de la mise à jour du statut vu</string>
+    <string name="detail_error_update_episode_watched_failed">Échec de la mise à jour du statut vu de l’épisode</string>
+
+    <!-- Erreurs de recherche -->
+    <string name="search_error_load_addons_failed">Échec du chargement des addons</string>
+    <string name="search_error_failed">Échec de la recherche</string>
+
+    <!-- Replis flux / TMDB / addons -->
+    <string name="stream_unknown">Flux inconnu</string>
+    <string name="stream_embedded_group">Flux intégrés</string>
+    <string name="stream_embedded_fallback_name">Flux intégré</string>
+    <string name="stream_quality_unknown">Inconnue</string>
+    <string name="stream_addon_unknown">Inconnu</string>
+    <string name="web_tmdb_company_fallback">Société TMDB %1$d</string>
+    <string name="web_tmdb_collection_fallback">Collection TMDB %1$d</string>
+    <string name="web_error_invalid_request_body">Corps de requête invalide</string>
+
+    <!-- Repli langue préférée des sous-titres -->
+
+
+
+    <!-- Erreurs réseau / safe API -->
+    <string name="network_error_empty_response_body">Réponse vide</string>
+    <string name="network_error_unknown">Une erreur inconnue est survenue</string>
+
+    <!-- Paramètres réseau&#160;: erreurs fast.com -->
+
+    <!-- Service torrent / erreurs binaire TorrServer -->
+    <string name="torrent_error_add_failed">Échec de l’ajout du torrent</string>
+    <string name="torrent_error_binary_missing">Binaire TorrServer introuvable à %1$s</string>
+    <string name="torrent_error_process_died">Le processus TorrServer s’est arrêté au démarrage (code de sortie %1$d)</string>
+    <string name="torrent_error_start_timeout">TorrServer n’a pas démarré dans les %1$ds</string>
+
+    <!-- Lecteur&#160;: erreurs flux / lien externe -->
+    <string name="player_torrent_starting_engine">Démarrage du moteur P2P…</string>
+    <string name="player_stream_error_invalid_external_url">URL externe invalide</string>
+    <string name="player_stream_error_open_external_link_failed">Impossible d’ouvrir le lien externe</string>
+    <string name="player_stream_error_invalid_url">URL de flux invalide</string>
+    <string name="player_stream_error_missing_content_type">Type de contenu manquant</string>
+
+    <!-- Repository méta&#160;: fragments d’erreur addon -->
+    <string name="meta_error_detail_no_metadata_for_id">n’a renvoyé aucune métadonnée pour cet identifiant</string>
+
+    <!-- Repository flux&#160;: fragments d’erreur addon + récupération -->
+    <string name="stream_error_detail_no_streams_for_id">n’a renvoyé aucun flux pour cet identifiant</string>
+    <string name="stream_error_detail_addon_unreachable">impossible de joindre le serveur de l’addon</string>
+    <string name="stream_error_detail_addon_connection_failed">la connexion à l’addon a échoué</string>
+    <string name="stream_error_detail_addon_timeout">la requête vers l’addon a expiré</string>
+    <string name="stream_error_detail_addon_cleartext_blocked">l’addon utilise une connexion HTTP non sécurisée bloquée par Android</string>
+    <string name="stream_error_detail_addon_request_failed">la requête vers l’addon a échoué</string>
+    <string name="stream_error_fetch_failed">Échec de la récupération des flux</string>
+
+
+
+    <!-- Sélection de profil&#160;: messages overlay PIN -->
+    <string name="profile_pin_saved_for_profile">PIN enregistré pour %1$s.</string>
+    <string name="profile_pin_lock_removed_for_profile">Verrouillage PIN supprimé pour %1$s.</string>
+
+
+    <!-- Épisodes&#160;: marquage des saisons précédentes -->
+    <string name="episodes_mark_previous_seasons_watched">Marquer les saisons précédentes comme vues</string>
+    <string name="detail_all_previous_seasons_watched">Toutes les saisons précédentes déjà vues</string>
+
+    <!-- Rail entité TMDB -->
+    <string name="tmdb_entity_rail_most_voted">Les plus votés</string>
+
+    <!-- Éditeur de collection&#160;: régions et fournisseurs de visionnage TMDB -->
+    <string name="collections_editor_tmdb_watch_region">Région de visionnage</string>
+    <string name="collections_editor_tmdb_quick_watch_regions">Régions de visionnage rapides</string>
+    <string name="collections_editor_tmdb_watch_providers">ID de fournisseurs de visionnage</string>
+    <string name="collections_editor_tmdb_watch_providers_placeholder">8|337|350</string>
+    <string name="collections_editor_tmdb_quick_watch_providers">Fournisseurs de visionnage rapides</string>
+
+    <!-- Licences &amp; attributions -->
+
+    <!-- Lecture&#160;: avertissements de contenu -->
+    <string name="playback_parental_guide">Avertissements de contenu</string>
+    <string name="playback_parental_guide_sub">Afficher l’avertissement de contrôle parental au démarrage de la lecture.</string>
+
+    <!-- Mise en page&#160;: emplacement de Découvrir -->
+    <string name="layout_discover_location_in_search_desc">Découvrir apparaît dans l’onglet Recherche.</string>
+
+    <!-- Mise en page&#160;: tri de Continuer à regarder -->
+    <string name="layout_cw_sort_mode">Ordre de tri</string>
+    <string name="layout_cw_sort_mode_sub">Comment les éléments Continuer à regarder sont organisés</string>
+    <string name="layout_cw_sort_default">Par défaut</string>
+    <string name="layout_cw_sort_default_desc">Trier les éléments du plus récent au plus ancien</string>
+    <string name="layout_cw_sort_streaming">Style streaming</string>
+    <string name="layout_cw_sort_streaming_desc">Les éléments sortis d’abord, ceux à venir à la fin</string>
+
+
+    <!-- Lecteur&#160;: invite épisode suivant -->
+    <string name="player_next_episode_prompt_title">Continuer le visionnage&#160;?</string>
+    <string name="player_next_episode_prompt_message">Voulez-vous lire l’épisode suivant&#160;?</string>
+    <string name="player_next_episode_prompt_yes">Oui</string>
+    <string name="player_next_episode_prompt_no">Non, revenir aux détails</string>
+
+    <!-- Lecteur&#160;: invite «&#160;Vous regardez toujours&#160;» -->
+    <string name="still_watching_title">Vous regardez toujours&#160;?</string>
+    <string name="still_watching_continue">Regarder</string>
+    <string name="still_watching_exit">Quitter</string>
+    <string name="still_watching_countdown">Arrêt dans %1$d</string>
+    <string name="still_watching_setting_title">Vous regardez toujours&#160;?</string>
+    <string name="still_watching_setting_sub">Demander après plusieurs épisodes lus automatiquement à la suite.</string>
+    <string name="still_watching_threshold_title">Seuil d’épisodes</string>
+    <string name="still_watching_threshold_sub">Nombre d’épisodes lus automatiquement avant de demander.</string>
+
+
+    <!-- Collections&#160;: confirmation de suppression -->
+    <string name="collections_delete_confirm">Supprimer</string>
+    <string name="collections_delete_confirm_subtitle">Cela supprimera définitivement «&#160;%1$s&#160;». Cette action est irréversible.</string>
+    <string name="collections_editor_delete_folder_subtitle">Cela supprimera définitivement «&#160;%1$s&#160;» et son contenu.</string>
+
+    <!-- Audio&#160;: downmix FFmpeg -->
+    <string name="audio_enable_downmix_title">Activer le downmix</string>
+    <string name="audio_number_of_channels">Nombre de canaux</string>
+    <string name="audio_number_of_channels_desc">Définit la disposition des haut-parleurs utilisée pour le downmix FFmpeg.</string>
+    <string name="audio_center_mix_label">Downmix&#160;: niveau du canal central</string>
+    <string name="audio_center_mix_value_db">%1$d dB</string>
+    <string name="audio_center_mix_help">Niveau du canal central en dB par rapport aux métadonnées ou à la valeur par défaut (-3 dB)</string>
+    <string name="audio_center_mix_unavailable">Le mixage du canal central n’est disponible que lorsque le downmix FFmpeg est actif.</string>
+    <string name="audio_maintain_original_audio_on_downmix_title">Conserver l’audio d’origine lors du downmix</string>
+    <string name="audio_maintain_original_audio_on_downmix_subtitle">Quand il est désactivé, la normalisation du downmix peut réduire le volume global.</string>
+
+
+
+
+
+    <!-- Badges addons -->
+    <string name="addons_badge_disabled">Désactivé</string>
+
+
+
+
+
+
+    <!-- Subtitle selection: unknown language fallback -->
+    <string name="subtitle_language_unknown">Inconnue</string>
+
+    <!-- External playback keep-alive service -->
+    <string name="external_playback_notification_text">Lecture dans un lecteur externe</string>
+    <string name="external_playback_channel_description">Garde l’application active pendant la lecture sur un lecteur externe</string>
+
+    <!-- Generic actions -->
+    <string name="action_delete">Supprimer</string>
+    <string name="action_import">Importer</string>
+
+    <!-- Layout : section Flux -->
+    <string name="layout_section_streams">Flux</string>
+
+    <!-- Réglages : badges Fusion / badges de flux -->
+    <string name="settings_fusion_badge_group_title">Groupe %1$d</string>
+    <string name="settings_fusion_badge_other_group_title">Autres badges Fusion</string>
+    <string name="settings_fusion_badge_preview_action">Aperçu</string>
+    <string name="settings_fusion_badge_preview_count">%1$d badges de style Fusion depuis cette URL</string>
+    <string name="settings_fusion_badge_preview_empty">Aucune image de badge de style Fusion dans cette URL.</string>
+    <string name="settings_fusion_badge_preview_title">Aperçu du badge Fusion</string>
+    <string name="settings_fusion_badges_empty">Aucune URL de badge Fusion importée.</string>
+    <string name="settings_fusion_badges_summary">%1$d/%2$d URL, %3$d badges Fusion actifs</string>
+    <string name="settings_fusion_badge_url_active">Activé</string>
+    <string name="settings_fusion_badge_url_inactive">Désactivé</string>
+    <string name="settings_fusion_badge_url_label">URL JSON du badge Fusion</string>
+    <string name="settings_fusion_badge_url_status_summary">%1$s · %2$d badges activés · %3$d groupes</string>
+    <string name="settings_stream_badges_section">Style Fusion</string>
+    <string name="settings_stream_badge_urls_description">Importez jusqu’à %1$d URL JSON de badges de flux de style Fusion. Chaque URL peut être mise à jour ou supprimée séparément.</string>
+    <string name="settings_stream_badge_urls_title">URL de badges Fusion</string>
+    <string name="settings_stream_size_badges_title">Badges de taille</string>
+    <string name="stream_badge_qr_instruction">Scannez ce code QR sur votre téléphone pour gérer les URL de badges Fusion.</string>
+
+
+    <!-- Web config pages: shared save status -->
+    <string name="web_status_saved_streams">Enregistré. Les nouveaux flux utiliseront ces réglages.</string>
+    <string name="web_status_could_not_save">Échec de l’enregistrement</string>
+
+    <!-- Web config page: stream badge import status -->
+    <string name="web_stream_badge_importing">Importation…</string>
+    <string name="web_stream_badge_imported">URL de badge importée.</string>
+    <string name="web_stream_badge_import_error">Échec de l’import du badge.</string>
+    <string name="web_stream_badge_deleted">URL de badge supprimée.</string>
+    <string name="web_stream_badge_load_error">Impossible de charger les réglages des badges de flux</string>
+    <string name="web_stream_badge_error_url_required">Saisissez une URL JSON de badge.</string>
+    <string name="web_stream_badge_error_url_scheme">L’URL du badge doit commencer par http:// ou https://.</string>
+    <string name="web_stream_badge_error_import_limit">Vous pouvez importer jusqu’à %1$d URL de badge.</string>
+
+    <!-- Playback — Buffer & Network settings -->
+    <string name="playback_net_device_memory_info">Mémoire de l’appareil : %1$s | Limite de sécurité recommandée : %2$d Mo</string>
+    <string name="playback_net_nuvio_performance_mode">Mémoire native ExoPlayer</string>
+    <string name="playback_net_nuvio_performance_mode_sub">Active l’allocateur natif hors tas et les optimisations de défilement.</string>
+    <string name="playback_net_nuvio_performance_mode_not_supported">Cette fonctionnalité n’est pas prise en charge par votre appareil.</string>
+    <string name="playback_buffer_custom">Tampons de lecture personnalisés</string>
+    <string name="playback_buffer_custom_sub">Remplace la mise en mémoire tampon par défaut de Media3 par les valeurs ci-dessous. Quand c’est désactivé, le lecteur utilise les durées de tampon et la taille cible d’origine de Media3.</string>
+    <string name="playback_buffer_header">Mémoire tampon</string>
+    <string name="playback_buffer_warning">Ces paramètres influent sur le comportement de mise en mémoire tampon. Des valeurs incorrectes peuvent causer des problèmes de lecture.</string>
+    <string name="playback_buffer_min">Durée min. de tampon</string>
+    <string name="playback_buffer_min_sub">Quantité minimale de média à mettre en mémoire tampon. Le lecteur essaie de toujours garder au moins cette quantité de contenu en tampon, en avance sur la position de lecture actuelle.</string>
+    <string name="playback_buffer_max">Durée max. de tampon</string>
+    <string name="playback_buffer_max_sub">Quantité maximale de média à mettre en mémoire tampon. Doit être au moins égale à la durée minimale de tampon. Des valeurs plus élevées utilisent plus de mémoire mais offrent une lecture plus fluide sur les connexions instables.</string>
+    <string name="playback_buffer_value_same_as_min">%1$ds (identique au min)</string>
+    <string name="playback_buffer_initial">Tampon initial</string>
+    <string name="playback_buffer_initial_sub">Quantité de contenu à mettre en mémoire tampon avant le démarrage de la lecture. Des valeurs plus faibles démarrent plus vite mais peuvent causer des saccades initiales sur les connexions lentes.</string>
+    <string name="playback_buffer_after_rebuffer">Tampon après interruption</string>
+    <string name="playback_buffer_after_rebuffer_sub">Quantité de contenu à mettre en mémoire tampon après une interruption de la lecture due à la mise en tampon. Des valeurs plus élevées réduisent les interruptions répétées.</string>
+    <string name="playback_buffer_back">Durée du tampon arrière</string>
+    <string name="playback_buffer_back_sub">Quantité de contenu déjà lu à garder en mémoire. Permet un retour arrière rapide sans retéléchargement. Mettez 0 pour désactiver et économiser de la mémoire.</string>
+    <string name="playback_buffer_back_reserve">Réserve ~%1$d Mo en plus de la taille de tampon cible. Augmenter la durée max. de tampon réduit cette réserve sans perdre de temps de tampon arrière.</string>
+    <string name="playback_buffer_managed">Budget mémoire géré</string>
+    <string name="playback_buffer_managed_sub">Limite le tampon à une part sûre de la mémoire de cet appareil. Désactivez pour définir vous-même la taille de tampon cible (avancé — de grandes valeurs peuvent faire planter les appareils à faible mémoire).</string>
+    <string name="playback_buffer_target">Taille de tampon cible</string>
+    <string name="playback_buffer_target_sub">RAM maximale utilisée pour la mise en mémoire tampon anticipée. Le maximum est calculé d’après la mémoire disponible de votre appareil (la limite de tas par application d’Android), donc les appareils dotés de plus de RAM débloquent automatiquement des plafonds plus élevés.</string>
+    <string name="playback_buffer_target_managed_hint">Géré par le budget mémoire de l’appareil. Désactivez «&#160;Budget mémoire géré&#160;» pour définir cette valeur.</string>
+    <string name="playback_buffer_target_warning">Attention&#160;: au-dessus de la limite sûre de l’appareil (%1$d Mo). L’application peut planter pendant la lecture.</string>
+    <string name="playback_buffer_target_danger_warning">Danger : au-dessus de la limite d’avertissement (%1$d Mo). Risque élevé de plantage.</string>
+    <string name="playback_buffer_allow_large">Autoriser un tampon cible plus grand</string>
+    <string name="playback_buffer_allow_large_sub">Supprime le plafond de mémoire de l’appareil sur le curseur de taille de tampon cible, autorisant des valeurs jusqu’à 2 Go. Peut planter sur les appareils avec moins de 2 Go de RAM.</string>
+    <string name="playback_net_custom">Réseau personnalisé</string>
+    <string name="playback_net_custom_sub">Utilise plusieurs connexions parallèles pour récupérer les flux progressifs. Quand c’est désactivé, une seule connexion est utilisée.</string>
+    <string name="playback_net_http2">Activer HTTP/2</string>
+    <string name="playback_net_http2_sub">Active le protocole HTTP/2 pour les connexions réseau, permettant le multiplexage des requêtes et des établissements de connexion plus rapides.</string>
+    <string name="playback_net_parallel">Connexions parallèles</string>
+    <string name="playback_net_parallel_sub">Utilise plusieurs connexions en parallèle pour récupérer les flux. Activez cette option si vous rencontrez des mises en mémoire tampon alors que votre vitesse de téléchargement est largement suffisante.</string>
+    <string name="playback_net_connection_count">Nombre de connexions</string>
+    <string name="playback_net_connection_count_sub">Nombre de connexions TCP parallèles. Des valeurs plus élevées augmentent l’utilisation de la mémoire et le débit, mais avec un rendement décroissant.</string>
+    <string name="playback_net_chunk_size">Taille des blocs</string>
+    <string name="playback_net_chunk_size_sub">Taille de chaque bloc de téléchargement par connexion. Des blocs plus grands réduisent la surcharge mais utilisent plus de mémoire.</string>
+
+    <!-- Playback diagnostics card -->
+    <string name="diag_last_playback_title">Derniers diagnostics de lecture</string>
+    <string name="diag_no_data">Aucune donnée de lecture pour l’instant. Lancez un stream et revenez ici pour voir les détails de la décision DV de cette lecture.</string>
+    <string name="diag_section_source_hardware">Source et matériel</string>
+    <string name="diag_section_source_hardware_sub">Prenez une photo de cette carte si vous signalez un problème.</string>
+    <string name="diag_label_host">Hôte</string>
+    <string name="diag_label_when">Quand</string>
+    <string name="diag_label_device">Appareil</string>
+    <string name="diag_label_display">Écran</string>
+    <string name="diag_label_dv7_decoder">Décodeur DV7</string>
+    <string name="diag_label_dv_decoder">Décodeur DV</string>
+    <string name="diag_label_dv_bridge">Bridge DV</string>
+    <string name="diag_label_bridge_version">Version du bridge</string>
+    <string name="diag_label_bridge_reason">Raison du bridge</string>
+    <string name="diag_section_decision_settings">Décision et paramètres</string>
+    <string name="diag_label_dv_mode_requested">Mode DV (demandé)</string>
+    <string name="diag_label_dv_mode_effective">Mode DV (effectif)</string>
+    <string name="diag_label_auto_decision">Décision AUTO</string>
+    <string name="diag_label_source_profile">Profil de la source</string>
+    <string name="diag_label_conversions">Conversions</string>
+    <string name="diag_label_signal_rewrites">Réécritures du signal</string>
+    <string name="diag_label_custom_buffers">Tampons personnalisés</string>
+    <string name="diag_label_custom_network_cache">Réseau/cache personnalisés</string>
+    <string name="diag_section_outcome">Bilan</string>
+    <string name="diag_label_hdr_format_intended">Format HDR (prévu)</string>
+    <string name="diag_label_first_frame">Première image</string>
+    <string name="diag_label_rebuffers">Remises en tampon</string>
+    <string name="diag_label_result">Résultat</string>
+    <string name="diag_value_available">Disponible</string>
+    <string name="diag_value_none">Aucun</string>
+    <string name="diag_value_ready">Prêt</string>
+    <string name="diag_value_not_ready">Pas prêt</string>
+    <string name="diag_value_decoder_hidden">%1$s (masqué)</string>
+    <string name="diag_value_on">Activé</string>
+    <string name="diag_value_off">Désactivé</string>
+    <string name="diag_value_conversions_fmt">%1$d sur %2$d réussies</string>
+    <string name="diag_value_never_rendered">Jamais affichée</string>
+
+
+    <!-- Size and speed units -->
+    <string name="unit_size_mb">%1$s Mo</string>
+    <string name="unit_size_gb">%1$s Go</string>
+    <string name="unit_speed_b_s">%1$d o/s</string>
+    <string name="unit_speed_kb_s">%1$s ko/s</string>
+    <string name="unit_speed_mb_s">%1$s Mo/s</string>
+
+    <!-- Misc fallbacks -->
+    <string name="playback_estimated_memory_usage">Utilisation mémoire estimée&#8239;: %1$d / %2$d Mo</string>
+    <string name="profile_default_name">Profil %1$d</string>
+    <string name="detail_tmdb_fallback_title">TMDB %1$d</string>
+    <string name="collections_editor_tmdb_collection_fallback">Collection TMDB %1$d</string>
+    <string name="stream_test_server_label">Serveur : %1$s</string>
+    <string name="stream_test_no_stream">Aucune lecture enregistrée. Lisez une vidéo pour lancer des tests de diagnostic sur son hôte.</string>
+    <string name="stream_test_btn_running">En cours…</string>
+    <string name="stream_test_label_baseline">Connexion unique standard (référence)</string>
+    <string name="stream_test_error_prefix">Erreur : %1$s</string>
+    <string name="stream_test_error_connection">Échec de la connexion. Le lien du dernier flux lu a peut-être expiré ou est injoignable. Veuillez relire la vidéo et réessayer.</string>
+</resources>

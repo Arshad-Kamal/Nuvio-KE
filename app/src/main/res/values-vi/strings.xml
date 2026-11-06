@@ -1,0 +1,1522 @@
+<resources>
+    <string name="type_movie">Phim</string>
+    <string name="type_movies">Phim</string>
+    <string name="type_series">Loạt phim</string>
+    <string name="type_series_plural">Loạt phim</string>
+    <string name="type_unknown">Không xác định</string>
+
+    <string name="web_manage_addons_title">Quản lý tiện ích</string>
+    <string name="web_manage_addons_subtitle">Quản lý tiện ích, danh mục và bộ sưu tập</string>
+    <string name="web_add_addon_url">Thêm tiện ích bằng URL</string>
+    <string name="web_placeholder_url">https://example.com/manifest.json</string>
+    <string name="web_btn_add">Thêm</string>
+    <string name="web_installed_addons">Tiện ích đã cài đặt</string>
+    <string name="web_no_addons">Không có tiện ích đã cài đặt</string>
+    <string name="web_home_catalogs">Danh mục và bộ sưu tập Trang chủ</string>
+    <string name="web_no_catalogs">Không có danh mục Trang chủ nào</string>
+    <string name="web_btn_save">Lưu thay đổi</string>
+    <string name="web_connection_lost">Kết nối đến TV đã mất</string>
+    <string name="web_btn_remove">Xoá</string>
+    <string name="web_badge_new">Mới</string>
+    <string name="web_badge_disabled">Đã tắt</string>
+    <string name="web_btn_enable">Bật</string>
+    <string name="web_btn_disable">Tắt</string>
+    <string name="web_error_addon_exists">Tiện ích này đã có trong danh sách</string>
+    <string name="web_status_waiting_tv">Đang chờ TV</string>
+    <string name="web_status_msg_waiting_tv">Vui lòng xác nhận thay đổi này trên TV để áp dụng.</string>
+    <string name="web_status_changes_applied">Đã áp dụng thay đổi</string>
+    <string name="web_status_msg_addon_updated">Cấu hình tiện ích của bạn đã được cập nhật trên TV.</string>
+    <string name="web_status_changes_rejected">Thay đổi bị từ chối</string>
+    <string name="web_status_msg_changes_rejected">Các thay đổi đã bị từ chối trên TV. Danh sách của bạn đã được hoàn nguyên.</string>
+    <string name="web_status_error">Đã xảy ra lỗi</string>
+    <string name="web_error_failed_save">Không thể lưu. Vui lòng kiểm tra kết nối với TV.</string>
+    <string name="web_btn_dismiss">Bỏ qua</string>
+    <string name="web_status_timeout">Đã hết thời gian chờ</string>
+    <string name="web_status_msg_timeout">Không nhận được phản hồi từ TV. Vui lòng thử lại.</string>
+    <string name="web_status_msg_connection_lost">Không thể kết nối đến máy chủ TV. Các thay đổi có thể đã được áp dụng.</string>
+    <string name="web_manage_collections_title">Quản lý Bộ sưu tập</string>
+    <string name="web_manage_collections_subtitle">Tạo và quản lý các bộ sưu tập tùy chỉnh của bạn</string>
+    <string name="web_status_msg_collections_updated">Bộ sưu tập của bạn đã được cập nhật trên TV.</string>
+    <string name="web_tab_addons">Tiện ích</string>
+    <string name="web_tab_home_layout">Bố cục Trang chủ</string>
+    <string name="web_tab_collections">Bộ sưu tập</string>
+    <string name="web_btn_enable_all">Bật tất cả</string>
+    <string name="web_btn_disable_all">Tắt tất cả</string>
+    <string name="web_btn_show_all">Xem tất cả</string>
+    <string name="web_btn_hide_all">Ẩn tất cả</string>
+    <string name="web_btn_new_collection">+ Bộ sưu tập mới</string>
+    <string name="web_btn_export">Xuất</string>
+    <string name="web_btn_import">Nhập</string>
+    <string name="web_no_collections">Chưa có bộ sưu tập nào</string>
+    <string name="web_badge_collection">Bộ sưu tập</string>
+    <string name="web_import_collections_title">Nhập bộ sưu tập</string>
+    <string name="web_import_tab_paste">Dán</string>
+    <string name="web_import_tab_file">Tệp</string>
+    <string name="web_import_tab_url">URL</string>
+    <string name="web_import_paste_placeholder">Dán JSON bộ sưu tập vào đây...</string>
+    <string name="web_import_file_select">Chạm để chọn tệp .json</string>
+    <string name="web_order_send_to_top">Đưa lên trên cùng</string>
+    <string name="web_order_send_to_bottom">Đưa xuống dưới cùng</string>
+    <string name="web_title_show">Hiển thị</string>
+    <string name="web_title_hide">Ẩn</string>
+    <string name="web_issue_singular">vấn đề</string>
+    <string name="web_issue_plural">vấn đề</string>
+    <string name="web_source_singular">nguồn</string>
+    <string name="web_source_plural">nguồn</string>
+    <string name="web_source_added">Đã thêm</string>
+    <string name="web_no_sources_added">Chưa có nguồn nào được thêm</string>
+    <string name="web_import_select_file_first">Chọn tệp trước</string>
+    <string name="web_import_enter_url">Nhập URL</string>
+    <string name="web_import_failed_fetch_url">Không thể truy xuất URL</string>
+    <string name="web_import_no_json">Thiếu dữ liệu JSON</string>
+    <string name="web_import_expected_array">Cần JSON danh sách bộ sưu tập.</string>
+    <string name="web_import_empty_array">Danh sách trống: không tìm thấy bộ sưu tập.</string>
+    <string name="web_import_error_collection_invalid_id">Bộ sưu tập {index}: thiếu hoặc không hợp lệ \"id\"</string>
+    <string name="web_import_error_collection_invalid_title">Bộ sưu tập \"{collection}\": thiếu hoặc không hợp lệ \"title\"</string>
+    <string name="web_import_error_collection_folders_array">Bộ sưu tập \"{collection}\": \"folders\" phải là một mảng</string>
+    <string name="web_import_error_folder_invalid_format">Bộ sưu tập \"{collection}\", thư mục {index}: sai định dạng</string>
+    <string name="web_import_error_folder_missing_id">Bộ sưu tập \"{collection}\", thư mục {index}: thiếu \"id\"</string>
+    <string name="web_import_error_folder_missing_title">Bộ sưu tập \"{collection}\", thư mục \"{folder}\": thiếu \"title\"</string>
+    <string name="web_import_error_sources_array">Bộ sưu tập \"{collection}\", thư mục \"{folder}\": \"sources\" phải là một mảng</string>
+    <string name="web_import_error_invalid_tile_shape">Bộ sưu tập \"{collection}\", thư mục \"{folder}\": không hợp lệ tileShape \"{shape}\"</string>
+    <string name="web_import_error_source_invalid_format">Bộ sưu tập \"{collection}\", thư mục \"{folder}\", nguồn {index}: sai định dạng</string>
+    <string name="web_import_error_source_missing_addon_fields">Bộ sưu tập \"{collection}\", thư mục \"{folder}\", nguồn {index}: thiếu trường bắt buộc (addonId, type, catalogId)</string>
+    <string name="web_import_error_source_missing_tmdb_type">Bộ sưu tập \"{collection}\", thư mục \"{folder}\", nguồn {index}: thiếu loại nguồn TMDB</string>
+    <string name="web_import_error_source_missing_trakt_id">Bộ sưu tập \"{collection}\", thư mục \"{folder}\", nguồn {index}: thiếu ID danh sách Trakt</string>
+    <string name="web_import_success">Đã nhập {count} bộ sưu tập. Đánh giá và nhấn Lưu thay đổi để áp dụng..</string>
+    <string name="web_import_invalid_json">JSON không hợp lệ</string>
+
+    <string name="auth_notice_nuvio_logged_out">Bạn đã đăng xuất khỏi Nuvio. Vui lòng đăng nhập lại.</string>
+    <string name="error_generic">Đã xảy ra lỗi</string>
+
+    <string name="action_retry">Thử lại</string>
+    <string name="error_state_generic_issue">Đã xảy ra lỗi.</string>
+    <string name="error_state_possible_fix">Có thể sửa: %1$s</string>
+    <string name="error_state_fix_retry_soon">thử lại sau.</string>
+    <string name="error_state_issue_no_metadata_any_addon">Không thể tải thông tin chi tiết cho ID này vì không có tiện ích nào đã cài đặt trả về siêu dữ liệu.</string>
+    <string name="error_state_fix_no_metadata_any_addon">thử tiện ích khác, tắt \"Ưu tiên tiện ích siêu dữ liệu bên ngoài\" trong cài đặt Bố cục hoặc xác nhận rằng tiện ích đã cài đặt hỗ trợ id này.</string>
+    <string name="error_state_prefix_no_supported_metadata">Không có tiện ích đã cài đặt nào hỗ trợ siêu dữ liệu cho </string>
+    <string name="error_state_prefix_no_addon_for_id">Không có tiện ích đã cài đặt nào có thể cung cấp siêu dữ liệu cho id=</string>
+    <string name="error_state_fix_no_supported_metadata">cài đặt hoặc cập nhật tiện ích hỗ trợ kiểu nội dung này, rồi thử lại.</string>
+    <string name="error_state_prefix_tried_meta_addons">Đã thử các tiện ích siêu dữ liệu:</string>
+    <string name="error_state_fix_tried_meta_addons">cài đặt tiện ích hỗ trợ id này hoặc cấu hình lại/cập nhật tiện ích và thử lại</string>
+    <string name="error_state_issue_missing_metadata_for_id">không có siêu dữ liệu cho id này</string>
+    <string name="error_state_fix_missing_metadata_for_id">mở id này bằng một tiện ích khác, tắt \"Ưu tiên tiện ích siêu dữ liệu bên ngoài\", hoặc kiểm tra xem tiện ích có hỗ trợ id này không</string>
+    <string name="error_state_issue_addon_unreachable">không thể truy cập</string>
+    <string name="error_state_fix_addon_unreachable">kiểm tra kết nối internet, xác thực URL của tiện ích vẫn hoạt động rồi thử lại</string>
+    <string name="error_state_issue_addon_connection_failed">đã từ chối kết nối</string>
+    <string name="error_state_fix_addon_connection_failed">đảm bảo máy chủ tiện ích đang trực tuyến và có thể truy cập được rồi thử lại</string>
+    <string name="error_state_issue_addon_timeout">mất quá nhiều thời gian để phản hồi</string>
+    <string name="error_state_fix_addon_timeout">thử lại sau hoặc thử tiện ích khác nếu lỗi này vẫn tiếp diễn</string>
+    <string name="error_state_issue_addon_cleartext">sử dụng kết nối HTTP không an toàn mà Android đã chặn</string>
+    <string name="error_state_fix_addon_cleartext">chuyển URL của tiện ích sang HTTPS hoặc cập nhật cấu hình tiện ích.</string>
+    <string name="error_state_fix_addon_generic">thử lại, cập nhật hoặc cài đặt lại tiện ích, hoặc thử tiện ích khác.</string>
+    <string name="error_state_addon_issue_template">%1$s: %2$s.</string>
+    <string name="error_meta_not_found">Không tìm thấy siêu dữ liệu</string>
+    <string name="error_meta_no_supported_addon">Không có tiện ích đã cài đặt nào hỗ trợ siêu dữ liệu cho \"%1$s\".</string>
+    <string name="error_meta_no_addon_for_id">Không có tiện ích đã cài đặt nào có thể cung cấp siêu dữ liệu cho id=%1$s (type=%2$s).</string>
+    <string name="error_meta_tried_none">Đã thử tiện ích siêu dữ liệu: %1$s. Không có tiện ích nào cung cấp siêu dữ liệu cho id=%2$s (type=%3$s).</string>
+    <string name="error_meta_tried_generic">Đã thử tiện ích siêu dữ liệu: %1$s. Không thể tải siêu dữ liệu cho id=%2$s (type=%3$s).</string>
+    <string name="error_meta_tried_issues">Đã thử tiện ích siêu dữ liệu: %1$s. Không thể tải siêu dữ liệu cho id=%2$s (type=%3$s). Issues: %4$s.</string>
+    <string name="error_stream_no_supported_addon">Không có tiện ích đã cài đặt nào hỗ trợ nguồn phát cho \"%1$s\".</string>
+    <string name="error_stream_tried_none">Đã thử các tiện ích phát: %1$s. Không có tiện ích nào trả về nguồn phát cho id=%2$s (type=%3$s).</string>
+    <string name="error_stream_tried_generic">Đã thử các tiện ích phát: %1$s. Không thể tải nguồn phát cho id=%2$s (type=%3$s).</string>
+    <string name="error_stream_tried_issues">Đã thử các tiện ích phát: %1$s. Không thể tải nguồn xem chor id=%2$s (type=%3$s). Issues: %4$s.</string>
+
+    <string name="continue_watching">Xem tiếp</string>
+    <string name="cw_upcoming">Sắp chiếu</string>
+    <string name="cw_next_up">Tiếp theo</string>
+    <string name="cw_new_episode">Tập mới</string>
+    <string name="cw_new_season">Mùa mới</string>
+    <string name="cw_resume">Xem tiếp</string>
+    <string name="cw_percent_watched">%1$d%% Đã xem</string>
+    <string name="cw_hours_min_left">Còn %1$dg %2$dp</string>
+    <string name="cw_min_left">Còn %1$dp</string>
+    <string name="cw_airs_date">Phát sóng %1$s</string>
+    <string name="cw_airs_today">Phát sóng hôm nay</string>
+    <string name="cw_airs_tomorrow">Phát sóng ngày mai</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="other">Phát sóng trong %d ngày nữa</item>
+    </plurals>
+    <string name="cw_action_go_to_details">Xem chi tiết</string>
+    <string name="cw_action_start_from_beginning">Xem từ đầu</string>
+    <string name="cw_action_remove">Xoá</string>
+    <string name="cw_dialog_subtitle">Chọn thao tác cho mục này.</string>
+    <string name="home_poster_dialog_subtitle">Thao tác trên thanh tiêu đề</string>
+
+    <string name="action_see_all">Xem tất cả</string>
+
+    <string name="hero_creator">Tác giả: %1$s</string>
+    <string name="hero_director">Đạo diễn: %1$s</string>
+    <string name="hero_writer">Biên kịch: %1$s</string>
+    <string name="hero_play">Xem</string>
+    <string name="hero_add_to_library">Thêm vào thư viện</string>
+    <string name="hero_remove_from_library">Xoá khỏi thư viện</string>
+    <string name="hero_mark_watched">Đánh dấu đã xem</string>
+    <string name="hero_mark_unwatched">Đánh dấu chưa xem</string>
+    <string name="hero_play_trailer">Xem trailer</string>
+    <string name="hero_press_back_trailer">Nhấn quay lại để thoát trailer</string>
+    <string name="hero_synopsis_read_more">Đọc thêm</string>
+    <string name="hero_synopsis_dismiss_hint">Bấm quay lại để đóng</string>
+
+    <string name="episodes_season">Phần %1$d</string>
+    <string name="episodes_specials">Tập đặc biệt</string>
+    <string name="episodes_episode">Tập</string>
+    <string name="episodes_cd_watched">Đã xem</string>
+    <string name="episodes_dialog_subtitle">Thao tác với tập phim</string>
+    <string name="episodes_mark_watched">Đánh dấu đã xem</string>
+    <string name="episodes_mark_unwatched">Đánh dấu chưa xem</string>
+    <string name="episodes_mark_season_watched">Đánh dấu cả phần đã xem</string>
+    <string name="episodes_mark_season_unwatched">Đánh dấu cả phần chưa xem</string>
+    <string name="episodes_mark_previous_watched">Đánh dấu các tập trước là đã xem</string>
+    <string name="episodes_mark_previous_seasons_watched">Đánh dấu các mùa trước là đã xem</string>
+    <string name="episodes_play">Phát</string>
+    <string name="episodes_open_comments">Mở bình luận tập phim</string>
+    <string name="play_manually">Chọn nguồn phát</string>
+    <string name="episodes_season_actions">Thao tác với mùa phim</string>
+
+    <string name="detail_added_to_library">Đã thêm vào thư viện</string>
+    <string name="detail_removed_from_library">Đã xoá khỏi thư viện</string>
+    <string name="detail_episode_marked_watched">Đã đánh dấu tập đã xem</string>
+    <string name="detail_episode_marked_unwatched">Đã đánh dấu tập chưa xem</string>
+    <string name="detail_lists_updated">Đã cập nhật danh sách</string>
+    <string name="detail_movie_marked_watched">Đã đánh dấu đã xem</string>
+    <string name="detail_movie_marked_unwatched">Đã đánh dấu chưa xem</string>
+    <string name="detail_all_episodes_watched">Tất cả tập đã được xem</string>
+    <string name="detail_no_watched_episodes">Chưa xem tập nào trong mùa này</string>
+    <string name="detail_all_previous_watched">Tất cả tập trước đã được xem</string>
+    <string name="detail_all_previous_seasons_watched">Tất cả mùa trước đã được xem</string>
+    <string name="detail_marked_episodes_watched">Đã đánh dấu %1$d tập đã xem</string>
+    <string name="detail_marked_episodes_unwatched">Đã đánh dấu %1$d tập chưa xem</string>
+    <string name="detail_marked_previous_watched">Đã đánh dấu %1$d tập trước đã xem</string>
+
+    <string name="detail_btn_play">Phát</string>
+    <string name="detail_btn_resume">Xem tiếp</string>
+    <string name="detail_btn_play_episode">Phát M%1$dT%2$d</string>
+    <string name="detail_btn_resume_episode">Xem tiếp M%1$dT%2$d</string>
+    <string name="detail_btn_next_episode">Tập tiếp theo M%1$dT%2$d</string>
+    <string name="detail_tab_cast">Nhà sáng tạo &amp; Diễn viên</string>
+    <string name="cast_role_creator">Tác giả</string>
+    <string name="cast_role_director">Đạo diễn</string>
+    <string name="cast_role_writer">Biên kịch</string>
+    <string name="detail_tab_ratings">Xếp hạng</string>
+    <string name="detail_tab_more_like_this">Có thể bạn thích</string>
+    <string name="detail_tab_trailer">Trailer</string>
+    <string name="detail_more_like_this_powered_by_tmdb">Gợi ý từ TMDB</string>
+    <string name="detail_section_network">Đơn vị phát hành</string>
+    <string name="detail_section_production">Đơn vị sản xuất</string>
+    <string name="detail_trailer_error">Không thể tải trailer lúc này.</string>
+    <string name="tmdb_entity_kind_company">Đơn vị sản xuất</string>
+    <string name="tmdb_entity_kind_network">Đơn vị phát hành</string>
+    <string name="tmdb_entity_rail_popular">Phổ biến</string>
+    <string name="tmdb_entity_rail_top_rated">Đánh giá cao nhất</string>
+    <string name="tmdb_entity_rail_recent">Mới nhất</string>
+    <string name="tmdb_entity_rail_most_voted">Bình chọn nhiều nhất</string>
+    <string name="collections_editor_tmdb_watch_region">Khu vực xem</string>
+    <string name="collections_editor_tmdb_quick_watch_regions">Khu vực xem nhanh</string>
+    <string name="collections_editor_tmdb_watch_providers">ID nền tảng</string>
+    <string name="collections_editor_tmdb_watch_providers_placeholder">8|337|350</string>
+    <string name="collections_editor_tmdb_without_watch_providers">Đã loại trừ ID nền tảng xem</string>
+    <string name="collections_editor_tmdb_without_watch_providers_placeholder">8|337|350</string>
+    <string name="collections_editor_tmdb_quick_watch_providers">Nền tảng xem nhanh</string>
+    <string name="tmdb_error_load_source">Không thể tải nguồn TMDB</string>
+    <string name="tmdb_error_list_not_found">Không tìm thấy danh sách TMDB</string>
+    <string name="tmdb_error_collection_not_found">Không tìm thấy bộ sưu tập TMDB</string>
+    <string name="tmdb_error_company_not_found">Không tìm thấy đơn vị sản xuất trên TMDB</string>
+    <string name="tmdb_error_network_not_found">Không tìm thấy đơn vị phát hành trên TMDB</string>
+    <string name="tmdb_error_person_not_found">Không tìm thấy hồ sơ trên TMDB</string>
+    <string name="tmdb_error_missing_list_id">Thiếu ID danh sách TMDB</string>
+    <string name="tmdb_error_missing_collection_id">Thiếu ID bộ sưu tập TMDB</string>
+    <string name="tmdb_error_missing_person_id">Thiếu ID hồ sơ TMDB</string>
+    <string name="tmdb_error_person_credits_not_found">Không có danh sách phim người này trên TMDB</string>
+    <string name="tmdb_error_discover_no_data">TMDB Khám Phá không trả về dữ liệu</string>
+    <string name="tmdb_entity_empty_title">Không tìm thấy nội dung</string>
+    <string name="tmdb_entity_empty_subtitle">TMDB hiện chưa có nội dung để duyệt cho mục này.</string>
+    <string name="episodes_unavailable">Không có sẵn</string>
+    <!-- Status labels for series (some languages need gendered forms) -->
+    <string name="series_status_ended">Đã kết thúc</string>
+    <string name="series_status_continuing">Đang phát sóng</string>
+    <string name="series_status_current">Chờ mùa mới</string>
+    <string name="series_status_cancelled">Đã bị hủy</string>
+    <string name="series_status_released">Đã phát hành</string>
+    <string name="series_status_planned">Sắp phát hành</string>
+    <string name="series_status_rumored">Đang đồn đoán</string>
+    <string name="series_status_in_production">Đang sản xuất</string>
+    <string name="series_status_post_production">Hậu kỳ</string>
+    <!-- Status labels for movies (allows gendered translations in languages that need it) -->
+    <string name="movie_status_ended">Đã kết thúc</string>
+    <string name="movie_status_continuing">Còn tiếp tục</string>
+    <string name="movie_status_current">Đang chiếu</string>
+    <string name="movie_status_cancelled">Đã bị hủy</string>
+    <string name="movie_status_released">Đã phát hành</string>
+    <string name="movie_status_planned">Sắp phát hành</string>
+    <string name="movie_status_rumored">Đang đồn đoán</string>
+    <string name="movie_status_in_production">Đang sản xuất</string>
+    <string name="movie_status_post_production">Hậu kỳ</string>
+    <string name="detail_lists_fallback">Danh sách</string>
+    <string name="detail_lists_subtitle">Chọn danh sách chứa tựa phim này.</string>
+    <string name="action_save">Lưu</string>
+    <string name="action_saving">Đang lưu…</string>
+
+    <string name="appearance_language_system">Ngôn ngữ hệ thống</string>
+    <string name="appearance_language_dialog_title">Chọn ngôn ngữ</string>
+    <string name="appearance_language_restart_hint">Khởi động lại ứng dụng để áp dụng ngôn ngữ mới.</string>
+
+    <string name="appearance_font_dialog_title">Chọn phông chữ</string>
+
+    <string name="appearance_title">Giao diện</string>
+    <string name="theme_color_gold">Vàng</string>
+    <string name="theme_color_jade">Ngọc bích</string>
+    <string name="theme_color_rose_gold">Vàng hồng</string>
+    <string name="theme_color_arctic_blue">Xanh lam băng giá</string>
+    <string name="theme_color_graphite">Than chì</string>
+    <string name="theme_color_crimson">Đỏ thẫm</string>
+    <string name="theme_color_ocean">Xanh lam</string>
+    <string name="theme_color_violet">Tím</string>
+    <string name="theme_color_emerald">Xanh ngọc</string>
+    <string name="theme_color_amber">Cam</string>
+    <string name="theme_color_rose">Hồng</string>
+    <string name="theme_color_white">Trắng</string>
+    <string name="appearance_amoled_mode_subtitle">Dùng màu đen tuyệt đối cho nền ứng dụng</string>
+    <string name="appearance_amoled_surfaces_mode_subtitle">Đồng thời dùng màu đen tuyệt đối cho các thẻ, bảng và khung chứa</string>
+
+    <string name="about_title">Giới thiệu</string>
+
+    <!-- SettingsScreen categories -->
+    <string name="settings_account">Tài khoản</string>
+    <string name="settings_profiles">Hồ sơ</string>
+    <string name="settings_layout">Bố cục</string>
+    <string name="settings_content_discovery">Nội dung &amp; Khám phá</string>
+    <string name="settings_integration">Tích hợp</string>
+    <string name="settings_playback">Phát lại</string>
+    <string name="settings_advanced">Nâng cao</string>
+    <string name="external_auto_next_loading">Đang tải tập tiếp theo…</string>
+    <!-- Account / sign-in error messages -->
+    <string name="account_error_generic_retry">Đã xảy ra lỗi. Vui lòng thử lại.</string>
+    <string name="account_error_invalid_credentials">Email hoặc mật khẩu không đúng.</string>
+    <string name="account_error_email_not_confirmed">Vui lòng xác nhận email trước.</string>
+    <string name="account_error_email_already_registered">Tài khoản với email này đã tồn tại.</string>
+    <string name="account_error_invalid_email">Vui lòng nhập email hợp lệ.</string>
+    <string name="account_error_password_too_short">Mật khẩu quá ngắn.</string>
+    <string name="account_error_password_too_weak">Mật khẩu quá yếu.</string>
+    <string name="account_error_signup_disabled">Đăng ký hiện đang bị tắt.</string>
+    <string name="account_error_rate_limited">Quá nhiều lần thử. Vui lòng thử lại sau.</string>
+    <string name="account_error_qr_login_expired">Mã QR đăng nhập đã hết hạn. Vui lòng thử lại.</string>
+    <string name="account_error_invalid_qr_login">Mã QR đăng nhập không hợp lệ.</string>
+    <string name="account_error_qr_login_other_device">Mã QR đăng nhập này được yêu cầu từ thiết bị khác.</string>
+    <string name="account_error_qr_login_outdated">Dịch vụ đăng nhập bằng mã QR không còn được hỗ trợ. Vui lòng thiết lập lại đăng nhập TV bằng SQL.</string>
+    <string name="account_error_qr_login_missing_setup">Hệ thống hậu kỳ đăng nhập bằng mã QR chưa được thiết lập. Vui lòng cập nhật thiết lập đăng nhập TV bằng SQL.</string>
+    <string name="account_error_qr_login_misconfigured">URL đăng nhập bằng mã QR được cấu hình sai.</string>
+    <string name="account_error_qr_login_invalid_request">Yêu cầu đăng nhập bằng mã QR không hợp lệ. Vui lòng thử lại.</string>
+    <string name="account_error_no_internet">Không có kết nối internet..</string>
+    <string name="account_error_connection_timeout">Kết nối đã hết thời gian chờ. Vui lòng thử lại.</string>
+    <string name="account_error_connection_refused">Không thể kết nối đến máy chủ.</string>
+    <string name="account_error_not_authenticated">Vui lòng đăng nhập trước.</string>
+    <string name="account_error_service_unavailable">Dịch vụ hiện không có sẵn. Vui lòng thử lại sau.</string>
+    <string name="account_error_invalid_request">Yêu cầu không hợp lệ. Vui lòng kiểm tra dữ liệu đầu vào.</string>
+    <string name="account_error_unexpected">Đã xảy ra lỗi không mong muốn..</string>
+    <string name="advanced_section_cache">Bộ nhớ đệm</string>
+    <string name="advanced_compose_highlighter">Bộ tô sáng Compose</string>
+    <string name="advanced_compose_highlighter_subtitle">Nhấp nháy viền quanh các thành phần giao diện đang được tái cấu trúc để gỡ lỗi hiệu năng.</string>
+    <string name="advanced_clear_cw_cache">Xoá bộ nhớ đệm Tiếp tục xem</string>
+    <string name="advanced_clear_cw_cache_subtitle">Xoá hình thu nhỏ, tiêu đề và dữ liệu bổ sung đã lưu trong bộ nhớ đệm của mục Tiếp tục xem.</string>
+    <string name="advanced_clear_cw_cache_done">Đã xoá bộ nhớ đệm</string>
+    <string name="settings_debug">Gỡ lỗi</string>
+    <string name="settings_account_section_subtitle">Tài khoản và trạng thái đồng bộ</string>
+    <string name="account_stat_addons">tiện ích</string>
+    <string name="account_stat_library">thư viện</string>
+    <string name="account_stat_progress">tiến độ</string>
+    <string name="account_stat_watched">đã xem</string>
+
+    <string name="cd_decrease">Giảm</string>
+    <string name="cd_increase">Tăng</string>
+    <string name="action_cancel">Huỷ</string>
+    <string name="sub_opacity">Độ mờ</string>
+    <string name="action_none">Không có</string>
+
+
+    <string name="playback_section_general">Chung</string>
+    <string name="playback_loading_overlay">Lớp phủ Đang tải</string>
+    <string name="playback_loading_overlay_sub">Hiển thị màn hình tải đến khi khung hình video đầu tiên xuất hiện.</string>
+    <string name="playback_pause_overlay">Lớp phủ Tạm dừng</string>
+    <string name="playback_pause_overlay_sub">Hiển thị lớp phủ thông tin sau 5 giây khi đang tạm dừng.</string>
+    <string name="playback_show_clock_sub">Hiển thị thời gian hiện tại và thời gian kết thúc khi các thanh điều khiển đang hiện.</string>
+    <string name="playback_osd_clock">Đồng hồ OSD</string>
+    <string name="playback_skip_intro">Bỏ qua Giới thiệu</string>
+    <string name="playback_skip_intro_sub">Dùng introdb.app để tự động nhận diện phần giới thiệu và tóm tắt.</string>
+    <string name="playback_parental_guide">Cảnh báo nội dung</string>
+    <string name="playback_parental_guide_sub">Hiển thị lớp phủ khuyến cáo phụ huynh khi bắt đầu phát.</string>
+    <string name="auto_skip_intro">Giới thiệu / Mở đầu</string>
+    <string name="auto_skip_intro_sub">Tự động bỏ qua phần giới thiệu và mở đầu anime.</string>
+    <string name="auto_skip_recap">Tóm tắt</string>
+    <string name="auto_skip_recap_sub">Tự động bỏ qua các phân đoạn tóm tắt.</string>
+    <string name="auto_skip_outro">Đoạn kết / Kết thúc</string>
+    <string name="auto_skip_outro_sub">Tự động bỏ qua đoạn kết và kết thúc anime.</string>
+    <string name="playback_engine_exoplayer">ExoPlayer</string>
+    <string name="playback_engine_mvplayer">Libmpv (Beta)</string>
+    <string name="playback_auto_switch_internal_player_on_error">Tự động chuyển trình phát khi khởi động bị lỗi</string>
+    <string name="playback_section_subtitles">Phụ đề</string>
+    <string name="playback_afr_off">Tắt</string>
+    <string name="playback_afr_on_start">Khi bắt đầu</string>
+    <string name="playback_resolution_matching">Khớp độ phân giải</string>
+    <string name="playback_resolution_matching_unsupported_sub">Màn hình chỉ báo cáo một độ phân giải; việc đồng bộ có thể không có tác dụng.</string>
+    <string name="playback_afr_capability_unsupported_title">Một số cài đặt có thể không hoạt động.</string>
+    <string name="playback_afr_capability_both_problem_body">Tốc độ khung hình tự động và khớp độ phân giải đều đang bật, nhưng màn hình của bạn chỉ báo cáo một tần số quét và một độ phân giải. Cả hai tính năng có thể không có tác dụng và được khuyến nghị nên tắt cả hai.</string>
+    <string name="playback_afr_capability_only_afr_unsupported_body">Tốc độ khung hình tự động đang bật nhưng màn hình của bạn chỉ báo cáo một tần số quét. Việc chuyển đổi có thể không có tác dụng và được khuyến nghị nên tắt tính năng này.</string>
+    <string name="playback_afr_capability_only_res_unsupported_body">Tính năng khớp độ phân giải đang bật, nhưng màn hình của bạn chỉ báo cáo một độ phân giải. Việc đồng bộ có thể không có tác dụng và được khuyến nghị nên tắt tính năng này.</string>
+    <string name="playback_afr_capability_disable_button">Tắt tốc độ khung hình tự động</string>
+    <string name="playback_afr_capability_disable_resolution_button">Tắt khớp độ phân giải</string>
+    <string name="playback_afr_capability_disable_both_button">Tắt cả hai</string>
+    <string name="playback_player_auto">Tự động (Tốt nhất cho Nội dung)</string>
+    <string name="playback_player_auto_desc">ExoPlayer cho Phim &amp; Chương trình TV · MPV cho Anime</string>
+    <string name="playback_engine_exoplayer_desc">Tương thích tốt nhất với các tính năng hiện có của Nuvio.</string>
+    <string name="playback_engine_mvplayer_desc">Sử dụng libmpv với các điều khiển OSD của Nuvio. Tính năng thử nghiệm.</string>
+
+    <string name="video_section">Video</string>
+    <string name="audio_autoplay_trailers">Tự động phát trailer</string>
+    <string name="audio_autoplay_trailers_sub">Tự động phát trailer trên màn hình chi tiết sau một khoảng thời gian không hoạt động</string>
+    <string name="audio_trailer_delay">Độ trễ trailer</string>
+    <string name="audio_section">Âm thanh</string>
+    <string name="audio_lang_default">Mặc định (tệp phương tiện)</string>
+    <string name="audio_lang_device">Ngôn ngữ thiết bị</string>
+    <string name="audio_lang_original">Ngôn ngữ gốc</string>
+    <string name="audio_lang_original_hint">Yêu cầu bật tính năng bổ sung dữ liệu từ TMDB.</string>
+    <string name="audio_skip_silence">Bỏ qua đoạn im lặng</string>
+    <string name="audio_skip_silence_sub">Bỏ qua các đoạn im lặng trong quá trình phát</string>
+    <string name="audio_remember_delay_per_device">Ghi nhớ độ trễ âm thanh cho từng thiết bị</string>
+    <string name="audio_remember_delay_per_device_sub">Lưu và khôi phục độ trễ âm thanh trong trình phát cho đường xuất âm thanh hiện tại</string>
+    <string name="audio_advanced_warning">Các cài đặt này có thể gây sự cố trên một số thiết bị. Chỉ thay đổi nếu bạn hiểu rõ bạn đang làm gì.</string>
+    <string name="audio_number_of_channels">Số lượng kênh</string>
+    <string name="audio_number_of_channels_desc">Thiết lập bố trí loa được sử dụng để gộp kênh âm thanh bằng FFmpeg.</string>
+    <string name="audio_decoder_device_only">Chỉ dùng bộ giải mã thiết bị</string>
+    <string name="audio_decoder_prefer_device">Ưu tiên bộ giải mã thiết bị</string>
+    <string name="audio_decoder_prefer_app">Ưu tiên bộ giải mã ứng dụng (FFmpeg)</string>
+    <string name="audio_decoder_priority">Thứ tự ưu tiên bộ giải mã</string>
+    <string name="audio_enable_downmix_title">Bật tính năng gộp kênh âm thanh</string>
+    <string name="audio_enable_downmix_subtitle">Sử dụng đường gộp kênh âm thanh của FFmpeg. Yêu cầu bật Ưu tiên bộ giải mã ứng dụng (FFmpeg). Khi tắt, âm thanh sẽ sử dụng lại đường xử lý trước đây của Android/thiết bị.</string>
+    <string name="audio_tunneled">Phát trực tiếp qua phần cứng</string>
+    <string name="audio_tunneled_sub">Đồng bộ âm thanh/video ở cấp phần cứng. Có thể cải thiện việc phát lại trên một số thiết bị Android TV</string>
+    <string name="audio_force_optical_passthrough">Buộc chuyển mã AC-3 (Cổng quang/SPDIF)</string>
+    <string name="audio_force_optical_passthrough_sub">Chuyển mã các định dạng đa kênh (TrueHD, DTS, AAC, v.v.) sang Dolby Digital 5.1 theo thời gian thực cho kết nối Cổng quang/SPDIF.</string>
+    <!-- DV7 Handling Mode -->
+    <string name="dv7_handling_dialog_subtitle">Chọn cách xử lý luồng DV khi phát</string>
+    <string name="dv7_mode_auto">Tự động (khuyến nghị)</string>
+    <string name="dv7_mode_auto_desc">Tự động nhận diện màn hình và chọn chế độ phù hợp nhất. Nếu gặp sự cố khi phát, hãy thử lớp nền HDR10.</string>
+    <string name="dv7_mode_hdr10_base_layer">Lớp nền HDR10</string>
+    <string name="dv7_mode_hdr10_base_layer_desc">Bỏ qua dữ liệu nâng cao Dolby Vision. Có thể giúp trên các thiết bị hỗ trợ HDR nhưng gặp vấn đề với DV Profile 7.</string>
+    <string name="dv7_mode_dv81_libdovi">Chuyển đổi sang DV8.1</string>
+    <string name="dv7_mode_dv81_libdovi_desc">Chuyển DV7 sang DV8.1 một lớp. Yêu cầu thiết bị hiển thị hỗ trợ Dolby Vision.</string>
+    <string name="dv7_mode_off">Tắt (gốc)</string>
+    <string name="dv7_mode_off_desc">Truyền thẳng DV7 không chỉnh sửa. Có thể bị lỗi trên phần cứng không hỗ trợ DV Profile 7.</string>
+    <string name="dv7_mode_strip_dv">Luôn loại bỏ DV</string>
+    <string name="dv7_mode_strip_dv_desc">Loại bỏ lớp RPU của Dolby Vision khỏi tất cả các luồng.</string>
+    <string name="audio_dv5_to_dv81_title">Chuyển đổi DV5 sang DV8.1</string>
+    <string name="audio_dv5_to_dv81_sub">Giả lập Profile 8.1 cho luồng DV5 để xuất ra HDR10 tương thích. Hữu ích trên các thiết bị không hỗ trợ giải mã DV5 gốc.</string>
+    <string name="audio_strip_hdr10plus_title">Loại bỏ siêu dữ liệu HDR10+</string>
+    <string name="audio_strip_hdr10plus_sub">Loại bỏ siêu dữ liệu động HDR10+ khỏi các luồng. Khi Chuyển đổi sang DV8.1 được bật, việc loại bỏ sẽ được thực hiện sau khi chuyển đổi.</string>
+    <string name="dv7_libdovi_mode_caption" translatable="false">Conversion mode (auto-selected, do not change unless instructed). Pick one to force it; None uses auto. Active only when DV7 Handling is Convert to DV8.1.</string>
+    <string name="dv7_libdovi_mode_row_title" translatable="false">Conversion mode</string>
+    <string name="dv7_libdovi_mode_none_title" translatable="false">None</string>
+    <string name="dv7_libdovi_mode_none_sub" translatable="false">No override. Uses the automatically selected conversion mode.</string>
+    <string name="dv7_libdovi_mode_0_title" translatable="false">Mode 0 — Copy (no convert)</string>
+    <string name="dv7_libdovi_mode_0_sub" translatable="false">Parse the RPU and write it back untouched. No profile conversion.</string>
+    <string name="dv7_libdovi_mode_1_title" translatable="false">Mode 1 — MEL</string>
+    <string name="dv7_libdovi_mode_1_sub" translatable="false">Convert the RPU to be MEL (Minimum Enhancement Layer) compatible.</string>
+    <string name="dv7_libdovi_mode_2_title" translatable="false">Mode 2 — 8.1 (no-op mapping)</string>
+    <string name="dv7_libdovi_mode_2_sub" translatable="false">Convert to profile 8.1 with luma and chroma mapping set to no-op. The standard conversion.</string>
+    <string name="dv7_libdovi_mode_3_title" translatable="false">Mode 3 — Profile 5 to 8.1</string>
+    <string name="dv7_libdovi_mode_3_sub" translatable="false">Convert Profile 5 (DV5) streams to Profile 8.1. Same conversion the Convert DV5 to DV8.1 toggle uses.</string>
+    <string name="dv7_libdovi_mode_4_title" translatable="false">Mode 4 — 8.4 (static)</string>
+    <string name="dv7_libdovi_mode_4_sub" translatable="false">Convert to static profile 8.4.</string>
+    <string name="audio_mpv_hwdec_title">Giải mã phần cứng (chỉ cho MPV))</string>
+    <string name="audio_mpv_hwdec_dialog_subtitle">Chọn cách libmpv sử dụng bộ giải mã phần cứng.</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy">Tương thích cũ (trực tiếp -&gt; sao chép)</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy_desc">Hành vi mặc định trước đây: thử dùng giải mã phần cứng trực tiếp trước, sau đó mới sao chép khung hình đã giải mã về bộ nhớ hệ thống để tiếp tục xử lý.</string>
+    <string name="audio_mpv_hwdec_auto_safe">Tự động (tự động-an toàn)</string>
+    <string name="audio_mpv_hwdec_auto_safe_desc">Chế độ tự động an toàn hơn với phương án dự phòng khi một số bộ giải mã phần cứng gặp lỗi.</string>
+    <string name="audio_mpv_hwdec_hardware_copy">Phần cứng (sao chép) (mediacodec-copy)</string>
+    <string name="audio_mpv_hwdec_hardware_copy_desc">Sử dụng giải mã phần cứng rồi sao chép khung hình về bộ nhớ hệ thống tới bộ nhớ phần mềm.</string>
+    <string name="audio_mpv_hwdec_hardware_direct">Phần cứng (trực tiếp)) (mediacodec)</string>
+    <string name="audio_mpv_hwdec_hardware_direct_desc">Sử dụng giải mã phần cứng trực tiếp. Đây là cách nhanh nhất trên các thiết bị tương thích.</string>
+    <string name="audio_mpv_hwdec_disabled">Đã tắt (không)</string>
+    <string name="audio_mpv_hwdec_disabled_desc">Tắt giải mã phần cứng và chỉ sử dụng giải mã bằng phần mềm.</string>
+    <string name="audio_decoder_device_only_desc">Chỉ dùng bộ giải mã phần cứng tích hợp. Tương thích nhất nhưng có thể không hỗ trợ tất cả định dạng.</string>
+    <string name="audio_decoder_prefer_device_desc">Dùng bộ giải mã phần cứng khi có sẵn, dự phòng bằng FFmpeg. Khuyến nghị cho hầu hết thiết bị.</string>
+    <string name="audio_decoder_prefer_app_desc">Dùng bộ giải mã FFmpeg khi có sẵn. Hỗ trợ nhiều định dạng hơn nhưng dùng CPU hơn.</string>
+    <string name="audio_decoder_controls">Kiểm soát việc dùng bộ giải mã phần cứng hay phần mềm (FFmpeg) cho âm thanh và video</string>
+
+    <string name="sub_not_set">Chưa đặt</string>
+    <string name="sub_forced_lang">Bắt buộc</string>
+    <string name="sub_preferred_lang">Ngôn ngữ ưu tiên</string>
+    <string name="sub_secondary_lang">Ngôn ngữ ưu tiên thứ hai</string>
+    <string name="sub_use_forced_subtitles">Sử dụng phụ đề bắt buộc</string>
+    <string name="sub_use_forced_subtitles_desc">Ưu tiên phụ đề bắt buộc khi âm thanh khớp với ngôn ngữ phụ đề; nếu không có sẵn, không chọn gì</string>
+    <string name="sub_show_only_preferred_languages">Chỉ hiển thị ngôn ngữ ưu tiên</string>
+    <string name="sub_show_only_preferred_languages_desc">Ẩn tất cả ngôn ngữ phụ đề khác khỏi danh sách chọn</string>
+    <string name="sub_strip_sdh">Loại bỏ chú thích phụ đề</string>
+    <string name="sub_strip_sdh_desc">Ẩn các mô tả âm thanh và nhãn người nói khỏi văn bản phụ đề.</string>
+    <string name="sub_size">Cỡ chữ</string>
+    <string name="sub_bold">In đậm</string>
+    <string name="sub_libass">Dùng libass cho phụ đề ASS/SSA</string>
+    <string name="sub_libass_sub">Thử nghiệm: kết xuất ASS/SSA nâng cao (kiểu chữ, định vị, hoạt ảnh)</string>
+
+    <string name="autoplay_last_link_cache">Thời gian lưu bộ nhớ đệm của liên kết cuối</string>
+    <string name="cache_duration_hour_one">%1$d giờ</string>
+    <string name="cache_duration_hour_other">%1$d giờ</string>
+    <string name="cache_duration_day_one">%1$d ngày</string>
+    <string name="cache_duration_day_other">%1$d ngày</string>
+    <string name="cache_duration_days_hours">%1$dd %2$dh</string>
+    <string name="autoplay_mode_manual">Thủ công (chọn luồng)</string>
+    <string name="autoplay_mode_first">Tự động phát nguồn đầu tiên</string>
+    <string name="autoplay_mode_regex">Tự động phát theo biểu thức chính quy</string>
+    <string name="autoplay_next_episode_fallback">Dự phòng khi nhóm phát liên tục bị lỗi</string>
+    <string name="autoplay_next_episode_fallback_sub">Tự động chọn luồng đầu tiên có sẵn nếu không tìm thấy nhóm phát liên tục. Khi tắt, trình chọn luồng sẽ được hiển thị.</string>
+    <string name="autoplay_prefer_binge_group">Ưu tiên nhóm phát liên tục (Tập tiếp theo)</string>
+    <string name="autoplay_prefer_binge_group_sub">Ưu tiên cùng cấu hình nguồn (cùng tiện ích/nhóm chất lượng) trước các quy tắc tự động phát thông thường.</string>
+    <string name="autoplay_reuse_binge_group">Dùng lại nhóm phát liên tục</string>
+    <string name="autoplay_reuse_binge_group_sub">Ghi nhớ và dùng lại nhóm phát liên tục gần nhất giữa các phiên (Tiếp tục xem, Chi tiết, ...).</string>
+    <string name="autoplay_threshold_pct">Phần trăm</string>
+    <string name="autoplay_threshold_min">Số phút trước khi kết thúc</string>
+    <string name="autoplay_threshold_mode">Ngưỡng phát tập tiếp theo</string>
+    <string name="autoplay_threshold_pct_title">Ngưỡng phần trăm</string>
+    <string name="autoplay_threshold_pct_sub">Dự phòng nếu không có mốc thời gian đoạn kết.</string>
+    <string name="autoplay_threshold_min_title">Ngưỡng phút</string>
+    <string name="autoplay_timeout_instant">Ngay lập tức</string>
+    <string name="autoplay_timeout_unlimited">Không giới hạn</string>
+    <string name="autoplay_all_addons">Tất cả tiện ích đã cài đặt</string>
+    <string name="autoplay_regex_placeholder">Chưa đặt mẫu. Ví dụ: 4K|2160p|Remux</string>
+    <string name="autoplay_regex_title">Mẫu biểu thức chính quy</string>
+    <string name="autoplay_no_items">Không có mục nào</string>
+    <string name="autoplay_mode_first_desc">Tự động phát nguồn đầu tiên có sẵn.</string>
+    <string name="autoplay_threshold_pct_desc">Hiển thị theo phần trăm thời lượng phát khi không có mốc thời gian đoạn kết.</string>
+    <string name="autoplay_threshold_min_desc">Hiển thị trước khi tập phim kết thúc bao nhiêu phút khi không có mốc thời gian đoạn kết.</string>
+    <string name="autoplay_regex_matches">Khớp với tên/tiêu đề/mô tả/tiện ích/url luồng. Ví dụ: 4K|2160p|Remux</string>
+    <string name="autoplay_invalid_regex">Mẫu biểu thức chính quy không hợp lệ</string>
+
+    <string name="layout_landscape_posters">Poster ngang</string>
+    <string name="layout_discover_location_in_search_desc">Hiển thị mục Khám phá trong thẻ Tìm kiếm.</string>
+    <string name="layout_catalog_type">Hiển thị loại danh mục</string>
+    <string name="layout_catalog_type_sub">Hiển thị hậu tố loại bên cạnh tên danh mục (Phim/Loạt phim).</string>
+    <string name="layout_hide_unreleased">Ẩn nội dung chưa phát hành</string>
+    <string name="layout_hide_unreleased_sub">Ẩn phim và chương trình chưa được phát hành.</string>
+    <string name="layout_episode_ratings">Điểm đánh giá tập phim</string>
+    <string name="layout_episode_ratings_sub">Chọn các điểm đánh giá tập phim được hiển thị.</string>
+    <string name="layout_ratings_show">Hiển thị</string>
+    <string name="layout_ratings_hide">Ẩn</string>
+    <string name="layout_ratings_hide_unwatched">Ẩn mục Chưa xem</string>
+    <string name="layout_section_streams">Luồng</string>
+    <string name="layout_cw_enabled">Hiển thị mục Tiếp tục xem</string>
+    <string name="layout_cw_enabled_sub">Hiển thị hàng Tiếp tục xem trên màn hình chính.</string>
+    <string name="layout_use_episode_thumbnails_cw">Dùng hình thu nhỏ của tập trong Tiếp tục xem.</string>
+    <string name="layout_use_episode_thumbnails_cw_sub">Dùng hình thu nhỏ của tập làm hình ảnh mặc định. Khi tắt, sẽ dùng phông nền.</string>
+    <string name="layout_blur_unwatched">Làm mờ tập chưa xem.</string>
+    <string name="layout_blur_unwatched_sub">Làm mờ ảnh thu nhỏ các tập chưa xem để tránh tiết lộ nội dung.</string>
+    <string name="layout_blur_cw_next_up">Làm mờ chưa xem trong Tiếp tục xem</string>
+    <string name="layout_blur_cw_next_up_sub">Làm mờ hình thu nhỏ tập tiếp theo trong Tiếp tục xem để tránh tiết lộ nội dung.</string>
+    <string name="layout_next_up_furthest_episode">Tiếp theo từ tập xa nhất</string>
+    <string name="layout_next_up_furthest_episode_sub">Hiển thị tập tiếp theo dựa trên tập xa nhất đã xem. Tắt khi xem lại để dùng tập vừa xem gần nhất.</string>
+    <string name="layout_show_unaired_next_up">Hiển thị tập tiếp theo chưa phát sóng</string>
+    <string name="layout_show_unaired_next_up_sub">Bao gồm các tập sắp tới trong Tiếp tục xem trước khi phát sóng.</string>
+    <string name="layout_cw_card_style_card">Thẻ</string>
+    <string name="layout_cw_card_style_poster">Poster</string>
+    <string name="layout_cw_sort_mode">Thứ tự sắp xếp</string>
+    <string name="layout_cw_sort_mode_sub">Cách sắp xếp các mục trong Tiếp tục xem</string>
+    <string name="layout_cw_sort_default">Mặc định</string>
+    <string name="layout_cw_sort_default_desc">Sắp xếp tất cả mục theo độ gần đây</string>
+    <string name="layout_cw_sort_streaming">Kiểu phát luồng</string>
+    <string name="layout_cw_sort_streaming_desc">Mục đã phát hành trước, sắp tới ở sau cùng</string>
+    <string name="layout_cw_sort_split_upcoming">Tách hàng Sắp ra mắt</string>
+    <string name="layout_cw_sort_split_upcoming_desc">Chuyển các tập chưa phát sóng vào hàng Sắp ra mắt riêng biệt.</string>
+    <string name="upcoming_section_title">Sắp ra mắt</string>
+    <string name="layout_trailer_button">Hiển thị nút Trailer</string>
+    <string name="layout_trailer_button_sub">Hiển thị nút trailer trên trang chi tiết (chỉ khi có trailer).</string>
+    <string name="layout_prefer_external_meta">Ưu tiên siêu dữ liệu từ tiện ích bên ngoài</string>
+    <string name="layout_prefer_external_meta_sub">Dùng siêu dữ liệu từ tiện ích bên ngoài thay vì tiện ích danh mục.</string>
+    <string name="layout_show_full_release_date">Hiển thị ngày phát hành đầy đủ</string>
+    <string name="layout_show_full_release_date_sub">Đối với phim điện ảnh, hiển thị ngày phát hành đầy đủ thay vì chỉ hiển thị năm.</string>
+    <string name="layout_trailer_muted">Phát trailer đã tắt tiếng</string>
+    <string name="layout_trailer_muted_sub_preview">Tắt âm thanh trailer khi tự động phát bản xem trước.</string>
+
+
+
+
+    <!-- Debrid stream filter dialogs (per-resolution / quality / size / multi-choice pickers) -->
+
+    <string name="settings_stream_badges_section">Kiểu Fusion</string>
+    <string name="settings_stream_size_badges_title">Nhãn dung lượng</string>
+    <string name="settings_stream_badge_urls_title">URL nhãn Fusion</string>
+    <string name="settings_stream_badge_urls_description">Nhập tối đa %1$d URL JSON nhãn luồng kiểu Fusion. Bạn có thể cập nhật hoặc xoá từng URL riêng lẻ.</string>
+    <string name="settings_fusion_badges_summary">%1$d/%2$d URL • %3$d nhãn Fusion đang hoạt động</string>
+    <string name="settings_fusion_badges_empty">Không có URL nhãn Fusion đã nhập</string>
+    <string name="settings_fusion_badge_url_label">URL JSON nhãn Fusion</string>
+    <string name="settings_fusion_badge_url_active">Đang bật</string>
+    <string name="settings_fusion_badge_url_inactive">Đã tắt</string>
+    <string name="settings_fusion_badge_url_status_summary">%1$s, %2$d nhãn đang bật, %3$d nhóm</string>
+    <string name="settings_fusion_badge_preview_action">Xem trước</string>
+    <string name="settings_fusion_badge_preview_title">Xem trước nhãn Fusion</string>
+    <string name="settings_fusion_badge_preview_count">%1$d nhãn kiểu Fusion từ URL này</string>
+    <string name="settings_fusion_badge_preview_empty">Không có hình ảnh nhãn kiểu Fusion trong URL này</string>
+    <string name="settings_fusion_badge_group_title">Nhóm %1$d</string>
+    <string name="settings_fusion_badge_other_group_title">Các nhãn Fusion khác</string>
+    <string name="stream_badge_qr_instruction">Quét mã QR này bằng điện thoại để quản lý các URL nhãn Fusion.</string>
+    <string name="action_import">Nhập</string>
+    <string name="action_delete">Xoá</string>
+
+    <!-- Anime-Skip -->
+
+    <string name="tmdb_language_title">Ngôn ngữ</string>
+    <string name="tmdb_trailers_title">Trailer</string>
+    <string name="tmdb_collections_title">Bộ sưu tập</string>
+    <string name="tmdb_collections_subtitle">Bộ sưu tập phim TMDB theo thứ tự phát hành</string>
+
+    <string name="tmdb_language_dialog_title">Ngôn ngữ TMDB</string>
+
+    <string name="qr_login_pending">Đang chờ phê duyệt trên điện thoại của bạn…</string>
+    <string name="qr_login_preparing">Đang chuẩn bị đăng nhập bằng mã QR...</string>
+    <string name="qr_login_scan_prompt">Quét mã QR và đăng nhập trên điện thoại của bạn</string>
+    <string name="qr_login_signing_in">Đang đăng nhập…</string>
+    <string name="qr_login_success">Đăng nhập thành công</string>
+    <string name="trakt_library_source_nuvio">Thư viện Nuvio</string>
+
+    <string name="debug_title">Gỡ lỗi</string>
+    <string name="debug_subtitle">Công cụ dành cho nhà phát triển và cờ tính năng (chỉ dành cho bản gỡ lỗi)</string>
+    <string name="debug_section_popup">Cửa sổ bật lên/ Hộp thoại kiểm tra</string>
+    <string name="debug_playback_error_title">Màn hình lỗi phát lại</string>
+    <string name="debug_playback_error_subtitle">Hiển thị cửa sổ bật lên lỗi phát lại mô phỏng</string>
+    <string name="debug_section_progress">Chỉ báo tiến trình</string>
+    <string name="debug_progress_indicator_title">Chỉ báo đang tải</string>
+    <string name="debug_progress_indicator_subtitle">Xem trước hiệu ứng tải dùng chung ở các kích thước giao diện người dùng phổ biến</string>
+    <string name="debug_progress_indicator_small">Nhỏ</string>
+    <string name="debug_progress_indicator_default">Mặc định</string>
+    <string name="debug_progress_indicator_large">Lớn</string>
+    <string name="debug_section_features">Bật/tắt tính năng</string>
+    <string name="debug_buffer_logs_title">Bật nhật ký BỘ ĐỆM</string>
+    <string name="debug_buffer_logs_subtitle">Ghi định kỳ thông tin chẩn đoán bộ đệm của trình phát vào logcat (đã tắt theo mặc định)</string>
+    <string name="debug_error_dialog_title">Lỗi phát lại</string>
+    <string name="debug_error_dialog_subtitle">Đã xảy ra lỗi trong quá trình phát lại.\n\nLỗi: Lỗi mô phỏng để kiểm tra - đây không phải lỗi thực. Nguồn trả về HTTP 503 (Dịch vụ không khả dụng).</string>
+    <string name="debug_dismiss">Bỏ qua</string>
+
+    <string name="profile_name_placeholder">Tên hồ sơ</string>
+    <string name="profile_create_btn">Tạo</string>
+    <string name="profile_choose_avatar">Chọn Ảnh đại diện</string>
+    <string name="profile_custom_avatar_web_panel_note">URL ảnh đại diện tùy chỉnh có thể được cấu hình tại bảng điều khiển web Nuvio.</string>
+    <string name="profile_editor_tab_avatar">Ảnh đại diện</string>
+    <string name="profile_editor_tab_background">Hình nền</string>
+    <string name="profile_background_member_note">URL hình nền tùy chỉnh có thể được cấu hình từ bảng điều khiển web Nuvio.</string>
+    <string name="profile_background_normal">Mặc định</string>
+    <string name="profile_background_custom">Tùy chỉnh</string>
+    <string name="profile_avatar_focus_hint">Chọnảnh đại diện để xem tên</string>
+    <string name="profile_avatar_category_all">Tất cả</string>
+    <string name="profile_avatar_category_supporter">Người tài trợ</string>
+    <string name="profile_avatar_category_anime">Anime</string>
+    <string name="profile_avatar_category_animation">Hoạt hình</string>
+    <string name="profile_avatar_category_movie">Phim</string>
+    <string name="profile_avatar_category_tv">TV</string>
+    <string name="profile_avatar_category_gaming">Trò chơi</string>
+    <string name="profile_cancel">Hủy</string>
+    <string name="profile_save">Lưu</string>
+    <string name="profile_pin_set">Đặt mã PIN</string>
+    <string name="profile_pin_change">Đổi mã PIN</string>
+    <string name="profile_pin_remove">Xoá mã PIN</string>
+    <string name="profile_pin_verifying">Đang xác nhận…</string>
+    <string name="profile_pin_overlay_unlock_heading">Nhập mã PIN để truy cập %1$s.</string>
+    <string name="profile_pin_overlay_set_heading">Tạo mã PIN gồm 4 chữ số cho %1$s.</string>
+    <string name="profile_pin_overlay_confirm_heading">Xác nhận mã PIN mới.</string>
+    <string name="profile_pin_overlay_change_verify_heading">Nhập mã PIN hiện tại để đổi mã PIN cho %1$s.</string>
+    <string name="profile_pin_overlay_change_verify_support">Nhập 4 chữ số của mã PIN hiện tại trước khi đặt mã mới.</string>
+    <string name="profile_pin_overlay_remove_verify_heading">Nhập mã PIN hiện tại để bỏ khóa cho %1$s.</string>
+    <string name="profile_pin_overlay_remove_verify_support">Nhập 4 chữ số của mã PIN hiện tại để bỏ khóa.</string>
+    <string name="profile_pin_overlay_delete_verify_heading">Nhập mã PIN hiện tại để xoá %1$s.</string>
+    <string name="profile_pin_overlay_delete_verify_support">Nhập 4 chữ số của mã PIN hiện tại trước khi xoá hồ sơ này.</string>
+    <string name="profile_pin_overlay_set_support">Mã PIN này sẽ được yêu cầu trước khi mở hồ sơ này.</string>
+    <string name="profile_pin_overlay_confirm_support">Nhập lại 4 chữ số để hoàn tất thiết lập.</string>
+    <string name="profile_pin_overlay_mismatch">Mã PIN không khớp. Nhập lại mã PIN mới.</string>
+
+
+    <!-- Collection editor fallbacks -->
+    <string name="collection_editor_untitled_folder">Chưa có tiêu đề</string>
+    <string name="collection_editor_untitled_collection">Bộ sưu tập chưa có tiêu đề</string>
+    <!-- AddonManagerScreen -->
+    <string name="addon_title">Tiện ích</string>
+    <string name="addon_readonly_notice">Đang dùng tiện ích của hồ sơ chính và không thể thay đổi</string>
+    <string name="addon_installing">Đang cài đặt</string>
+    <string name="addon_install_btn">Cài đặt</string>
+    <string name="addon_install_success">Đã cài đặt %1$s</string>
+    <string name="addon_error_invalid_url">Nhập URL tiện ích hợp lệ</string>
+    <string name="addon_error_invalid_scheme">URL tiện ích phải bắt đầu bằng http hoặc https</string>
+    <string name="addon_installed_section">Đã cài đặt</string>
+    <string name="addon_empty">Chưa cài đặt tiện ích nào. Thêm một tiện ích để bắt đầu.</string>
+    <string name="addon_remove">Xoá</string>
+    <string name="addons_badge_disabled">Đã tắt</string>
+    <string name="addon_manage_from_phone_title">Quản lý từ điện thoại</string>
+    <string name="addon_qr_scan_instruction">Quét bằng điện thoại để quản lý tiện ích, danh mục và bộ sưu tập</string>
+    <string name="addon_qr_collections_scan_instruction">Quét bằng điện thoại để quản lý bộ sưu tập</string>
+    <string name="addon_qr_close">Đóng</string>
+    <string name="addon_confirm_title">Xác nhận thay đổi tiện ích &amp; danh mục</string>
+    <string name="addon_confirm_subtitle">Những thay đổi sau đây được thực hiện từ điện thoại của bạn:</string>
+    <string name="addon_confirm_added">Đã thêm:</string>
+    <string name="addon_confirm_removed">Đã gỡ bỏ:</string>
+    <string name="addon_confirm_catalog_reordered">Thứ tự danh mục đã thay đổi</string>
+    <string name="addon_confirm_catalogs_disabled">Danh mục đã tắt trên Trang chủ:</string>
+    <string name="addon_confirm_catalogs_enabled">Danh mục đã bật trên Trang chủ:</string>
+    <string name="addon_confirm_no_changes">Không phát hiện thay đổi nào</string>
+    <string name="addon_confirm_reject">Từ chối</string>
+    <string name="addon_confirm_confirm">Xác nhận</string>
+    <string name="addon_refresh_done_subtitle">Tiện ích vừa được làm mới</string>
+    <string name="addon_pending_collections_updated">Bộ sưu tập đã cập nhật</string>
+    <string name="addon_pending_collections_replace">%1$d bộ sưu tập sẽ thay thế các bộ sưu tập hiện tại</string>
+    <string name="addon_confirm_total_addons">Tổng tiện ích: %1$d</string>
+    <string name="addon_confirm_total_catalogs">Tổng danh mục: %1$d</string>
+
+    <string name="catalog_order_follow_addons">Theo thứ tự của các tiện ích</string>
+    <string name="catalog_order_empty">Chưa có danh mục Trang chủ nào.</string>
+
+
+    <string name="stream_retry">Thử lại</string>
+    <string name="stream_no_streams">Không tìm thấy luồng</string>
+    <string name="stream_no_streams_hint">Thử cài thêm tiện ích để tìm luồng phát</string>
+    <string name="stream_finding_source">Đang tìm nguồn phát</string>
+    <string name="p2p_consent_title">Phát luồng P2P</string>
+    <string name="p2p_consent_body">Luồng phát này sử dụng công nghệ ngang hàng (P2P)\n\nKhi bật P2P, bạn xác nhận và đồng ý rằng:\n\n• Địa chỉ IP của bạn sẽ hiển thị với các người dùng ngang hàng khác trong mạng.\n• Bạn tự chịu trách nhiệm về nội dung mình truy cập.\n• Bạn xác nhận mình có quyền hợp pháp để phát nội dung này tại khu vực của mình.\n• Nuvio không lưu trữ, phân phối hoặc kiểm soát bất kỳ nội dung P2P nào.\n• Nuvio không chịu trách nhiệm cho bất kỳ hậu quả pháp lý nào phát sinh từ việc sử dụng P2P.\n\nBạn tự chịu mọi rủi ro khi sử dụng tính năng này. Có thể tắt P2P bất cứ lúc nào trong phần Cài đặt</string>
+    <string name="p2p_consent_enable">Bật P2P</string>
+    <string name="p2p_consent_cancel">Hủy</string>
+    <string name="settings_p2p_title">Phát luồng P2P</string>
+    <string name="settings_p2p_subtitle">Cho phép phát trực tuyến ngang hàng(torrent)</string>
+    <string name="settings_p2p_hide_stats_title">Ẩn thống kê torrent</string>
+    <string name="settings_p2p_hide_stats_subtitle">Ẩn bộ đệm, số lượng seed, peer và tốc độ tải trong khi tải và phát lại</string>
+    <string name="stream_filter_all">Tất cả</string>
+    <string name="stream_episode_label">M%1$d T%2$d</string>
+
+    <string name="player_no_external_player">Không tìm thấy trình phát bên ngoài</string>
+    <string name="player_loading_preparing">Đang chuẩn bị luồng…</string>
+    <string name="player_loading_detecting_format">Đang nhận diện định dạng luồng…</string>
+    <string name="player_loading_building">Đang khởi tạo trình phát…</string>
+    <string name="player_loading_starting">Bắt đầu phát…</string>
+    <string name="player_loading_buffering">Đang tải bộ đệm…</string>
+    <string name="player_engine_switching_title">Đang chuyển đổi công cụ trình phát</string>
+    <string name="player_engine_switching_message">Không thể khởi động. Đang chuyển sang %1$s…</string>
+    <string name="player_engine_switching_manual_message">Đang chuyển sang %1$s...</string>
+    <string name="playback_show_loading_status">Hiển thị trạng thái tải</string>
+    <string name="playback_show_loading_status_sub">Hiển thị tiến trình từng bước trong khi trình phát đang khởi tạo.</string>
+    <string name="player_sync_line">Đồng bộ dòng</string>
+    <string name="subtitle_timing_press_sync">Nhấn Đồng bộ khi bạn nghe thấy một câu thoại.</string>
+    <string name="subtitle_timing_sync_button">Đồng bộ</string>
+    <string name="subtitle_timing_select_addon_first">Chọn bản phụ đề từ tiện ích trước.</string>
+    <string name="subtitle_auto_sync_select_addon_track">Chọn một bản phụ đề từ tiện ích để sử dụng tính năng Tự động đồng bộ.</string>
+    <string name="subtitle_auto_sync_applied">Đã áp dụng đồng bộ: %1$s</string>
+    <string name="subtitle_timing_loading">Đang tải các dòng phụ đề…</string>
+    <string name="subtitle_timing_no_lines_found">Không tìm thấy dòng phụ đề nào ở thời điểm này.</string>
+    <string name="subtitle_timing_press_back_cancel">Nhấn Quay lại để hủy</string>
+    <string name="subtitle_timing_captured_at">Ghi nhận lúc %1$s</string>
+    <string name="subtitle_timing_capturing">Đang ghi nhận…</string>
+
+    <!-- ParentalGuideOverlay -->
+    <string name="parental_nudity">Cảnh khoả thân</string>
+    <string name="parental_violence">Bạo lực</string>
+    <string name="parental_profanity">Ngôn từ thô tục</string>
+    <string name="parental_alcohol">Rượu bia/Chất kích thích</string>
+    <string name="parental_frightening">Cảnh đáng sợ</string>
+    <string name="parental_severity_severe">Nặng</string>
+    <string name="parental_severity_moderate">Vừa phải</string>
+    <string name="parental_severity_mild">Nhẹ</string>
+    <string name="player_ends_at">Kết thúc lúc %1$s</string>
+    <!-- Season/episode code shown in player UI (e.g. S01E02). %1$d = season, %2$d = episode. -->
+    <string name="season_episode_format">M%1$d T%2$d</string>
+    <string name="player_subtitle_delay">Độ trễ phụ đề</string>
+    <string name="player_error_title">Lỗi phát lại</string>
+    <string name="player_go_back">Quay lại</string>
+    <plurals name="player_report_loading_issue_prompt">
+        <item quantity="one">Vẫn đang tải sau %1$d giây</item>
+        <item quantity="other">Vẫn đang tải sau %1$d giây</item>
+    </plurals>
+    <string name="player_speed_title">Tốc độ phát lại</string>
+    <string name="player_error_no_stream_url">Chưa cung cấp URL luồng phát</string>
+
+
+
+    <string name="sources_title">Nguồn</string>
+
+    <string name="episodes_panel_no_episodes">Không có tập phim nào</string>
+    <string name="episodes_panel_title">Tập phim</string>
+    <string name="player_speed_normal">Bình thường</string>
+    <string name="player_aspect_fit">Vừa vặn (Gốc)</string>
+    <string name="player_aspect_stretch">Kéo giãn</string>
+    <string name="player_aspect_fit_width">Vừa chiều rộng</string>
+    <string name="player_aspect_fit_height">Vừa chiều cao</string>
+    <string name="player_aspect_crop">Cắt xén</string>
+    <string name="player_aspect_tunneling_unavailable">Không khả dụng khi phát lại qua đường hầm</string>
+    <string name="player_aspect_mode_slight_zoom">Thu phóng nhẹ</string>
+    <string name="player_aspect_mode_cinema_zoom">Thu phóng điện ảnh</string>
+
+    <string name="audio_dialog_title">Âm thanh</string>
+    <string name="audio_delay_label">Độ trễ âm thanh</string>
+    <string name="audio_delay_range">Khoảng: %1$.2fs đến %2$.2fs</string>
+    <string name="audio_mix_label">Khuếch đại (PCM)</string>
+    <string name="audio_mix_value_db">%1$d dB</string>
+    <string name="audio_mix_persist_on">Lưu giữa các phiên: BẬT</string>
+    <string name="audio_mix_persist_off">Lưu giữa các phiên: TẮT</string>
+    <string name="audio_mix_range">Khoảng: %1$d dB đến %2$d dB</string>
+    <string name="audio_mix_range_saved">Khoảng: %1$d dB đến %2$d dB (đã lưu)</string>
+    <string name="audio_mix_unavailable">Khuếch đại không có sẵn trên thiết bị này</string>
+    <string name="audio_center_mix_label">Gộp kênh: Mức trộn kênh trung tâm</string>
+    <string name="audio_center_mix_value_db">%1$d dB</string>
+    <string name="audio_center_mix_help">Mức trộn kênh trung tâm tính bằng dB theo siêu dữ liệu hoặc mặc định (-3 dB)</string>
+    <string name="audio_center_mix_unavailable">Trộn kênh trung tâm chỉ khả dụng khi bật gộp kênh bằng FFmpeg.</string>
+    <string name="audio_maintain_original_audio_on_downmix_title">Giữ nguyên âm lượng gốc khi gộp kênh</string>
+    <string name="audio_maintain_original_audio_on_downmix_subtitle">Khi tắt, chuẩn hóa khi gộp kênh có thể làm giảm âm lượng tổng thể.</string>
+
+    <string name="subtitle_dialog_title">Phụ đề</string>
+    <string name="subtitle_loading_addon">Đang tải phụ đề từ tiện ích\u2026</string>
+    <string name="subtitle_reset_defaults">Đặt lại mặc định</string>
+    <string name="subtitle_tab_delay">Độ trễ</string>
+    <string name="subtitle_delay_reset">Đặt lại</string>
+    <string name="subtitle_none">Không có</string>
+    <string name="subtitle_built_in">Tích hợp</string>
+    <string name="subtitle_style_title">Kiểu phụ đề</string>
+    <string name="subtitle_style_font_size">Cỡ chữ</string>
+    <string name="subtitle_style_bold">In đậm</string>
+    <string name="subtitle_style_text_color">Màu chữ</string>
+    <string name="subtitle_style_text_opacity">Độ mờ chữ</string>
+    <string name="subtitle_style_outline">Viền chữ</string>
+    <string name="subtitle_style_bottom_offset">Khoảng cách lề dưới</string>
+    <string name="subtitle_style_on">Bật</string>
+    <string name="subtitle_style_off">Tắt</string>
+
+    <string name="pause_you_are_watching">Bạn đang xem</string>
+    <string name="pause_cast_label">Diễn viên</string>
+    <string name="pause_back_to_details">Quay lại chi tiết</string>
+    <string name="pause_as_character">vai %1$s</string>
+
+    <!-- PostPlayOverlay -->
+    <string name="next_episode_label">Tập tiếp theo</string>
+    <string name="next_episode_finding_source">Đang tìm nguồn…</string>
+    <string name="player_next_episode_prompt_title">Tiếp tục xem?</string>
+    <string name="player_next_episode_prompt_message">Bạn có muốn phát tập tiếp theo không?</string>
+    <string name="player_next_episode_prompt_yes">Có</string>
+    <string name="player_next_episode_prompt_no">Không, quay lại phần chi tiết</string>
+    <string name="next_episode_unaired">Chưa phát sóng</string>
+    <string name="next_episode_not_aired_yet">Tập tiếp theo chưa phát sóng</string>
+    <string name="still_watching_title">Bạn vẫn đang xem chứ?</string>
+    <string name="still_watching_continue">Phát</string>
+    <string name="still_watching_exit">Thoát</string>
+    <string name="still_watching_countdown">Dừng lại sau %1$d</string>
+    <string name="still_watching_setting_title">Bạn vẫn đang xem chứ?</string>
+    <string name="still_watching_setting_sub">Nhắc nhở sau khi các tập tự động phát liên tiếp.</string>
+    <string name="still_watching_threshold_title">Giới hạn số tập</string>
+    <string name="still_watching_threshold_sub">Số tập tự động phát liên tiếp trước khi nhắc nhở.</string>
+    <string name="skip_intro">Bỏ qua giới thiệu</string>
+    <string name="skip_ending">Bỏ qua kết thúc</string>
+    <string name="skip_recap">Bỏ qua tóm tắt</string>
+    <string name="skip_generic">Bỏ qua</string>
+    <string name="display_mode_refresh">Làm mới</string>
+    <string name="display_mode_resolution">Độ phân giải</string>
+
+
+    <string name="search_placeholder">Tìm kiếm phim &amp; loạt phim</string>
+    <string name="search_start_title">Bắt đầu tìm kiếm</string>
+    <string name="search_start_subtitle">Nhập ít nhất 2 ký tự</string>
+    <string name="search_start_subtitle_no_discover">Khám phá đã tắt. Nhập ít nhất 2 ký tự</string>
+    <string name="search_recent_title">Tìm kiếm gần đây</string>
+    <string name="search_recent_clear">Xoá lịch sử</string>
+    <string name="search_voice_no_speech">Không phát hiện giọng nói. Thử lại.</string>
+    <string name="search_voice_mic_permission">Cần quyền micro để tìm kiếm bằng giọng nói.</string>
+    <string name="search_voice_failed">Nhận dạng giọng nói thất bại. Thử lại.</string>
+    <string name="search_voice_unavailable">Tìm kiếm bằng giọng nói không khả dụng trên thiết bị này.</string>
+    <string name="search_error_no_catalogs">Không tìm thấy danh mục có thể tìm kiếm trong các tiện ích đã cài đặt</string>
+
+    <string name="library_filter_type">Loại</string>
+    <string name="library_filter_sort">Sắp xếp</string>
+    <string name="library_filter_genre">Thể loại</string>
+    <string name="library_filter_year">Năm</string>
+    <string name="library_filter_watched">Đã xem</string>
+    <string name="library_watched_filter_all">Tất cả</string>
+    <string name="library_watched_filter_watched">Đã xem</string>
+    <string name="library_watched_filter_unwatched">Chưa xem</string>
+    <string name="genre_action">Hành động</string>
+    <string name="genre_adventure">Phiêu lưu</string>
+    <string name="genre_animation">Hoạt hình</string>
+    <string name="genre_comedy">Hài</string>
+    <string name="genre_crime">Tội phạm</string>
+    <string name="genre_documentary">Phim tài liệu</string>
+    <string name="genre_drama">Chính kịch</string>
+    <string name="genre_family">Gia đình</string>
+    <string name="genre_fantasy">Giả tưởng</string>
+    <string name="genre_history">Lịch sử</string>
+    <string name="genre_horror">Kinh dị</string>
+    <string name="genre_music">Âm nhạc</string>
+    <string name="genre_mystery">Trinh thám</string>
+    <string name="genre_romance">Lãng mạn</string>
+    <string name="genre_science_fiction">Khoa học viễn tưởng</string>
+    <string name="genre_tv_movie">Phim truyền hình</string>
+    <string name="genre_thriller">Giật gân</string>
+    <string name="genre_war">Chiến tranh</string>
+    <string name="genre_western">Viễn Tây</string>
+    <string name="genre_action_adventure">Hành động &amp; Phiêu lưu</string>
+    <string name="genre_kids">Trẻ em</string>
+    <string name="genre_news">Tin tức</string>
+    <string name="genre_reality">Thực tế</string>
+    <string name="genre_sci_fi_fantasy">Khoa học viễn tưởng &amp; Giả tưởng</string>
+    <string name="genre_soap">Dài tập</string>
+    <string name="genre_talk">Đối thoại</string>
+    <string name="genre_war_politics">Chiến tranh &amp; Chính trị</string>
+    <string name="library_sort_added_desc">Đã thêm ↓</string>
+    <string name="library_sort_added_asc">Đã thêm ↑</string>
+    <string name="library_sort_title_asc">Tên A-Z</string>
+    <string name="library_sort_title_desc">Tên Z-A</string>
+    <string name="library_source_local">CỤC BỘ</string>
+    <string name="library_source_nuvio">NUVIO</string>
+    <string name="library_type_all">Tất cả</string>
+    <string name="library_type_items">mục</string>
+    <string name="library_empty_local_title">Chưa có %1$s</string>
+    <string name="library_empty_local_subtitle">Bắt đầu lưu mục yêu thích để xem ở đây</string>
+
+
+    <!-- AccountSettingsContent -->
+    <string name="account_signin_email_title">Đăng nhập</string>
+    <string name="account_signin_email_subtitle">Nhập email và mật khẩu tài khoản tự lưu trữ của bạn</string>
+    <string name="account_signed_in_label">Đã đăng nhập</string>
+    <string name="account_loading_sync">Đang tải dữ liệu đồng bộ\u2026</string>
+    <string name="account_sign_out_confirm_title">Đăng xuất?</string>
+
+    <string name="auth_email_hint">Đăng nhập trực tiếp bằng tài khoản trên máy chủ riêng của bạn.</string>
+    <string name="auth_email_instruction">Nhập email và mật khẩu để tiếp tục.</string>
+    <string name="auth_email_placeholder">Địa chỉ email</string>
+    <string name="auth_password_placeholder">Mật khẩu</string>
+    <string name="auth_email_sign_in">Đăng nhập</string>
+    <string name="auth_email_signing_in">Đang đăng nhập\u2026</string>
+    <string name="custom_server_title">Kết nối với máy chủ tùy chỉnh</string>
+    <string name="custom_server_description">Nhập URL Backend do quản trị viên máy chủ cung cấp.</string>
+    <string name="custom_server_url_placeholder">https://backend.example.com</string>
+    <string name="custom_server_check">Kiểm tra máy chủ</string>
+    <string name="custom_server_checking">Đang kiểm tra\u2026</string>
+    <string name="custom_server_review_title">Đánh giá máy chủ tùy chỉnh</string>
+    <string name="custom_server_review_description">Tài liệu khám phá hợp lệ. Việc kết nối sẽ đăng xuất bạn khỏi máy chủ hiện tại và khởi động lại ứng dụng. Hãy xác nhận đây là máy chủ do bạn sở hữu hoặc tin cậy.</string>
+    <string name="custom_server_verified_label">Đã phát hiện Backend</string>
+    <string name="custom_server_key_label">Cấu hình máy khách</string>
+    <string name="custom_server_key_discovered">Đã tự động phát hiện khóa có thể công khai</string>
+    <string name="custom_server_warning_title">Chỉ kết nối với máy chủ bạn tin cậy</string>
+    <string name="custom_server_warning_public">Máy chủ này sử dụng tên miền công cộng. Ứng dụng không thể xác minh ai sở hữu hoặc vận hành máy chủ này.</string>
+    <string name="custom_server_warning_http">Máy chủ này thuộc mạng nội bộ, nhưng lưu lượng HTTP không được mã hóa. Các thiết bị khác trong mạng có thể đọc được dữ liệu.</string>
+    <string name="custom_server_warning_public_http">Máy chủ này sử dụng tên miền công cộng và HTTP không được mã hóa. Thông tin đăng nhập và dữ liệu đồng bộ có thể bị lộ trong quá trình truyền.</string>
+    <string name="custom_server_warning_private">Đây có vẻ là máy chủ mạng nội bộ, nhưng ứng dụng vẫn không thể xác minh ai đang kiểm soát máy chủ này.</string>
+    <string name="custom_server_warning_credentials">Nhà vận hành máy chủ có thể nhận thông tin đăng nhập tài khoản của bạn và truy cập dữ liệu bạn đồng bộ qua máy chủ này.</string>
+    <string name="custom_server_trust_action">Tôi tin cậy máy chủ này</string>
+    <string name="custom_server_switching">Đang chuyển sang\u2026</string>
+    <string name="official_server_title">Sử dụng máy chủ chính thức?</string>
+    <string name="official_server_description">Bạn sẽ bị đăng xuất khỏi máy chủ tùy chỉnh và ứng dụng sẽ khởi động lại với dịch vụ chính thức.</string>
+    <string name="official_server_action">Sử dụng máy chủ chính thức</string>
+    <string name="custom_server_error_invalid_url">Nhập URL Backend HTTP hoặc HTTPS hợp lệ.</string>
+    <string name="custom_server_error_official_active">api.nuvio.tv là máy chủ chính thức và đã được chọn.</string>
+    <string name="custom_server_error_official_available">api.nuvio.tv là máy chủ chính thức. Hãy đóng hộp thoại này và chọn “Sử dụng máy chủ chính thức” để chuyển trở lại.</string>
+    <string name="custom_server_error_connection">Không thể tiếp cận điểm cuối phát hiện. Vui lòng kiểm tra lại URL và trạng thái hoạt động của máy chủ.</string>
+    <string name="custom_server_error_http">Điểm cuối phát hiện đã trả về HTTP %1$d.</string>
+    <string name="custom_server_error_response_too_large">Tài liệu khám phá có kích thước vượt quá giới hạn cho phép.</string>
+    <string name="custom_server_error_invalid_document">Máy chủ trả về tài liệu khám phá không hợp lệ.</string>
+    <string name="custom_server_error_version">Phiên bản tài liệu khám phá này không được hỗ trợ.</string>
+    <string name="custom_server_error_service">Tài liệu khám phá không dành cho ứng dụng này.</string>
+    <string name="custom_server_error_not_self_hosted">Tài liệu khám phá không xác định đây là máy chủ tự lưu trữ.</string>
+    <string name="custom_server_error_missing_configuration">Tài liệu khám phá thiếu URL Backend hoặc khóa công khai hợp lệ.</string>
+    <string name="custom_server_error_no_auth">Máy chủ không cung cấp phương thức đăng nhập được hỗ trợ.</string>
+    <string name="custom_server_save_failed">Không thể lưu cấu hình máy chủ.</string>
+    <string name="custom_server_session_clear_failed">Không thể xoá an toàn phiên hiện tại. Máy chủ chưa được thay đổi.</string>
+    <string name="custom_server_restart_failed">Đã lưu máy chủ nhưng ứng dụng không thể tự động khởi động lại. Hãy khởi động lại ứng dụng thủ công.</string>
+
+    <string name="auth_qr_tagline">Mang thư viện phim theo bạn mọi nơi</string>
+    <string name="auth_qr_account_login">Đăng nhập tài khoản</string>
+    <string name="auth_qr_finishing">Đang hoàn tất đăng nhập\u2026</string>
+    <string name="auth_qr_expires">Hết hạn sau %1$s</string>
+    <string name="auth_qr_refresh">Làm mới mã QR</string>
+    <string name="auth_qr_continue_without_account">Tiếp tục không cần tài khoản</string>
+    <string name="auth_qr_generating">Đang tạo mã QR\u2026</string>
+    <string name="auth_qr_unavailable">Mã QR không khả dụng. Làm mới để thử lại.</string>
+    <string name="auth_qr_please_wait">Vui lòng đợi\u2026</string>
+    <string name="auth_qr_continue">Tiếp tục</string>
+    <string name="auth_qr_back">Quay lại</string>
+
+
+
+
+    <string name="profile_selection_title">Ai đang xem?</string>
+    <string name="profile_selection_empty">Không tìm thấy hồ sơ</string>
+    <string name="profile_selection_primary_badge">CHÍNH</string>
+    <string name="profile_selection_options_title">Tùy chọn hồ sơ</string>
+    <string name="profile_delete_confirm_title">Xoá hồ sơ?</string>
+    <string name="profile_delete_confirm_subtitle">Thao tác này sẽ xoá vĩnh viễn hồ sơ và toàn bộ dữ liệu của hồ sơ, bao gồm thư viện, lịch sử xem và cài đặt tiện ích. Không thể hoàn tác.</string>
+
+    <string name="cast_detail_error">Đã xảy ra lỗi</string>
+
+    <string name="catalog_see_all_from">từ %1$s</string>
+    <string name="catalog_see_all_empty_title">Không có mục nào</string>
+    <string name="catalog_see_all_empty_subtitle">Thử danh mục khác hoặc quay lại sau</string>
+
+
+
+    <!-- EpisodeRatingsSection -->
+    <string name="ratings_loading">Đang tải điểm đánh giá các tập phim...</string>
+    <string name="ratings_unavailable">Điểm đánh giá tập phim không có sẵn.</string>
+    <string name="ratings_load_error">Không thể tải điểm đánh giá các tập phim.</string>
+    <string name="ratings_season_summary">Mùa %1$d - %2$d tập</string>
+
+    <!-- SearchDiscoverSection -->
+    <string name="discover_title">Khám phá</string>
+    <string name="discover_load_more">Tải thêm</string>
+    <string name="discover_loading">Đang tải...</string>
+    <string name="discover_filter_type">Loại</string>
+    <string name="discover_filter_catalog">Danh mục</string>
+    <string name="discover_filter_genre">Thể loại</string>
+    <string name="discover_select_catalog">Chọn</string>
+    <string name="discover_genre_default">Mặc định</string>
+    <string name="discover_empty_no_catalog_title">Chọn một danh mục</string>
+    <string name="discover_empty_no_catalog_subtitle">Chọn danh mục khám phá để duyệt</string>
+    <string name="discover_empty_no_content_title">Không tìm thấy nội dung</string>
+    <string name="discover_empty_no_content_subtitle">Thử thể loại hoặc danh mục khác</string>
+
+
+
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_passthrough_info">Truyền tải âm thanh trực tiếp (TrueHD, DTS, AC-3, v.v.) được tự động bật. Khi kết nối với bộ thu AV hoặc loa soundbar tương thích qua HDMI, âm thanh không nén sẽ được truyền nguyên dạng mà không cần qua giải mã.</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">Trang chủ</string>
+    <string name="nav_discover">Khám phá</string>
+    <string name="nav_search">Tìm kiếm</string>
+    <string name="nav_library">Thư viện</string>
+    <string name="nav_settings">Cài đặt</string>
+    <string name="action_select">Chọn</string>
+
+
+
+    <!-- Profile PIN errors -->
+    <string name="profile_pin_save_error">Không thể lưu mã PIN. Vui lòng thử lại.</string>
+    <string name="profile_pin_locked">Hồ sơ đã bị khóa. Vui lòng thử lại sau %1$ds.</string>
+    <string name="profile_pin_invalid">Mã PIN không hợp lệ. Vui lòng thử lại.</string>
+    <string name="profile_pin_verify_error">Không thể xác thực mã PIN. Vui lòng thử lại.</string>
+    <string name="profile_pin_incorrect">Mã PIN hiện tại không đúng.</string>
+    <string name="profile_pin_current_required">Hồ sơ này đã có mã PIN. Nhập mã PIN hiện tại để thay đổi.</string>
+
+
+
+    <!-- Search -->
+    <string name="discover_disabled_title">Khám phá đã bị tắt</string>
+    <string name="discover_disabled_subtitle">Bật Khám phá trong phần cài đặt Bố cục</string>
+
+
+    <!-- Error messages (shared) -->
+    <string name="error_network_required">Kết nối với Wi-Fi hoặc mạng có dây để sử dụng tính năng này</string>
+    <string name="error_server_ports_unavailable">Không thể khởi động máy chủ. Tất cả các cổng đều đang được sử dụng.</string>
+
+
+
+
+    <!-- General errors -->
+    <string name="error_unknown">Lỗi không xác định</string>
+    <string name="addon_error_not_found">Không tìm thấy tiện ích</string>
+
+
+
+    <!-- Home errors -->
+    <string name="home_error_no_addons">Không có tiện ích đã cài đặt</string>
+    <string name="home_error_no_catalog_addons">Không có tiện ích danh mục đã cài đặt</string>
+
+    <!-- Player errors -->
+    <string name="player_error_failed_start_torrent">Không thể khởi động torrent: %1$s</string>
+
+    <string name="ratings_season_label">M%1$d</string>
+    <string name="ratings_episode_label">T%1$d</string>
+
+    <string name="cd_subtitles">Phụ đề</string>
+    <string name="cd_audio_tracks">Âm thanh</string>
+    <string name="cd_sources">Nguồn</string>
+    <string name="cd_switch_player_engine">Chuyển đổi trình phát</string>
+    <string name="cd_playback_speed">Tốc độ phát lại</string>
+    <string name="cd_aspect_ratio">Tỷ lệ khung hình</string>
+    <string name="cd_open_external_player">Mở bằng trình phát ngoài</string>
+    <string name="cd_more_actions">Thao tác khác</string>
+    <string name="cd_close_more_actions">Đóng phần thao tác khác</string>
+    <string name="cd_back">Quay lại</string>
+    <string name="cd_next_episode_thumbnail">Ảnh thu nhỏ tập tiếp theo</string>
+    <string name="cd_move_up">Chuyển lên</string>
+    <string name="cd_move_down">Chuyển xuống</string>
+    <string name="cd_edit">Sửa</string>
+    <string name="cd_delete">Xoá</string>
+    <string name="cd_qr_code">Mã QR</string>
+    <string name="cd_refresh">Làm mới</string>
+    <string name="cd_remove">Xoá</string>
+    <string name="cd_nuvio_logo">NuvioTV</string>
+    <string name="cd_open_discover">Mở mục khám phá</string>
+    <string name="cd_clear_search">Xoá tìm kiếm</string>
+    <string name="cd_voice_search">Tìm kiếm bằng giọng nói</string>
+    <string name="cd_expand">Mở rộng %1$s</string>
+    <string name="cd_collapse">Thu gọn %1$s</string>
+    <string name="cd_qr_login">Mã QR đăng nhập</string>
+    <string name="cd_nuvio">Nuvio</string>
+
+
+    <!-- Collection Management -->
+    <string name="collections_header">Bộ sưu tập</string>
+    <string name="collections_delete_confirm">Xoá</string>
+    <string name="collections_delete_confirm_subtitle">Thao tác này sẽ xóa vĩnh viễn \"%1$s\". Thao tác này không thể hoàn tác.</string>
+    <string name="collections_new">Bộ sưu tập mới</string>
+    <string name="collections_import">Nhập</string>
+    <string name="collections_export_file">Xuất tệp</string>
+    <string name="collections_saved_downloads">Đã lưu vào mục Tải xuống</string>
+    <string name="collections_export_failed">Xuất tệp thất bại</string>
+    <string name="collections_import_header">Nhập Bộ sưu tập</string>
+    <string name="collections_import_url_placeholder">https://example.com/collections.json</string>
+    <string name="collections_import_failed_fetch_http">Không thể tải: HTTP %1$d</string>
+    <string name="collections_import_failed_fetch_url">Không thể tải URL: %1$s</string>
+    <string name="collections_import_no_data">Không có dữ liệu để nhập</string>
+    <string name="collections_import_invalid_or_empty">Định dạng không hợp lệ hoặc bộ sưu tập trống</string>
+    <string name="collections_import_file_not_found_downloads">Không tìm thấy tệp trong mục Tải xuống.\nXuất các bộ sưu tập trước để tạo tệp..</string>
+    <string name="collections_import_failed_read_file">Không thể đọc tệp: %1$s</string>
+    <string name="collections_cancel">Hủy</string>
+    <string name="collections_mode_file">Từ tệp</string>
+    <string name="collections_mode_url">Từ URL</string>
+    <string name="collections_file_description">Đọc tệp nuvio-collections.json từ thư mục Tải xuống.</string>
+    <string name="collections_load_file">Tải tệp</string>
+    <string name="collections_fetch_url">Truy xuất URL</string>
+    <string name="collections_fetching">Đang truy xuất…</string>
+    <string name="collections_confirm_import">Xác nhận nhập</string>
+
+    <!-- Collection Editor -->
+    <string name="collections_editor_save">Lưu</string>
+    <string name="collections_editor_backdrop">Ảnh phông nền</string>
+    <string name="collections_editor_pin_above">Ghim phía trên các danh mục</string>
+    <string name="collections_editor_focus_glow">Viền sáng khi chọn</string>
+    <string name="collections_editor_view_mode">Chế độ hiển thị</string>
+    <string name="collections_editor_show_all_tab">Hiển thị thẻ \"Tất cả\"</string>
+    <string name="collections_editor_show_all_tab_desc">Gộp tất cả danh mục vào một thẻ</string>
+    <string name="collections_editor_folders">Thư mục</string>
+    <string name="collections_editor_add_folder">Thêm thư mục</string>
+    <string name="collections_editor_new_folder">Thư mục mới</string>
+    <string name="collections_editor_edit_folder">Chỉnh sửa thư mục</string>
+    <string name="collections_editor_cover">Ảnh bìa</string>
+    <string name="collections_editor_cover_none">Không có</string>
+    <string name="collections_editor_cover_emoji">Biểu tượng cảm xúc</string>
+    <string name="collections_editor_cover_image_url">URL ảnh</string>
+    <string name="collections_editor_focus_gif">Ảnh GIF khi chọn</string>
+    <string name="collections_editor_play_gif">Phát ảnh GIF khi chọn</string>
+    <string name="collections_editor_tile_shape">Hình dạng ô</string>
+    <string name="collections_editor_shape_poster">Poster</string>
+    <string name="collections_editor_shape_wide">Rộng</string>
+    <string name="collections_editor_shape_square">Vuông</string>
+    <string name="collections_editor_hide_title">Ẩn tiêu đề</string>
+    <string name="collections_editor_display">Hiển thị</string>
+    <string name="collections_editor_catalogs">Danh mục</string>
+    <string name="collections_editor_add_catalog">Thêm danh mục</string>
+    <string name="collections_editor_view_mode_tabs">Thẻ</string>
+    <string name="collections_editor_view_mode_rows">Hàng</string>
+    <string name="collections_editor_view_mode_follow">Theo bố cục Trang chủ</string>
+    <string name="collections_editor_addon_missing">Tiện ích chưa cài đặt: %1$s</string>
+    <string name="collections_editor_add_tmdb_source">Thêm nguồn TMDB</string>
+    <string name="collections_editor_edit_tmdb_source">Chỉnh sửa nguồn TMDB</string>
+    <string name="collections_editor_tmdb_sources">Nguồn TMDB</string>
+    <string name="collections_editor_trakt_list">Danh sách Trakt</string>
+    <string name="collections_editor_tmdb_id_or_url">ID hoặc URL TMDB</string>
+    <string name="collections_editor_tmdb_public_list">Danh sách TMDB công khai</string>
+    <string name="collections_editor_tmdb_network_id">ID đơn vị phát hành</string>
+    <string name="collections_editor_tmdb_collection_id">ID bộ sưu tập</string>
+    <string name="collections_editor_tmdb_company_search">Tên, ID hoặc URL của hãng sản xuất</string>
+    <string name="collections_editor_tmdb_display_title">Tên hiển thị</string>
+    <string name="collections_editor_tmdb_search">Tìm kiếm</string>
+    <string name="collections_editor_add_source">Thêm nguồn</string>
+    <string name="collections_editor_save_source">Lưu nguồn</string>
+    <string name="collections_editor_tmdb_collection">Bộ sưu tập TMDB</string>
+    <string name="collections_editor_tmdb_default_list">Danh sách TMDB</string>
+    <string name="collections_editor_tmdb_default_production">Đơn vị sản xuất TMDB</string>
+    <string name="collections_editor_tmdb_default_network">Đơn vị phát hành TMDB</string>
+    <string name="collections_editor_tmdb_default_discover">TMDB Khám phá</string>
+    <string name="collections_editor_tmdb_movie_collection">Bộ sưu tập phim TMDB</string>
+    <string name="collections_editor_tmdb_mode_presets">Mẫu có sẵn</string>
+    <string name="collections_editor_tmdb_mode_public_list">Danh sách công khai</string>
+    <string name="collections_editor_tmdb_mode_production">Sản xuất</string>
+    <string name="collections_editor_tmdb_mode_network">Đơn vị phát hành</string>
+    <string name="collections_editor_tmdb_mode_person">Diễn viên</string>
+    <string name="collections_editor_tmdb_mode_director">Đạo diễn</string>
+    <string name="collections_editor_tmdb_mode_custom">Tùy chỉnh</string>
+    <string name="collections_editor_tmdb_person_credits">Tác phẩm đã tham gia</string>
+    <string name="collections_editor_tmdb_director_credits">Tác phẩm đã đạo diễn</string>
+    <string name="collections_editor_tmdb_company_fallback">Hãng sản xuất TMDB %1$d</string>
+    <string name="collections_editor_tmdb_help_presets">Chọn nguồn có sẵn. Bạn có thể sửa hoặc xoá sau khi thêm</string>
+    <string name="collections_editor_tmdb_help_list">Dán URL danh sách TMDB công khai hoặc chỉ nhập số trong URL.</string>
+    <string name="collections_editor_tmdb_help_production">Tìm theo tên hãng sản xuất hoặc nhập ID/URL từ TMDB để thêm trực tiếp</string>
+    <string name="collections_editor_tmdb_help_network">Nhập ID đơn vị phát hành. Các đơn vị phổ biến có trong phần Mẫu có sẵn và Bộ lọc nhanh</string>
+    <string name="collections_editor_tmdb_help_collection">Tìm tên bộ sưu tập phim hoặc nhập ID bộ sưu tập từ TMDB</string>
+    <string name="collections_editor_tmdb_help_person">Nhập ID hoặc URL người trong TMDB để tạo một hàng từ các tác phẩm có người đó tham gia diễn xuất.</string>
+    <string name="collections_editor_tmdb_help_director">Nhập ID hoặc URL người trong TMDB để tạo một hàng từ các tác phẩm do người đó đạo diễn.</string>
+    <string name="collections_editor_tmdb_help_discover">Tạo một hàng TMDB trực tiếp bằng bộ lọc tùy chọn. Để trống những trường bạn không cần lọc.</string>
+    <string name="collections_editor_tmdb_search_helper">Ví dụ: Marvel Studios, 420 hoặc https://www.themoviedb.org/company/420</string>
+    <string name="collections_editor_tmdb_collection_helper">Ví dụ: Star Wars Collection, Harry Potter Collection hoặc URL bộ sưu tập</string>
+    <string name="collections_editor_tmdb_network_helper">Ví dụ: Netflix 213, HBO 49, Disney+ 2739</string>
+    <string name="collections_editor_tmdb_list_helper">Ví dụ: https://www.themoviedb.org/list/8504994 hoặc 8504994</string>
+    <string name="collections_editor_tmdb_person_id">ID cá nhân</string>
+    <string name="collections_editor_tmdb_person_helper">Ví dụ: https://www.themoviedb.org/person/31-tom-hanks hoặc 31</string>
+    <string name="collections_editor_tmdb_title_helper">Tên hiển thị của hàng/thẻ. Nếu để trống, Nuvio sẽ tự tạo tên từ nguồn.</string>
+    <string name="collections_editor_tmdb_quick_genres">Thể loại</string>
+    <string name="collections_editor_tmdb_quick_languages">Ngôn ngữ</string>
+    <string name="collections_editor_tmdb_quick_countries">Quốc gia</string>
+    <string name="collections_editor_tmdb_quick_keywords">Từ khóa</string>
+    <string name="collections_editor_tmdb_quick_companies">Hãng sản xuất</string>
+    <string name="collections_editor_tmdb_quick_networks">Đơn vị phát hành</string>
+    <string name="collections_editor_tmdb_genres">ID thể loại</string>
+    <string name="collections_editor_tmdb_without_genres">ID thể loại loại trừ</string>
+    <string name="collections_editor_tmdb_date_from">Ngày phát hành hoặc phát sóng từ</string>
+    <string name="collections_editor_tmdb_date_to">Ngày phát hành hoặc phát sóng đến</string>
+    <string name="collections_editor_tmdb_rating_min">Điểm đánh giá tối thiểu</string>
+    <string name="collections_editor_tmdb_rating_max">Điểm đánh giá tối đa</string>
+    <string name="collections_editor_tmdb_votes_min">Lượt đánh giá tối thiểu</string>
+    <string name="collections_editor_tmdb_language">Ngôn ngữ gốc</string>
+    <string name="collections_editor_tmdb_country">Quốc gia sản xuất</string>
+    <string name="collections_editor_tmdb_keywords">ID từ khóa</string>
+    <string name="collections_editor_tmdb_without_keywords">ID từ khóa loại trừ</string>
+    <string name="collections_editor_tmdb_companies">ID đơn vị sản xuất</string>
+    <string name="collections_editor_tmdb_without_companies">ID đơn vị sản xuất loại trừ</string>
+    <string name="collections_editor_tmdb_networks">ID đơn vị phát hành</string>
+    <string name="collections_editor_tmdb_year">Năm</string>
+    <string name="collections_editor_sort_original">Gốc</string>
+    <string name="collections_editor_sort_list_order">Thứ tự danh sách</string>
+    <string name="collections_editor_sort_recently_added">Mới thêm gần đây</string>
+    <string name="collections_editor_sort_title">Tên</string>
+    <string name="collections_editor_sort_released">Ngày phát hành</string>
+    <string name="collections_editor_sort_votes">Lượt bình chọn</string>
+    <string name="collections_editor_trakt_list_with_id">Danh sách Trakt %1$d</string>
+    <string name="collections_editor_error_valid_tmdb_id_or_url">Nhập ID hoặc URL TMDB hợp lệ.</string>
+    <string name="collections_editor_error_load_tmdb_source">Không thể tải nguồn TMDB</string>
+    <string name="collections_editor_tmdb_placeholder_list">https://www.themoviedb.org/list/8504994 hoặc 8504994</string>
+    <string name="collections_editor_tmdb_placeholder_collection">10 cho Bộ sưu tập Star Wars</string>
+    <string name="collections_editor_tmdb_placeholder_company">Marvel Studios, 420 hoặc URL công ty</string>
+    <string name="collections_editor_tmdb_placeholder_network">213 cho Netflix, 49 cho HBO, 2739 cho Disney+</string>
+    <string name="collections_editor_tmdb_person_placeholder">31 cho Tom Hanks hoặc URL cá nhân</string>
+    <string name="collections_editor_tmdb_genres_movie_placeholder">28,12</string>
+    <string name="collections_editor_tmdb_genres_tv_placeholder">18,35</string>
+    <string name="collections_editor_tmdb_without_genres_placeholder">16 cho Hoạt hình</string>
+    <string name="collections_editor_tmdb_date_from_placeholder">2020-01-01</string>
+    <string name="collections_editor_tmdb_date_to_placeholder">2024-12-31</string>
+    <string name="collections_editor_tmdb_rating_min_placeholder">7.0</string>
+    <string name="collections_editor_tmdb_rating_max_placeholder">10</string>
+    <string name="collections_editor_tmdb_votes_min_placeholder">100</string>
+    <string name="collections_editor_tmdb_language_placeholder">en, ko, ja, hi</string>
+    <string name="collections_editor_tmdb_country_placeholder">US, KR, JP, IN</string>
+    <string name="collections_editor_tmdb_year_placeholder">2024</string>
+    <string name="collections_editor_language_english">Tiếng Anh</string>
+    <string name="collections_editor_language_korean">Tiếng Hàn</string>
+    <string name="collections_editor_language_japanese">Tiếng Nhật</string>
+    <string name="collections_editor_language_hindi">Tiếng Hindi</string>
+    <string name="collections_editor_language_spanish">Tiếng Tây Ban Nha</string>
+    <string name="collections_editor_country_us">Hoa Kỳ</string>
+    <string name="collections_editor_country_korea">Hàn Quốc</string>
+    <string name="collections_editor_country_japan">Nhật Bản</string>
+    <string name="collections_editor_country_india">Ấn Độ</string>
+    <string name="collections_editor_country_uk">Anh</string>
+    <string name="collections_editor_keyword_superhero">Siêu anh hùng</string>
+    <string name="collections_editor_keyword_based_on_novel">Dựa trên tiểu thuyết</string>
+    <string name="collections_editor_keyword_time_travel">Du hành thời gian</string>
+    <string name="collections_editor_keyword_space">Không gian</string>
+    <string name="collections_editor_placeholder_name">Tên bộ sưu tập</string>
+    <string name="collections_editor_placeholder_backdrop">URL ảnh phông nền (tùy chọn)</string>
+    <string name="collections_editor_placeholder_cover_image">URL ảnh bìa</string>
+    <string name="collections_editor_placeholder_folder">Tên thư mục</string>
+    <string name="collections_editor_placeholder_gif">URL ảnh động GIF (chỉ phát khi được chọn)</string>
+    <string name="collections_editor_hero_backdrop">Ảnh phông nền Nội dung nổi bật (Trang chủ Hiện đại)</string>
+    <string name="collections_editor_placeholder_hero_backdrop">URL phông nền Nội dung nổi bật tùy chỉnh (tùy chọn)</string>
+    <string name="collections_editor_hero_video">Video phông nền Nội dung nổi bật (Trang chủ Hiện đại)</string>
+    <string name="collections_editor_placeholder_hero_video">URL video phông nền Nội dung nổi bật tùy chỉnh (tùy chọn)</string>
+    <string name="collections_editor_title_logo">Logo tiêu đề (Trang chủ Hiện đại)</string>
+    <string name="collections_editor_placeholder_title_logo">URL logo tiêu đề tùy chỉnh (tùy chọn)</string>
+    <string name="collections_editor_search_emoji_placeholder">Tìm kiếm biểu tượng cảm xúc...</string>
+    <string name="collections_editor_filter_active_sources_placeholder">Lọc các nguồn đang hoạt động...</string>
+    <string name="collections_editor_search_catalogs_placeholder">Tìm kiếm danh mục...</string>
+    <string name="collections_editor_genre_filter">Lọc theo thể loại</string>
+    <string name="collections_editor_all_genres">Tất cả thể loại</string>
+    <string name="collections_editor_genre_required">Thể loại yêu cầu</string>
+    <string name="collections_editor_genre_optional">Bộ lọc thể loại có sẵn</string>
+    <string name="collections_tab_all">Tất cả</string>
+    <string name="collection_editor_choice_both">Tất cả</string>
+    <string name="collections_editor_delete_folder_subtitle">Thao tác này sẽ xoá vĩnh viễn \"%1$s\" và nội dung của nó.</string>
+    <string name="collections_editor_tmdb_keywords_placeholder">9715 cho Siêu anh hùng</string>
+    <string name="collections_editor_tmdb_without_keywords_placeholder">9715</string>
+    <string name="collections_editor_tmdb_companies_placeholder">420 cho Marvel Studios</string>
+    <string name="collections_editor_tmdb_without_companies_placeholder">420</string>
+    <string name="collections_editor_tmdb_networks_placeholder">213 cho Netflix</string>
+    <string name="folder_detail_not_found">Không tìm thấy thư mục</string>
+    <string name="cast_error_load_details_for">Không thể tải chi tiết của %1$s</string>
+    <string name="tmdb_entity_error_load_named">Không thể tải %1$s</string>
+    <string name="tmdb_entity_error_load">Không thể tải dữ liệu TMDB.</string>
+
+    <!-- Catalog see-all fallback -->
+    <string name="catalog_see_all_title_fallback">Danh mục</string>
+
+    <!-- Collection editor: emoji categories -->
+    <string name="collections_editor_emoji_category_streaming">Phát trực tuyến</string>
+    <string name="collections_editor_emoji_category_genres">Thể loại</string>
+    <string name="collections_editor_emoji_category_sports">Thể thao</string>
+    <string name="collections_editor_emoji_category_music">Âm nhạc</string>
+    <string name="collections_editor_emoji_category_nature">Thiên nhiên</string>
+    <string name="collections_editor_emoji_category_animals">Động vật</string>
+    <string name="collections_editor_emoji_category_food">Đồ ăn</string>
+    <string name="collections_editor_emoji_category_travel">Du lịch</string>
+    <string name="collections_editor_emoji_category_people">Con người</string>
+    <string name="collections_editor_emoji_category_objects">Đồ vật</string>
+    <string name="collections_editor_emoji_category_flags">Cờ</string>
+    <string name="collections_editor_emoji_category_symbols">Ký hiệu</string>
+    <!-- Collection editor: TMDB picker placeholders + genres -->
+    <string name="collections_editor_tmdb_network_placeholder_example">213 cho Netflix, 49 cho HBO, 2739 cho Disney+</string>
+    <string name="collections_editor_tmdb_collection_placeholder_example">10 cho Bộ sưu tập Star Wars</string>
+    <string name="collections_editor_tmdb_company_placeholder_example">Marvel Studios, 420 hoặc URL công ty</string>
+    <string name="collections_editor_tmdb_genre_action">Hành động</string>
+    <string name="collections_editor_tmdb_genre_adventure">Phiêu lưu</string>
+    <string name="collections_editor_tmdb_genre_animation">Hoạt hình</string>
+    <string name="collections_editor_tmdb_genre_comedy">Hài</string>
+    <string name="collections_editor_tmdb_genre_horror">Kinh dị</string>
+    <string name="collections_editor_tmdb_genre_scifi">Khoa học viễn tưởng</string>
+    <string name="collections_editor_tmdb_genre_drama">Chính kịch</string>
+    <string name="collections_editor_tmdb_genre_crime">Tội phạm</string>
+    <string name="collections_editor_tmdb_genre_reality">Thực tế</string>
+    <!-- Auto-play regex presets -->
+    <string name="autoplay_regex_preset_any_1080p_plus">Từ 1080p trở lên</string>
+    <string name="autoplay_regex_preset_4k_remux">4K / Remux</string>
+    <string name="autoplay_regex_preset_1080p_standard">1080p tiêu chuẩn</string>
+    <string name="autoplay_regex_preset_720p_smaller">720p / Dung lượng nhỏ</string>
+    <string name="autoplay_regex_preset_web_sources">Nguồn WEB</string>
+    <string name="autoplay_regex_preset_bluray_quality">Chất lượng Blu-ray</string>
+    <string name="autoplay_regex_preset_hevc_x265">HEVC / x265</string>
+    <string name="autoplay_regex_preset_avc_x264">AVC / x264</string>
+    <string name="autoplay_regex_preset_hdr_dolby_vision">HDR / Dolby Vision</string>
+    <string name="autoplay_regex_preset_dolby_atmos_dts">Dolby Atmos / DTS</string>
+    <string name="autoplay_regex_preset_english">Tiếng Anh</string>
+    <string name="autoplay_regex_preset_no_cam_ts">Loại bỏ CAM/TS</string>
+    <string name="autoplay_regex_preset_no_remux_hdr">Loại bỏ REMUX/HDR</string>
+
+
+    <!-- Player runtime: torrent overlay + tracks -->
+    <string name="player_torrent_peer_info">%1$d seed · %2$d peer</string>
+    <string name="player_torrent_buffered_status">Đã đệm %1$s · %2$s · %3$s</string>
+    <string name="player_torrent_status">%1$s · %2$s</string>
+    <string name="player_torrent_connecting_peers">Đang kết nối tới các người dùng ngang hàng…</string>
+    <string name="player_track_audio_fallback">Âm thanh %1$d</string>
+    <string name="player_track_subtitle_fallback">Phụ đề %1$d</string>
+
+    <!-- Player runtime: error recovery -->
+    <string name="player_error_stream_blocked">\n\nNguồn phát bị chặn hoặc bị hạn chế. Vui lòng thử một nguồn khác.</string>
+    <string name="player_error_stream_removed">\n\nLiên kết luồng đã hết hạn hoặc bị xóa. Vui lòng thử một nguồn khác.</string>
+    <string name="player_error_stream_expired">\n\nLiên kết luồng đã hết hạn. Vui lòng thử một nguồn khác.</string>
+    <string name="player_error_stream_rate_limited">\n\nQuá nhiều yêu cầu đến nguồn phát. Vui lòng thử lại sau.</string>
+    <string name="player_error_stream_unavailable">\n\nMáy chủ nguồn phát không khả dụng. Vui lòng thử một nguồn khác</string>
+    <string name="player_error_source_invalid_content">Lỗi nguồn: Nguồn phát trả về nội dung không hợp lệ hoặc không thể phát. Liên kết có thể đã hết hạn hoặc máy chủ đã trả về trang lỗi thay vì video.\n\nVui lòng thử một nguồn khác. [%1$s]</string>
+    <string name="player_error_decoder">Lỗi bộ giải mã</string>
+    <string name="player_error_unsupported_format">Luồng phát này sử dụng định dạng mà thiết bị của bạn có thể không hỗ trợ. Vui lòng thử một nguồn khác. [%1$s]</string>
+    <string name="player_error_initialize_failed">Không thể khởi tạo trình phát</string>
+    <string name="player_error_mpv_surface_failed">Không thể khởi tạo giao diện libmpv</string>
+    <string name="player_error_mpv_playback_failed">Không thể khởi tạo quá trình phát libmpv</string>
+    <string name="player_error_torrent">Lỗi torrent: %1$s</string>
+    <string name="player_error_playback_fallback">Lỗi phát</string>
+    <!-- Subtitle timing recovery -->
+    <string name="subtitle_timing_file_no_lines">Không tìm thấy dòng phụ đề nào trong tệp này.</string>
+    <string name="subtitle_timing_load_lines_failed">Không thể tải các dòng phụ đề.</string>
+    <string name="subtitle_download_failed_http">Tải phụ đề thất bại (HTTP %1$d)</string>
+    <string name="subtitle_download_empty_content">Nội dung tải xuống của phụ đề trống.</string>
+
+    <!-- Collection import errors -->
+    <string name="collections_import_error_empty_input">Dữ liệu đầu vào trống</string>
+    <string name="collections_import_error_empty_array">Mảng trống: không tìm thấy bộ sưu tập nào</string>
+    <string name="collections_import_error_missing_id">Bộ sưu tập %1$d: thiếu hoặc không hợp lệ \"id\"</string>
+    <string name="collections_import_error_missing_title">Bộ sưu tập \"%1$s\": thiếu hoặc không hợp lệ \"title\"</string>
+    <string name="collections_import_error_folders_array">Bộ sưu tập \"%1$s\": \"folders\" phải là một mảng</string>
+    <string name="collections_import_error_folder_invalid">Bộ sưu tập \"%1$s\", thư mục %2$d: định dạng không hợp lệ</string>
+    <string name="collections_import_error_folder_missing_id">Bộ sưu tập \"%1$s\", thư mục %2$d: thiếu \"id\"</string>
+    <string name="collections_import_error_folder_missing_title">Bộ sưu tập \"%1$s\", thư mục \"%2$s\": thiếu \"title\"</string>
+    <string name="collections_import_error_sources_array">Bộ sưu tập \"%1$s\", thư mục \"%2$s\": \"sources\" phải là một mảng</string>
+    <string name="collections_import_error_invalid_tile_shape">Bộ sưu tập \"%1$s\", thư mục \"%2$s\": không hợp lệ tileShape \"%3$s\"</string>
+    <string name="collections_import_error_source_invalid">Bộ sưu tập \"%1$s\", thư mục \"%2$s\", nguồn %3$d: định dạng không hợp lệ</string>
+    <string name="collections_import_error_source_required_fields">Bộ sưu tập \"%1$s\", thư mục \"%2$s\", nguồn %3$d: thiếu các trường yêu cầu</string>
+    <string name="collections_import_error_missing_tmdb_type">Bộ sưu tập \"%1$s\", thư mục \"%2$s\", nguồn %3$d: thiếu loại nguồn TMDB</string>
+    <string name="collections_import_error_missing_trakt_list_id">Bộ sưu tập \"%1$s\", thư mục \"%2$s\", nguồn %3$d: thiếu ID danh sách Trakt</string>
+    <string name="collections_import_error_json_parse">Lỗi phân tích cú pháp JSON: %1$s</string>
+
+
+
+    <!-- Detail / poster options errors -->
+    <string name="detail_error_update_library_failed">Không thể cập nhật thư viện</string>
+    <string name="detail_error_load_lists_failed">Không thể tải danh sách</string>
+    <string name="detail_error_update_lists_failed">Không thể cập nhật danh sách</string>
+    <string name="detail_error_update_watched_failed">Không thể cập nhật trạng thái đã xem</string>
+    <string name="detail_error_update_episode_watched_failed">Không thể cập nhật trạng thái đã xem của tập phim</string>
+
+    <!-- Search errors -->
+    <string name="search_error_load_addons_failed">Không thể tải các tiện ích</string>
+    <string name="search_error_failed">Không thể tải danh sách</string>
+
+    <!-- Stream / TMDB / addons fallbacks -->
+    <string name="stream_unknown">Luồng không xác định</string>
+    <string name="stream_embedded_group">Luồng phát nhúng</string>
+    <string name="stream_embedded_fallback_name">Nhúng luồng phát</string>
+    <string name="stream_quality_unknown">Không xác định</string>
+    <string name="stream_addon_unknown">Không xác định</string>
+    <string name="web_tmdb_company_fallback">Đơn vị sản xuất TMDB %1$d</string>
+    <string name="web_tmdb_collection_fallback">Bộ sưu tập TMDB %1$d</string>
+    <string name="web_error_invalid_request_body">Phần chứa dữ liệu yêu cầu không hợp lệ</string>
+
+    <!-- Network / safe API errors -->
+    <string name="network_error_empty_response_body">Nội dung phản hồi trống</string>
+    <string name="network_error_unknown">Đã xảy ra lỗi không xác định</string>
+
+    <!-- Torrent service / TorrServer binary errors -->
+    <string name="torrent_error_add_failed">Không thể thêm torrent</string>
+    <string name="torrent_error_binary_missing">Không tìm thấy tệp thực thi TorrServer tại %1$s</string>
+    <string name="torrent_error_process_died">Tiến trình TorrServer đã dừng khi khởi động (mã thoát %1$d)</string>
+    <string name="torrent_error_start_timeout">TorrServer đã không thể khởi động trong vòng %1$d giây</string>
+
+    <!-- Player runtime: stream / external link errors -->
+    <string name="player_torrent_starting_engine">Đang khởi động bộ máy P2P…</string>
+    <string name="player_stream_error_invalid_external_url">URL bên ngoài không hợp lệ</string>
+    <string name="player_stream_error_open_external_link_failed">Không thể mở liên kết bên ngoài</string>
+    <string name="player_stream_error_invalid_url">URL luồng phát không hợp lệ</string>
+    <string name="player_stream_error_missing_content_type">Thiếu loại nội dung</string>
+
+    <!-- Meta repository: addon detail error fragments -->
+    <string name="meta_error_detail_no_metadata_for_id">không có siêu dữ liệu nào được trả về cho ID này</string>
+
+    <!-- Stream repository: addon detail error fragments + fetch -->
+    <string name="stream_error_detail_no_streams_for_id">Không có luồng phát nào được trả về cho ID này</string>
+    <string name="stream_error_detail_addon_unreachable">không thể kết nối đến máy chủ của tiện ích</string>
+    <string name="stream_error_detail_addon_connection_failed">kết nối đến tiện ích đã thất bại</string>
+    <string name="stream_error_detail_addon_timeout">yêu cầu của tiện ích đã hết thời gian chờ</string>
+    <string name="stream_error_detail_addon_cleartext_blocked">tiện ích sử dụng kết nối HTTP không an toàn đã bị chặn bởi Android</string>
+    <string name="stream_error_detail_addon_request_failed">yêu cầu của tiện ích đã thất bại</string>
+    <string name="stream_error_fetch_failed">Không thể tải các luồng phát</string>
+
+
+
+    <!-- Profile selection: PIN overlay messages -->
+    <string name="profile_pin_saved_for_profile">Đã lưu mã PIN cho %1$s.</string>
+    <string name="profile_pin_lock_removed_for_profile">Đã gỡ khóa mã PIN cho %1$s. %1$s.</string>
+
+
+
+
+
+    <!-- Subtitle selection: unknown language fallback -->
+    <string name="subtitle_language_unknown">Không xác định</string>
+
+    <!-- External playback keep-alive service -->
+    <string name="external_playback_notification_text">Đang phát bằng trình phát bên ngoài</string>
+    <string name="external_playback_channel_description">Giữ ứng dụng hoạt động trong khi phát bằng trình phát bên ngoài</string>
+
+
+    <!-- Web config pages: shared save status -->
+    <string name="web_status_saved_streams">Đã lưu. Các luồng mới sẽ sử dụng những cài đặt này.</string>
+    <string name="web_status_could_not_save">Không thể lưu</string>
+
+    <!-- Web config page: stream badge import status -->
+    <string name="web_stream_badge_importing">Đang nhập…</string>
+    <string name="web_stream_badge_imported">Đã nhập URL nhãn.</string>
+    <string name="web_stream_badge_import_error">Nhập thất bại</string>
+    <string name="web_stream_badge_deleted">Đã xóa URL nhãn.</string>
+    <string name="web_stream_badge_load_error">Không thể tải cài đặt nhãn luồng phát</string>
+    <string name="web_stream_badge_error_url_required">Nhập URL chuỗi JSON của nhãn</string>
+    <string name="web_stream_badge_error_url_scheme">URL nhãn phải bắt đầu bằng http:// hoặc https://.</string>
+    <string name="web_stream_badge_error_import_limit">Có thể thêm tối đa %1$d URL nhãn</string>
+
+    <!-- Playback — Buffer & Network settings -->
+    <string name="playback_net_device_memory_info">Bộ nhớ thiết bị: %1$s | Giới hạn an toàn khuyến nghị: %2$d MB</string>
+    <string name="playback_net_nuvio_performance_mode">Bộ nhớ gốc ExoPlayer</string>
+    <string name="playback_net_nuvio_performance_mode_sub">Bật trình cấp phát gốc bộ nhớ ngoài vùng nhớ đống và các tối ưu hóa tua nhanh.</string>
+    <string name="playback_net_nuvio_performance_mode_not_supported">Thiết bị của bạn không hỗ trợ tính năng này.</string>
+    <string name="playback_buffer_custom">Bộ đệm phát lại tùy chỉnh</string>
+    <string name="playback_buffer_custom_sub">Ghi đè chế độ đệm mặc định của Media3 bằng các giá trị bên dưới. Khi tắt, trình phát sẽ sử dụng thời lượng bộ đệm và kích thước mục tiêu mặc định của Media3.</string>
+    <string name="playback_buffer_header">Bộ đệm</string>
+    <string name="playback_buffer_warning">Các cài đặt này ảnh hưởng đến cách hoạt động của bộ đệm. Giá trị không đúng có thể gây ra sự cố phát lại.</string>
+    <string name="playback_buffer_min">Thời lượng bộ đệm tối thiểu</string>
+    <string name="playback_buffer_min_sub">Lượng phương tiện tối thiểu cần đệm. Trình phát sẽ cố gắng luôn duy trì ít nhất lượng phương tiện này phía trước vị trí phát lại hiện tại.</string>
+    <string name="playback_buffer_max">Thời lượng bộ đệm tối đa</string>
+    <string name="playback_buffer_max_sub">Lượng phương tiện tối đa cần đệm. Giá trị này phải ít nhất bằng thời lượng bộ đệm tối thiểu. Giá trị cao hơn sử dụng nhiều bộ nhớ hơn nhưng giúp phát mượt hơn khi kết nối không ổn định.</string>
+    <string name="playback_buffer_value_same_as_min">%1$d giây (giống mức tối thiểu)</string>
+    <string name="playback_buffer_initial">Bộ đệm ban đầu</string>
+    <string name="playback_buffer_initial_sub">Lượng nội dung phải được đệm trước khi bắt đầu phát lại. Giá trị thấp giúp phát nhanh hơn nhưng có thể gây giật lúc bắt đầu trên kết nối chậm.</string>
+    <string name="playback_buffer_after_rebuffer">Bộ đệm sau khi tải lại</string>
+    <string name="playback_buffer_after_rebuffer_sub">Lượng nội dung cần đệm sau khi phát lại bị dừng do thiếu bộ đệm. Giá trị cao hơn giúp giảm tình trạng gián đoạn do đệm lặp lại.</string>
+    <string name="playback_buffer_back">Thời lượng bộ đệm ngược</string>
+    <string name="playback_buffer_back_sub">Lượng nội dung đã phát cần giữ trong bộ nhớ. Cho phép tua nhanh về trước mà không cần tải lại. Đặt thành 0 để tắt và tiết kiệm bộ nhớ.</string>
+    <string name="playback_buffer_back_reserve">Dự trữ khoảng %1$d MB trên mức bộ đệm mục tiêu. Tăng thời lượng bộ đệm tối đa sẽ thu nhỏ phần dự trữ này mà không làm mất thời gian bộ đệm ngược</string>
+    <string name="playback_buffer_managed">Quản lý ngân sách bộ nhớ</string>
+    <string name="playback_buffer_managed_sub">Giới hạn bộ đệm ở mức an toàn dựa trên bộ nhớ của thiết bị. Tắt tùy chọn này để tự đặt kích thước bộ đệm mục tiêu (nâng cao — giá trị lớn có thể làm thiết bị ít bộ nhớ bị lỗi).</string>
+    <string name="playback_buffer_target">Dung lượng bộ đệm mục tiêu</string>
+    <string name="playback_buffer_target_sub">Lượng RAM tối đa được sử dụng để đệm nội dung phía trước. Mức tối đa được tính dựa trên bộ nhớ khả dụng của thiết bị (giới hạn vùng lưu cho mỗi ứng dụng của Android), vì vậy thiết bị có nhiều RAM hơn sẽ tự động có giới hạn cao hơn.</string>
+    <string name="playback_buffer_target_managed_hint">Được quản lý theo ngân sách bộ nhớ của thiết bị. Tắt Quản lý ngân sách bộ nhớ để thay đổi mục này.</string>
+    <string name="playback_buffer_target_warning">Cảnh báo: vượt quá giới hạn an toàn của thiết bị (%1$d MB). Ứng dụng có thể bị lỗi khi phát lại.</string>
+    <string name="playback_buffer_target_danger_warning">Nguy hiểm: vượt quá giới hạn cảnh báo (%1$d MB). Nguy cơ lỗi rất cao.</string>
+    <string name="playback_buffer_allow_large">Cho phép bộ đệm mục tiêu lớn hơn</string>
+    <string name="playback_buffer_allow_large_sub">Gỡ bỏ giới hạn bộ nhớ thiết bị trên thanh trượt dung lượng bộ đệm mục tiêu, cho phép các giá trị lên đến 2 GB. Có thể gây lỗi trên thiết bị có dưới 2 GB RAM.</string>
+    <string name="playback_net_custom">Mạng tùy chỉnh</string>
+    <string name="playback_net_custom_sub">Sử dụng nhiều kết nối đồng thời để tải các luồng tiến dần. Khi tắt, chỉ sử dụng một kết nối.</string>
+    <string name="playback_net_http2">Bật HTTP/2</string>
+    <string name="playback_net_http2_sub">Bật giao thức HTTP/2 cho các kết nối mạng, cho phép dồn nhiều yêu cầu và rút ngắn thời gian bắt tay.</string>
+    <string name="playback_net_parallel">Kết nối đồng thời</string>
+    <string name="playback_net_parallel_sub">Sử dụng nhiều kết nối đồng thời để tải luồng phát. Bật tùy chọn này khi bạn vẫn gặp tình trạng đệm dù tốc độ tải xuống chắc chắn đủ nhanh.</string>
+    <string name="playback_net_connection_count">Số lượng kết nối</string>
+    <string name="playback_net_connection_count_sub">Số lượng kết nối TCP đồng thời. Giá trị cao hơn làm tăng mức sử dụng bộ nhớ và băng thông đầu ra nhưng hiệu quả sẽ giảm dần.</string>
+    <string name="playback_net_chunk_size">Dung lượng phân đoạn</string>
+    <string name="playback_net_chunk_size_sub">Dung lượng của từng phân đoạn tải xuống trên mỗi kết nối. Các phân đoạn lớn hơn giúp giảm chi phí quản lý dữ liệu nhưng sẽ sử dụng nhiều bộ nhớ hơn</string>
+
+    <!-- Playback diagnostics card -->
+    <string name="diag_last_playback_title">Chẩn đoán phát lại gần nhất</string>
+    <string name="diag_no_data">Chưa có dữ liệu phát lại. Vui lòng phát một luồng rồi quay lại đây để xem chi tiết quyết định DV cho lần phát lại đó.</string>
+    <string name="diag_section_source_hardware">Nguồn &amp; Phần cứng</string>
+    <string name="diag_section_source_hardware_sub">Chụp ảnh thẻ này nếu bạn báo cáo sự cố.</string>
+    <string name="diag_label_host">Máy chủ</string>
+    <string name="diag_label_when">Thời gian</string>
+    <string name="diag_label_device">Thiết bị</string>
+    <string name="diag_label_display">Màn hình</string>
+    <string name="diag_label_dv7_decoder">Bộ giải mã DV7</string>
+    <string name="diag_label_dv_decoder">Bộ giải mã DV</string>
+    <string name="diag_label_dv_bridge">Cầu nối DV</string>
+    <string name="diag_label_bridge_version">Phiên bản cầu nối</string>
+    <string name="diag_label_bridge_reason">Lý do bắc cầu</string>
+    <string name="diag_section_decision_settings">Quyết định &amp; Cài đặt</string>
+    <string name="diag_label_dv_mode_requested">Chế độ DV (được yêu cầu)</string>
+    <string name="diag_label_dv_mode_effective">Chế độ DV (đang áp dụng)</string>
+    <string name="diag_label_auto_decision">Quyết định TỰ ĐỘNG</string>
+    <string name="diag_label_source_profile">Cấu hình nguồn</string>
+    <string name="diag_label_conversions">Chuyển đổi</string>
+    <string name="diag_label_signal_rewrites">Ghi đè tín hiệu</string>
+    <string name="diag_label_custom_buffers">Bộ đệm tùy chỉnh</string>
+    <string name="diag_label_custom_network_cache">Bộ nhớ đệm Mạng/Tùy chỉnh</string>
+    <string name="diag_section_outcome">Trạng thái đầu ra</string>
+    <string name="diag_label_hdr_format_intended">Định dạng HDR (dự kiến)</string>
+    <string name="diag_label_first_frame">Khung hình đầu tiên</string>
+    <string name="diag_label_rebuffers">Số lần tải lại bộ đệm</string>
+    <string name="diag_label_result">Kết quả</string>
+    <string name="diag_value_available">Có sẵn</string>
+    <string name="diag_value_none">Không có</string>
+    <string name="diag_value_ready">Sẵn sàng</string>
+    <string name="diag_value_not_ready">Chưa sẵn sàng</string>
+    <string name="diag_value_decoder_hidden">%1$s (ẩn)</string>
+    <string name="diag_value_on">Bật</string>
+    <string name="diag_value_off">Tắt</string>
+    <string name="diag_value_conversions_fmt">%1$d trên tổng số %2$d lần thành công</string>
+    <string name="diag_value_never_rendered">Chưa từng kết xuất</string>
+
+
+    <!-- Size and speed units -->
+    <string name="unit_size_mb">%1$s MB</string>
+    <string name="unit_size_gb">%1$s GB</string>
+    <string name="unit_speed_b_s">%1$d B/s</string>
+    <string name="unit_speed_kb_s">%1$s KB/s</string>
+    <string name="unit_speed_mb_s">%1$s MB/s</string>
+
+    <!-- Misc fallbacks -->
+    <string name="playback_estimated_memory_usage">Mức sử dụng bộ nhớ ước tính: %1$d / %2$d MB</string>
+    <string name="profile_default_name">Hồ sơ %1$d</string>
+    <string name="detail_tmdb_fallback_title">TMDB %1$d</string>
+    <string name="collections_editor_tmdb_collection_fallback">Bộ sưu tập TMDB %1$d</string>
+
+    <!-- Stream Throughput Speed & Chunk Diagnostic Test -->
+    <string name="stream_test_server_label">Máy chủ: %1$s</string>
+    <string name="stream_test_no_stream">Chưa ghi nhận phát lại nào. Vui lòng phát một video để chạy các bài kiểm tra chẩn đoán trên máy chủ lưu trữ video đó.</string>
+    <string name="stream_test_btn_running">Đang chạy...</string>
+    <string name="stream_test_label_baseline">Kết nối đơn tiêu chuẩn (tham chiếu)</string>
+    <string name="stream_test_error_prefix">Lỗi: %1$s</string>
+    <string name="stream_test_error_connection">Kết nối không thành công. Liên kết luồng đã phát gần nhất có thể đã hết hạn hoặc không thể truy cập. Vui lòng phát lại video rồi thử lại.</string>
+
+</resources>

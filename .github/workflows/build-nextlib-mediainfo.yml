@@ -1,0 +1,189 @@
+name: Build nextlib mediainfo AAR
+
+# Manually triggered. Rebuilds app/libs/nextlib-mediainfo-local.aar from public
+# source (Spec 49 D14): nextlib v1.9.1-0.11.0's mediainfo module with FFmpeg 6.0
+# and mbedTLS 3.4.1 linked STATICALLY into one libmediainfo.so per ABI, so the AAR
+# ships no libav*.so to clash with mpv-android-lib's. To ship: replace
+# app/libs/nextlib-mediainfo-local.aar with the artifact's AAR, then commit.
+#
+# Mirrors the private fork build found in the shipped binary (NDK r25c, FFmpeg 6.0
+# libavformat 60.3.100, mbedTLS 3.4.1) and upstream ffmpeg/setup.sh's configure
+# line, with three deliberate deltas:
+#   --enable-static --disable-shared (was shared), native vp8/vp9 decoders
+#   (was libvpx_vp8/libvpx_vp9, absent from the shipped binary), --disable-asm on
+#   every ABI (upstream's setup.sh leaks it from the x86 pass to all later ABIs;
+#   the shipped binary has no NEON/SIMD symbols either).
+# The CMakeLists/abiFilters change is .github/nextlib/nextlib-mediainfo-static.patch.
+# classes.jar is the untouched upstream module build (byte-identical to Maven
+# Central's nextlib-mediainfo 1.9.1-0.11.0 for the shipped AAR).
+
+on:
+  workflow_dispatch:
+    inputs:
+      abis:
+        description: "ABIs, space-separated (the shipped AAR also has x86 x86_64)"
+        default: "armeabi-v7a arm64-v8a"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      NEXTLIB_TAG: v1.9.1-0.11.0
+      NEXTLIB_COMMIT: 302adbfa91adfc12f04a3eeb74341ba7c629bbf3
+      FFMPEG_VERSION: "6.0"
+      FFMPEG_SHA256: 57be87c22d9b49c112b6d24bc67d42508660e6b718b3db89c44e47e289137082
+      MBEDTLS_VERSION: 3.4.1
+      MBEDTLS_SHA256: a420fcf7103e54e775c383e3751729b8fb2dcd087f6165befd13f28315f754f5
+      # nextlib's own gradle/libs.versions.toml pins the same NDK for the module's CMake.
+      NDK_VERSION: 25.2.9519653
+      CMAKE_VERSION: 3.22.1
+      # FFmpeg/mbedTLS objects target API 21 as in upstream setup.sh; libmediainfo.so
+      # itself is built at the module's minSdk 23 by Gradle.
+      API_LEVEL: 21
+      ABIS: ${{ inputs.abis }}
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" "cmake;$CMAKE_VERSION"
+          echo "NDK_PATH=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          echo "CMAKE_BIN=$ANDROID_HOME/cmake/$CMAKE_VERSION/bin/cmake" >> "$GITHUB_ENV"
+
+      - name: Clone nextlib and apply the static-link patch
+        run: |
+          set -e
+          git clone --depth 1 --branch "$NEXTLIB_TAG" https://github.com/anilbeesetti/nextlib nextlib
+          test "$(git -C nextlib rev-parse HEAD)" = "$NEXTLIB_COMMIT"
+          git -C nextlib apply "$GITHUB_WORKSPACE/.github/nextlib/nextlib-mediainfo-static.patch"
+
+      - name: Download and verify FFmpeg + mbedTLS sources
+        run: |
+          set -e
+          SRC="$GITHUB_WORKSPACE/nextlib/ffmpeg/sources"
+          mkdir -p "$SRC" && cd "$SRC"
+          curl -fsSL -o ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
+          echo "$FFMPEG_SHA256  ffmpeg.tar.xz" | sha256sum -c -
+          curl -fsSL -o mbedtls.tar.gz "https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v${MBEDTLS_VERSION}.tar.gz"
+          echo "$MBEDTLS_SHA256  mbedtls.tar.gz" | sha256sum -c -
+          tar -xf ffmpeg.tar.xz && tar -xzf mbedtls.tar.gz && rm ffmpeg.tar.xz mbedtls.tar.gz
+
+      - name: Build mbedTLS (static, per ABI)
+        run: |
+          set -e
+          SRC="$GITHUB_WORKSPACE/nextlib/ffmpeg/sources/mbedtls-$MBEDTLS_VERSION"
+          for ABI in $ABIS; do
+            echo "=== mbedTLS $ABI ==="
+            B="$SRC/build-$ABI"
+            rm -rf "$B"
+            "$CMAKE_BIN" -S "$SRC" -B "$B" \
+              -DCMAKE_TOOLCHAIN_FILE="$NDK_PATH/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="$API_LEVEL" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/nextlib/ffmpeg/build/external/$ABI" \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+              -DUSE_STATIC_MBEDTLS_LIBRARY=ON -DUSE_SHARED_MBEDTLS_LIBRARY=OFF \
+              -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DGEN_FILES=OFF
+            "$CMAKE_BIN" --build "$B" -j"$(nproc)"
+            "$CMAKE_BIN" --install "$B"
+          done
+
+      - name: Cross-compile FFmpeg (static, per ABI)
+        run: |
+          set -e
+          TOOLCHAIN="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64"
+          ROOT="$GITHUB_WORKSPACE/nextlib/ffmpeg"
+          cd "$ROOT/sources/ffmpeg-$FFMPEG_VERSION"
+
+          # upstream ENABLED_DECODERS with native vp8/vp9 in place of libvpx_vp8/libvpx_vp9
+          DECODERS="vorbis opus flac alac pcm_mulaw pcm_alaw mp3 amrnb amrwb aac ac3 eac3 dca \
+            mlp truehd h264 hevc mpeg2video mpegvideo vp8 vp9"
+          DECODER_FLAGS=""
+          for d in $DECODERS; do DECODER_FLAGS+=" --enable-decoder=$d"; done
+
+          for ABI in $ABIS; do
+            case $ABI in
+              armeabi-v7a) CC_PREFIX=armv7a-linux-androideabi; CPU=armv7-a; ARCH=arm ;;
+              arm64-v8a)   CC_PREFIX=aarch64-linux-android;    CPU=armv8-a; ARCH=aarch64 ;;
+              x86)         CC_PREFIX=i686-linux-android;       CPU=i686;    ARCH=i686 ;;
+              x86_64)      CC_PREFIX=x86_64-linux-android;     CPU=x86_64;  ARCH=x86_64 ;;
+              *) echo "Unsupported ABI: $ABI"; exit 1 ;;
+            esac
+            DEP="$ROOT/build/external/$ABI"
+            PREFIX="$ROOT/build/$ABI"
+            echo "=== FFmpeg $ABI ==="
+            make distclean > /dev/null 2>&1 || true
+            # PKG_CONFIG_LIBDIR: keep host .pc files out; mbedTLS 3.4.1 ships none,
+            # so configure falls back to check_lib -lmbedtls -lmbedx509 -lmbedcrypto.
+            PKG_CONFIG_LIBDIR="$DEP/lib/pkgconfig" ./configure \
+              --prefix="$PREFIX" \
+              --enable-cross-compile \
+              --target-os=android \
+              --arch="$ARCH" \
+              --cpu="$CPU" \
+              --cross-prefix="$TOOLCHAIN/bin/${CC_PREFIX}${API_LEVEL}-" \
+              --nm="$TOOLCHAIN/bin/llvm-nm" \
+              --ar="$TOOLCHAIN/bin/llvm-ar" \
+              --ranlib="$TOOLCHAIN/bin/llvm-ranlib" \
+              --strip="$TOOLCHAIN/bin/llvm-strip" \
+              --extra-cflags="-O3 -fPIC -I$DEP/include" \
+              --extra-ldflags="-L$DEP/lib -Wl,-z,max-page-size=16384" \
+              --pkg-config="$(command -v pkg-config)" \
+              --enable-static --disable-shared --enable-pic \
+              --disable-doc --disable-programs --disable-everything \
+              --disable-vulkan --disable-avdevice --disable-postproc --disable-avfilter \
+              --disable-symver --disable-debug --disable-asm \
+              --enable-avformat --enable-swresample \
+              --enable-parsers --enable-demuxers \
+              --enable-protocol=file,http,https,mmsh,mmst,pipe,rtmp,rtmps,rtmpt,rtmpts,rtp,tls \
+              --enable-version3 --enable-mbedtls \
+              --extra-ldexeflags=-pie \
+              $DECODER_FLAGS
+            make -j"$(nproc)"
+            make install
+            mkdir -p "$ROOT/output/lib/$ABI" "$ROOT/output/include/$ABI"
+            cp "$PREFIX"/lib/lib{avformat,avcodec,swscale,swresample,avutil}.a "$ROOT/output/lib/$ABI/"
+            cp "$DEP"/lib/lib{mbedtls,mbedx509,mbedcrypto}.a "$ROOT/output/lib/$ABI/"
+            cp -r "$PREFIX"/include/* "$ROOT/output/include/$ABI/"
+          done
+
+      - name: Build mediainfo AAR
+        working-directory: nextlib
+        run: ./gradlew :mediainfo:assembleRelease --no-daemon -Pnextlib.abis="$(echo $ABIS | tr ' ' ',')"
+
+      - name: Check the AAR (one static libmediainfo.so per ABI)
+        run: |
+          set -e
+          AAR=nextlib/mediainfo/build/outputs/aar/mediainfo-release.aar
+          mkdir -p aar-check && unzip -q -o "$AAR" -d aar-check
+          READELF="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          NM="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          for ABI in $ABIS; do
+            SO="aar-check/jni/$ABI/libmediainfo.so"
+            test "$(ls aar-check/jni/$ABI)" = "libmediainfo.so"
+            if "$READELF" -d "$SO" | grep NEEDED | grep -E 'libav|libsw|mbed'; then
+              echo "$ABI: libmediainfo.so still needs a shared FFmpeg/mbedTLS library"; exit 1
+            fi
+            "$NM" -D --defined-only "$SO" | grep -q ' T Java_io_github_anilbeesetti_nextlib_mediainfo_MediaInfoBuilder_nativeCreateFromPath$'
+            "$NM" -D --defined-only "$SO" | grep -q ' ff_https_protocol$'
+            "$NM" -D --defined-only "$SO" | grep -q ' ff_matroska_demuxer$'
+            strings "$SO" | grep -qx 'Lavf60.3.100'
+            echo "$ABI OK: $("$READELF" -d "$SO" | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/' | tr '\n' ' ')"
+          done
+
+      - name: Upload AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextlib-mediainfo-local
+          path: nextlib/mediainfo/build/outputs/aar/mediainfo-release.aar
+          if-no-files-found: error

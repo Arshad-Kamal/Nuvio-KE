@@ -1,0 +1,55 @@
+diff --git a/mediainfo/build.gradle.kts b/mediainfo/build.gradle.kts
+index 3f571d9..84da03d 100644
+--- a/mediainfo/build.gradle.kts
++++ b/mediainfo/build.gradle.kts
+@@ -23,7 +23,8 @@ android {
+         }
+ 
+         ndk {
+-            abiFilters += listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
++            // Nuvio KE: -Pnextlib.abis=a,b narrows the ABIs (default: upstream's four).
++            abiFilters += (findProperty("nextlib.abis") as String? ?: "x86,x86_64,armeabi-v7a,arm64-v8a").split(",")
+         }
+     }
+ 
+diff --git a/mediainfo/src/main/cpp/CMakeLists.txt b/mediainfo/src/main/cpp/CMakeLists.txt
+index 6a04b3a..14ee44a 100644
+--- a/mediainfo/src/main/cpp/CMakeLists.txt
++++ b/mediainfo/src/main/cpp/CMakeLists.txt
+@@ -12,22 +12,25 @@ set(ffmpeg_libs ${ffmpeg_dir}/lib/${ANDROID_ABI})
+ 
+ include_directories(${ffmpeg_dir}/include/${ANDROID_ABI})
+ 
++# Nuvio KE: link FFmpeg and mbedTLS statically into libmediainfo.so, so the AAR
++# ships no libav*.so (they would clash with mpv-android-lib's libav*.so).
++# Archive order follows the dependency chain; LLD resolves either way.
+ set(
+         # List variable name
+         ffmpeg_libs_names
+         # Values in the list
+-        avcodec avformat avutil swscale)
++        avformat avcodec swscale swresample avutil mbedtls mbedx509 mbedcrypto)
+ 
+ foreach (ffmpeg_lib_name ${ffmpeg_libs_names})
+     add_library(
+             ${ffmpeg_lib_name}
+-            SHARED
++            STATIC
+             IMPORTED)
+     set_target_properties(
+             ${ffmpeg_lib_name}
+             PROPERTIES
+             IMPORTED_LOCATION
+-            ${ffmpeg_libs}/lib${ffmpeg_lib_name}.so)
++            ${ffmpeg_libs}/lib${ffmpeg_lib_name}.a)
+ endforeach ()
+ 
+ 
+@@ -48,4 +51,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
+         # List libraries link to the target library
+         log
+         jnigraphics
+-        ${ffmpeg_libs_names})
++        android
++        ${ffmpeg_libs_names}
++        z)

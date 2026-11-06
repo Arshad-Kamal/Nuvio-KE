@@ -1,0 +1,509 @@
+<resources>
+    <string name="type_movie">Filmas</string>
+    <string name="type_series">Serialas</string>
+    <string name="type_unknown">Nežinoma</string>
+
+    <!-- HomeScreen -->
+    <string name="error_generic">Įvyko klaida</string>
+
+    <!-- ErrorState -->
+    <string name="action_retry">Bandyti dar kartą</string>
+    <string name="error_state_generic_issue">Kažkas nutiko ne taip.</string>
+    <string name="error_state_possible_fix">Galimas sprendimas: %1$s</string>
+    <string name="error_state_fix_retry_soon">pabandykite dar kartą po akimirkos.</string>
+    <string name="error_state_issue_no_metadata_any_addon">Šis ID negalėjo įkelti informacijos, nes nė vienas iš įdiegtų priedų negrąžino metaduomenų.</string>
+    <string name="error_state_fix_no_metadata_any_addon">išbandykite kitą priedą, „Išdėstymo“ nustatymuose išjunkite „Teikti pirmenybę išoriniam metaduomenų priedui“ arba patikrinkite, ar įdiegtas priedas palaiko šį ID.</string>
+    <string name="error_state_prefix_no_supported_metadata">Nė vienas įdiegtas priedas nepalaiko metaduomenų, skirtų </string>
+    <string name="error_state_prefix_no_addon_for_id">Nė vienas įdiegtas priedas negalėjo pateikti metaduomenų, kurių ID=</string>
+    <string name="error_state_fix_no_supported_metadata">įdiekite arba atnaujinkite priedą, palaikantį šį turinio tipą, tada bandykite dar kartą.</string>
+    <string name="error_state_prefix_tried_meta_addons">Išbandyti meta priedai:</string>
+    <string name="error_state_fix_tried_meta_addons">įdiekite priedą, palaikantį šį ID, arba iš naujo sukonfigūruokite/atnaujinkite priedą ir bandykite dar kartą.</string>
+    <string name="error_state_issue_missing_metadata_for_id">neturi metaduomenų šiam ID</string>
+    <string name="error_state_fix_missing_metadata_for_id">atidarykite šį ID naudodami kitą priedą, išjunkite „Teikti pirmenybę išoriniam metaduomenų priedui“ arba patikrinkite, ar priedas palaiko šį ID.</string>
+    <string name="error_state_issue_addon_unreachable">nepavyko pasiekti</string>
+    <string name="error_state_fix_addon_unreachable">patikrinkite interneto ryšį, įsitikinkite, kad priedo URL vis dar veikia, tada bandykite dar kartą.</string>
+    <string name="error_state_issue_addon_connection_failed">atmetė ryšį</string>
+    <string name="error_state_fix_addon_connection_failed">įsitikinkite, kad priedo serveris yra pasiekiamas, tada bandykite dar kartą.</string>
+    <string name="error_state_issue_addon_timeout">per ilgai neatsakė</string>
+    <string name="error_state_fix_addon_timeout">pabandykite dar kartą po akimirkos arba išbandykite kitą priedą, jei tai kartojasi.</string>
+    <string name="error_state_issue_addon_cleartext">naudoja nesaugų HTTP ryšį, kurį „Android“ užblokavo</string>
+    <string name="error_state_fix_addon_cleartext">pakeiskite priedo URL į HTTPS arba atnaujinkite priedo konfigūraciją.</string>
+    <string name="error_state_fix_addon_generic">pabandykite dar kartą, atnaujinkite arba iš naujo įdiekite priedą arba išbandykite kitą priedą.</string>
+    <string name="error_state_addon_issue_template">%1$s: %2$s.</string>
+    <string name="error_meta_not_found">Metaduomenys nerasti</string>
+    <string name="error_meta_no_supported_addon">Nė vienas įdiegtas priedas nepalaiko „%1$s“ metaduomenų.</string>
+    <string name="error_meta_no_addon_for_id">Nė vienas įdiegtas priedas negalėjo pateikti metaduomenų ID=%1$s (tipas=%2$s).</string>
+    <string name="error_meta_tried_none">Išbandyti meta priedai: %1$s. Nė vienas iš jų nepateikė metaduomenų ID=%2$s (tipas=%3$s).</string>
+    <string name="error_meta_tried_generic">Išbandyti meta priedai: %1$s. Nepavyko įkelti metaduomenų ID=%2$s (tipas=%3$s).</string>
+    <string name="error_meta_tried_issues">Išbandyti meta priedai: %1$s. Nepavyko įkelti metaduomenų ID=%2$s (tipas=%3$s). Problemos: %4$s.</string>
+
+    <!-- ContinueWatchingSection -->
+    <string name="continue_watching">Tęsti žiūrėjimą</string>
+    <string name="cw_upcoming">Būsimi</string>
+    <string name="cw_next_up">Kitas</string>
+    <string name="cw_resume">Tęsti</string>
+    <string name="cw_percent_watched">Žiūrėta %1$d%%</string>
+    <string name="cw_hours_min_left">Liko %1$dv %2$dm</string>
+    <string name="cw_min_left">Liko %1$dm</string>
+    <string name="cw_airs_date">Pasirodo %1$s</string>
+    <string name="cw_airs_today">Pasirodo šiandien</string>
+    <string name="cw_airs_tomorrow">Pasirodo rytoj</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="one">Pasirodo po %d dienos</item>
+        <item quantity="few">Pasirodo po %d dienų</item>
+        <item quantity="many">Pasirodo po %d dienos</item>
+        <item quantity="other">Pasirodo po %d dienų</item>
+    </plurals>
+    <string name="cw_action_go_to_details">Eiti į informaciją</string>
+    <string name="cw_action_start_from_beginning">Pradėti iš pradžių</string>
+    <string name="cw_action_remove">Pašalinti</string>
+    <string name="cw_dialog_subtitle">Pasirinkite, ką norite daryti su šiuo elementu.</string>
+    <string name="home_poster_dialog_subtitle">Pavadinimo veiksmai</string>
+
+    <string name="action_see_all">Žiūrėti viską</string>
+
+    <!-- HeroSection -->
+    <string name="hero_creator">Kūrėjas: %1$s</string>
+    <string name="hero_director">Režisierius: %1$s</string>
+    <string name="hero_writer">Scenaristas: %1$s</string>
+    <string name="hero_play">Leisti</string>
+    <string name="hero_add_to_library">Pridėti į biblioteką</string>
+    <string name="hero_remove_from_library">Pašalinti iš bibliotekos</string>
+    <string name="hero_mark_watched">Pažymėti kaip žiūrėtą</string>
+    <string name="hero_mark_unwatched">Pažymėti kaip nežiūrėtą</string>
+    <string name="hero_play_trailer">Leisti anonsą</string>
+    <string name="hero_press_back_trailer">Paspauskite „Atgal“, kad išeitumėte iš anonso</string>
+
+    <!-- EpisodesSection -->
+    <string name="episodes_season">%1$d sezonas</string>
+    <string name="episodes_specials">Specialios serijos</string>
+    <string name="episodes_episode">Serija</string>
+    <string name="episodes_cd_watched">Žiūrėta</string>
+    <string name="episodes_dialog_subtitle">Serijos veiksmai</string>
+    <string name="episodes_mark_watched">Pažymėti kaip žiūrėtą</string>
+    <string name="episodes_mark_unwatched">Pažymėti kaip nežiūrėtą</string>
+    <string name="episodes_mark_season_watched">Pažymėti sezoną kaip žiūrėtą</string>
+    <string name="episodes_mark_season_unwatched">Pažymėti sezoną kaip nežiūrėtą</string>
+    <string name="episodes_mark_previous_watched">Pažymėti ankstesnes šio sezono serijas kaip žiūrėtas</string>
+    <string name="episodes_play">Leisti</string>
+    <string name="play_manually">Leisti rankiniu būdu</string>
+    <string name="episodes_season_actions">Sezono veiksmai</string>
+
+    <!-- MetaDetailsViewModel -->
+    <string name="detail_added_to_library">Pridėta į biblioteką</string>
+    <string name="detail_removed_from_library">Pašalinta iš bibliotekos</string>
+    <string name="detail_episode_marked_watched">Serija pažymėta kaip žiūrėta</string>
+    <string name="detail_episode_marked_unwatched">Serija pažymėta kaip nežiūrėta</string>
+    <string name="detail_lists_updated">Sąrašai atnaujinti</string>
+    <string name="detail_movie_marked_watched">Pažymėta kaip žiūrėta</string>
+    <string name="detail_movie_marked_unwatched">Pažymėta kaip nežiūrėta</string>
+    <string name="detail_all_episodes_watched">Visos serijos jau žiūrėtos</string>
+    <string name="detail_no_watched_episodes">Šiame sezone nėra žiūrėtų serijų</string>
+    <string name="detail_all_previous_watched">Visos ankstesnės serijos jau žiūrėtos</string>
+    <string name="detail_marked_episodes_watched">Serijų pažymėta kaip žiūrėta: %1$d</string>
+    <string name="detail_marked_episodes_unwatched">Serijų pažymėta kaip nežiūrėta: %1$d</string>
+    <string name="detail_marked_previous_watched">Ankstesnių serijų pažymėta kaip žiūrėta: %1$d</string>
+
+    <!-- MetaDetailsScreen -->
+    <string name="detail_btn_play">Leisti</string>
+    <string name="detail_btn_resume">Tęsti</string>
+    <string name="detail_btn_play_episode">Leisti S%1$d E%2$d</string>
+    <string name="detail_btn_resume_episode">Tęsti S%1$d E%2$d</string>
+    <string name="detail_btn_next_episode">Kitas S%1$d E%2$d</string>
+    <string name="detail_tab_cast">Kūrėjai ir aktoriai</string>
+    <string name="cast_role_creator">Kūrėjas</string>
+    <string name="cast_role_director">Režisierius</string>
+    <string name="cast_role_writer">Scenaristas</string>
+    <string name="detail_tab_ratings">Įvertinimai</string>
+    <string name="detail_tab_more_like_this">Panašūs</string>
+    <string name="detail_section_network">Tinklas</string>
+    <string name="detail_section_production">Produkcija</string>
+    <string name="episodes_unavailable">Nepasiekiamas</string>
+    <string name="series_status_ended">Baigtas</string>
+    <string name="series_status_continuing">Tęsiamas</string>
+    <string name="series_status_current">Dabartinis</string>
+    <string name="series_status_cancelled">Atšauktas</string>
+    <string name="series_status_released">Išleistas</string>
+    <string name="series_status_planned">Suplanuotas</string>
+    <string name="series_status_rumored">Sklinda gandai</string>
+    <string name="series_status_in_production">Gaminamas</string>
+    <string name="series_status_post_production">Po gamybos (Post Production)</string>
+    <string name="movie_status_ended">Baigtas</string>
+    <string name="movie_status_continuing">Tęsiamas</string>
+    <string name="movie_status_current">Dabartinis</string>
+    <string name="movie_status_cancelled">Atšauktas</string>
+    <string name="movie_status_released">Išleistas</string>
+    <string name="movie_status_planned">Planuojamas</string>
+    <string name="movie_status_rumored">Sklinda gandai</string>
+    <string name="movie_status_in_production">Gaminamas</string>
+    <string name="movie_status_post_production">Po gamybos (Post Production)</string>
+    <string name="detail_lists_fallback">Sąrašai</string>
+    <string name="detail_lists_subtitle">Pasirinkite, į kuriuos sąrašus įtraukti šį pavadinimą.</string>
+    <string name="action_save">Išsaugoti</string>
+    <string name="action_saving">Išsaugoma…</string>
+
+    <!-- AppLanguage -->
+    <string name="appearance_language_system">Sistemos numatytoji</string>
+    <string name="appearance_language_dialog_title">Pasirinkite kalbą</string>
+    <string name="appearance_language_restart_hint">Iš naujo paleiskite programą, kad pritaikytumėte kalbos pakeitimą.</string>
+
+    <!-- Font -->
+    <string name="appearance_font_dialog_title">Pasirinkite šriftą</string>
+
+    <!-- ThemeSettingsScreen -->
+    <string name="appearance_title">Išvaizda</string>
+
+    <!-- AboutScreen -->
+    <string name="about_title">Apie</string>
+
+    <!-- SettingsScreen categories -->
+    <string name="settings_account">Paskyra</string>
+    <string name="settings_profiles">Profiliai</string>
+    <string name="settings_layout">Išdėstymas</string>
+    <string name="settings_integration">Integracijos</string>
+    <string name="settings_playback">Atkūrimas</string>
+    <string name="settings_debug">Derinimas (Debug)</string>
+    <string name="settings_account_section_subtitle">Paskyros ir sinchronizavimo būsena</string>
+    <string name="account_stat_addons">priedai</string>
+    <string name="account_stat_library">biblioteka</string>
+    <string name="account_stat_progress">pažanga</string>
+    <string name="account_stat_watched">žiūrėta</string>
+
+    <!-- PlaybackSettingsScreen -->
+    <string name="cd_decrease">Sumažinti</string>
+    <string name="cd_increase">Padidinti</string>
+    <string name="action_cancel">Atšaukti</string>
+    <string name="action_none">Nėra</string>
+
+
+    <!-- PlaybackSettingsSections -->
+    <string name="playback_section_general">Bendra</string>
+    <string name="playback_loading_overlay">Įkėlimo perdanga</string>
+    <string name="playback_loading_overlay_sub">Rodyti įkėlimo ekraną, kol pasirodys pirmas vaizdo kadras.</string>
+    <string name="playback_pause_overlay">Pristabdymo perdanga</string>
+    <string name="playback_pause_overlay_sub">Rodyti informacijos perdangą po 5 sekundžių pauzės.</string>
+    <string name="playback_show_clock_sub">Rodyti esamą ir pabaigos laiką, kol valdikliai matomi.</string>
+    <string name="playback_osd_clock">OSD ekraninis laikrodis</string>
+    <string name="playback_skip_intro">Praleisti Intro</string>
+    <string name="playback_skip_intro_sub">Naudoti „introdb.app“ įžangų ir santraukų aptikimui.</string>
+    <string name="playback_section_subtitles">Subtitrai</string>
+    <string name="playback_afr_off">Išjungta</string>
+    <string name="playback_afr_on_start">Pradžioje</string>
+    <string name="playback_resolution_matching">Skiriamosios gebos derinimas</string>
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_autoplay_trailers">Automatiškai leisti anonsus</string>
+    <string name="audio_autoplay_trailers_sub">Automatiškai leisti anonsus informacijos ekrane po tam tikro neveiklumo laikotarpio</string>
+    <string name="audio_trailer_delay">Anonso delsa</string>
+    <string name="audio_section">Garsas</string>
+    <string name="audio_lang_default">Numatytoji (medijos failas)</string>
+    <string name="audio_lang_device">Įrenginio kalba</string>
+    <string name="audio_skip_silence">Praleisti tylą</string>
+    <string name="audio_skip_silence_sub">Praleisti tylas garso dalis atkūrimo metu</string>
+    <string name="audio_advanced_warning">Šie nustatymai kai kuriuose įrenginiuose gali sukelti problemų. Keiskite tik jei žinote, ką darote.</string>
+    <string name="audio_decoder_device_only">Tik įrenginio dekoderiai</string>
+    <string name="audio_decoder_prefer_device">Teikti pirmenybę įrenginio dekoderiams</string>
+    <string name="audio_decoder_prefer_app">Teikti pirmenybę programos dekoderiams (FFmpeg)</string>
+    <string name="audio_decoder_priority">Dekoderio prioritetas</string>
+    <string name="audio_tunneled">Tunelinis atkūrimas (Tunneled Playback)</string>
+    <string name="audio_tunneled_sub">Aparatūros lygio garso / vaizdo sinchronizavimas. Gali pagerinti atkūrimą kai kuriuose „Android TV“ įrenginiuose.</string>
+    <string name="audio_decoder_device_only_desc">Naudoti tik integruotus aparatūros dekoderius. Labiausiai suderinama, bet gali palaikyti ne visus formatus.</string>
+    <string name="audio_decoder_prefer_device_desc">Naudoti aparatūros dekoderius, kai jie prieinami, kitu atveju — FFmpeg. Rekomenduojama daugumai įrenginių.</string>
+    <string name="audio_decoder_prefer_app_desc">Naudoti FFmpeg dekoderius, kai jie prieinami. Geresnis formatų palaikymas, bet didesnis CPU naudojimas.</string>
+    <string name="audio_decoder_controls">Valdo, ar vaizdui ir garsui naudojami aparatūros ar programinės įrangos (FFmpeg) dekoderiai</string>
+
+    <!-- PlaybackSubtitleSettings -->
+    <string name="sub_not_set">Nenustatyta</string>
+    <string name="sub_forced_lang">Priverstiniai</string>
+    <string name="sub_preferred_lang">Pageidaujama kalba</string>
+    <string name="sub_secondary_lang">Antrinė pageidaujama kalba</string>
+    <string name="sub_use_forced_subtitles">Naudoti priverstinius subtitrus</string>
+    <string name="sub_use_forced_subtitles_desc">Teikti pirmenybę priverstiniams subtitrams, kai garsas atitinka subtitrų kalbą; jei jų nėra, nieko nepasirinkti</string>
+    <string name="sub_show_only_preferred_languages">Rodyti tik pageidaujamas kalbas</string>
+    <string name="sub_show_only_preferred_languages_desc">Slėpti visas kitas subtitrų kalbas iš pasirinkimo sąrašo</string>
+    <string name="sub_size">Dydis</string>
+    <string name="sub_bold">Paryškintas</string>
+    <string name="sub_libass">Naudoti „libass“ ASS/SSA subtitrams</string>
+    <string name="sub_libass_sub">Eksperimentinis: išplėstinis ASS/SSA atvaizdavimas (stiliai, pozicionavimas, animacijos)</string>
+
+    <!-- PlaybackAutoPlaySettings -->
+    <string name="autoplay_last_link_cache">Paskutinės nuorodos talpyklos trukmė</string>
+    <string name="autoplay_mode_manual">Rankinis (pasirinkti srautą)</string>
+    <string name="autoplay_mode_first">Automatiškai paleisti pirmą šaltinį</string>
+    <string name="autoplay_mode_regex">Automatiškai paleisti pagal „Regex“ atitiktį</string>
+    <string name="autoplay_prefer_binge_group">Teikti pirmenybę „Binge“ grupei (kita serija)</string>
+    <string name="autoplay_prefer_binge_group_sub">Pirmiausia bandyti tą patį šaltinio profilį (tą patį priedą/kokybės grupę) prieš įprastas automatinio paleidimo taisykles.</string>
+    <string name="autoplay_threshold_pct">Slenksčio procentas</string>
+    <string name="autoplay_threshold_min">Minutės iki pabaigos</string>
+    <string name="autoplay_threshold_mode">Kitos serijos slenksčio režimas</string>
+    <string name="autoplay_threshold_pct_title">Threshold Percentage</string>
+    <string name="autoplay_threshold_pct_sub">Naudojama pasibaigus serijai, jei nėra pabaigos kadrų (outro) žymų.</string>
+    <string name="autoplay_threshold_min_title">Threshold Minutes</string>
+    <string name="autoplay_timeout_instant">Momentinis</string>
+    <string name="autoplay_timeout_unlimited">Neribotas</string>
+    <string name="autoplay_all_addons">Visi įdiegti priedai</string>
+    <string name="autoplay_regex_placeholder">Šablonas nenustatytas. Pavyzdys: 4K|2160p|Remux</string>
+    <string name="autoplay_regex_title">Regex šablonas</string>
+    <string name="autoplay_no_items">Elementų nėra</string>
+    <string name="autoplay_mode_first_desc">Automatiškai paleisti pirmą prieinamą šaltinį.</string>
+    <string name="autoplay_threshold_pct_desc">Rodyti pagal atkūrimo procentą, kai pabaigos kadrų žymų nėra.</string>
+    <string name="autoplay_threshold_min_desc">Rodyti likus tam tikram skaičiui minučių iki serijos pabaigos, kai pabaigos kadrų žymų nėra.</string>
+    <string name="autoplay_regex_matches">Tikrinama pagal srauto pavadinimą/antraštę/aprašymą/priedą/URL. Pavyzdys: 4K|2160p|Remux</string>
+    <string name="autoplay_invalid_regex">Neteisingas „Regex“ šablonas</string>
+
+    <!-- LayoutSettingsScreen -->
+    <string name="layout_landscape_posters">Gulsčiai plakatai</string>
+    <string name="layout_catalog_type">Rodyti katalogo tipą</string>
+    <string name="layout_catalog_type_sub">Rodyti tipo galūnę šalia katalogo pavadinimo (Filmas/Serialas).</string>
+    <string name="layout_hide_unreleased">Slėpti neišleistą turinį</string>
+    <string name="layout_hide_unreleased_sub">Slėpti filmus ir laidas, kurios dar nebuvo išleistos.</string>
+    <string name="layout_blur_unwatched">Sulieti nežiūrėtas serijas</string>
+    <string name="layout_blur_unwatched_sub">Sulieti serijų miniatiūras, kol jos neperžiūrėtos, kad būtų išvengta spoilerių.</string>
+    <string name="layout_trailer_button">Rodyti anonso mygtuką</string>
+    <string name="layout_trailer_button_sub">Rodyti anonso mygtuką išsamios informacijos puslapyje (tik kai anonsas prieinamas).</string>
+    <string name="layout_prefer_external_meta">Teikti pirmenybę metaduomenims iš išorinių priedų</string>
+    <string name="layout_prefer_external_meta_sub">Naudoti metaduomenis iš išorinio priedo vietoj katalogo priedo.</string>
+    <string name="layout_trailer_muted">Paleisti anonsą be garso</string>
+    <string name="layout_trailer_muted_sub_preview">Nutildyti anonso garsą automatinio paleidimo peržiūros metu.</string>
+
+
+
+
+    <!-- TmdbSettingsScreen -->
+    <string name="tmdb_language_title">Kalba</string>
+    <string name="tmdb_collections_title">Kolekcijos</string>
+    <string name="tmdb_collections_subtitle">TMDB filmų kolekcijos išleidimo tvarka</string>
+
+    <string name="tmdb_language_dialog_title">TMDB kalba</string>
+
+    <!-- TraktScreen -->
+    <string name="qr_login_pending">Laukiama patvirtinimo jūsų telefone…</string>
+
+    <!-- DebugSettingsScreen -->
+    <string name="debug_title">Derinimas (Debug)</string>
+    <string name="debug_subtitle">Kūrėjo įrankiai ir funkcijų vėliavėlės (tik derinimo versijoms)</string>
+    <string name="debug_section_popup">Iššokančių langų / dialogų testavimas</string>
+    <string name="debug_playback_error_title">Atkūrimo klaidos ekranas</string>
+    <string name="debug_playback_error_subtitle">Rodyti simuliuojamą atkūrimo klaidos langą</string>
+    <string name="debug_section_features">Funkcijų perjungikliai</string>
+    <string name="debug_error_dialog_title">Atkūrimo klaida</string>
+    <string name="debug_error_dialog_subtitle">Atkūrimo metu įvyko klaida.
+
+Klaida: Bandomoji simuliuojama klaida — tai nėra tikras gedimas. Šaltinis grąžino HTTP 503 (Paslauga nepasiekiama).</string>
+    <string name="debug_dismiss">Atmesti</string>
+
+    <!-- ProfileSettingsContent -->
+    <string name="profile_name_placeholder">Profilio pavadinimas</string>
+    <string name="profile_create_btn">Sukurti</string>
+    <string name="profile_choose_avatar">Pasirinkti avatarą</string>
+    <string name="profile_avatar_focus_hint">Fokusuokite avatarą, kad pamatytumėte jo pavadinimą</string>
+    <string name="profile_avatar_category_all">Visi</string>
+    <string name="profile_avatar_category_anime">Anime</string>
+    <string name="profile_avatar_category_animation">Animacija</string>
+    <string name="profile_avatar_category_movie">Filmai</string>
+    <string name="profile_avatar_category_tv">Televizija</string>
+    <string name="profile_avatar_category_gaming">Žaidimai</string>
+    <string name="profile_cancel">Atšaukti</string>
+    <string name="profile_save">Išsaugoti</string>
+
+
+    <!-- AddonManagerScreen -->
+    <string name="addon_title">Priedai</string>
+    <string name="addon_readonly_notice">Naudojami pagrindinio profilio priedai, jų keisti negalima</string>
+    <string name="addon_installing">Įdiegiama</string>
+    <string name="addon_install_btn">Įdiegti</string>
+    <string name="addon_installed_section">Įdiegta</string>
+    <string name="addon_empty">Nėra įdiegtų priedų. Pridėkite vieną, kad pradėtumėte.</string>
+    <string name="addon_remove">Pašalinti</string>
+    <string name="addon_manage_from_phone_title">Valdyti iš telefono</string>
+    <string name="addon_qr_scan_instruction">Skenuokite telefonu, kad valdytumėte priedus ir katalogus</string>
+    <string name="addon_qr_close">Uždaryti</string>
+    <string name="addon_confirm_title">Patvirtinti priedų ir katalogų pakeitimus</string>
+    <string name="addon_confirm_subtitle">Iš jūsų telefono buvo padaryti šie pakeitimai:</string>
+    <string name="addon_confirm_added">Pridėta:</string>
+    <string name="addon_confirm_removed">Pašalinta:</string>
+    <string name="addon_confirm_catalog_reordered">Katalogų tvarka buvo pakeista</string>
+    <string name="addon_confirm_catalogs_disabled">Katalogai išjungti pradiniame ekrane:</string>
+    <string name="addon_confirm_catalogs_enabled">Katalogai įjungti pradiniame ekrane:</string>
+    <string name="addon_confirm_no_changes">Nematomų pakeitimų neaptikta</string>
+    <string name="addon_confirm_reject">Atmesti</string>
+    <string name="addon_confirm_confirm">Patvirtinti</string>
+
+    <!-- CatalogOrderScreen -->
+    <string name="catalog_order_empty">Kol kas pradinio ekrano katalogų nėra.</string>
+
+
+    <!-- StreamScreen -->
+    <string name="stream_retry">Bandyti dar kartą</string>
+    <string name="stream_no_streams">Srautų nerasta</string>
+    <string name="stream_no_streams_hint">Pabandykite įdiegti daugiau priedų srautų paieškai</string>
+    <string name="stream_finding_source">Ieškoma srauto šaltinio</string>
+
+    <!-- PlayerScreen -->
+    <string name="player_no_external_player">Išorinis grotuvas nerastas</string>
+
+    <!-- ParentalGuideOverlay -->
+    <string name="parental_nudity">Nuogumas</string>
+    <string name="parental_violence">Smurtas</string>
+    <string name="parental_profanity">Keiksmažodžiai</string>
+    <string name="parental_alcohol">Alkoholis / Narkotikai</string>
+    <string name="parental_frightening">Baisus / Gąsdinantis</string>
+    <string name="parental_severity_severe">Griežtas (Severe)</string>
+    <string name="parental_severity_moderate">Vidutinis</string>
+    <string name="parental_severity_mild">Lengvas</string>
+    <string name="player_ends_at">Baigiasi %1$s</string>
+    <string name="player_subtitle_delay">Subtitrų delsa</string>
+    <string name="player_error_title">Atkūrimo klaida</string>
+    <string name="player_go_back">Grįžti atgal</string>
+    <string name="player_speed_title">Atkūrimo greitis</string>
+
+    <!-- StreamSourcesPanel -->
+    <string name="sources_title">Šaltiniai</string>
+
+    <!-- EpisodesPanel -->
+    <string name="episodes_panel_no_episodes">Serijų nėra</string>
+    <string name="episodes_panel_title">Serijos</string>
+    <string name="player_speed_normal">Normalus</string>
+    <string name="player_aspect_fit">Taikyti (Originalus)</string>
+    <string name="player_aspect_stretch">Ištęsti (Stretch)</string>
+    <string name="player_aspect_fit_width">Taikyti pagal plotį</string>
+    <string name="player_aspect_fit_height">Taikyti pagal aukštį</string>
+    <string name="player_aspect_crop">Apkarpyti</string>
+
+    <!-- AudioDialog -->
+    <string name="audio_dialog_title">Garsas</string>
+
+    <!-- SubtitleSelectionOverlay -->
+    <string name="subtitle_dialog_title">Subtitrai</string>
+    <string name="subtitle_loading_addon">Įkeliami subtitrai iš priedų…</string>
+    <string name="subtitle_reset_defaults">Atkurti numatytuosius</string>
+    <string name="subtitle_tab_delay">Delsa</string>
+    <string name="subtitle_none">Nėra</string>
+    <string name="subtitle_style_title">Subtitrų stilius</string>
+    <string name="subtitle_style_font_size">Šrifto dydis</string>
+    <string name="subtitle_style_bold">Paryškintas</string>
+    <string name="subtitle_style_text_color">Teksto spalva</string>
+    <string name="subtitle_style_outline">Kontūras</string>
+    <string name="subtitle_style_bottom_offset">Apatinis poslinkis</string>
+    <string name="subtitle_style_on">Įjungta</string>
+    <string name="subtitle_style_off">Išjungta</string>
+
+    <!-- PauseOverlay -->
+    <string name="pause_you_are_watching">Jūs žiūrite</string>
+    <string name="pause_cast_label">Aktoriai</string>
+    <string name="pause_back_to_details">Grįžti į informaciją</string>
+    <string name="pause_as_character">kaip %1$s</string>
+
+    <!-- PostPlayOverlay -->
+    <string name="next_episode_label">Kita serija</string>
+    <string name="next_episode_finding_source">Ieškoma šaltinio…</string>
+    <string name="next_episode_unaired">Neišleista</string>
+    <string name="next_episode_not_aired_yet">Kita serija dar nepasirodyta</string>
+    <string name="skip_intro">Praleisti Intro</string>
+    <string name="skip_ending">Praleisti pabaigą</string>
+    <string name="skip_recap">Praleisti santrauką</string>
+    <string name="skip_generic">Praleisti</string>
+    <string name="display_mode_refresh">Atnaujinimas (Refresh)</string>
+    <string name="display_mode_resolution">Skiriamoji geba</string>
+
+
+    <!-- SearchScreen -->
+    <string name="search_placeholder">Ieškoti filmų ir serialų</string>
+    <string name="search_start_title">Pradėti paiešką</string>
+    <string name="search_start_subtitle">Įveskite bent 2 simbolius</string>
+    <string name="search_start_subtitle_no_discover">„Atrasti“ funkcija išjungta. Įveskite bent 2 simbolius</string>
+    <string name="search_voice_no_speech">Kalba neaptikta. Bandykite dar kartą.</string>
+    <string name="search_voice_mic_permission">Balsinei paieškai reikalingas leidimas naudoti mikrofoną.</string>
+    <string name="search_voice_failed">Balsinis atpažinimas nepavyko. Bandykite dar kartą.</string>
+    <string name="search_voice_unavailable">Balsinė paieška šiame įrenginyje neprieinama.</string>
+
+    <!-- LibraryScreen -->
+    <string name="library_filter_type">Tipas</string>
+    <string name="library_filter_sort">Rūšiuoti</string>
+    <string name="library_sort_added_desc">Pridėta (nuo naujausių)</string>
+    <string name="library_sort_added_asc">Pridėta (nuo seniausių)</string>
+    <string name="library_sort_title_asc">Pavadinimas A-Z</string>
+    <string name="library_sort_title_desc">Pavadinimas Z-A</string>
+    <string name="library_source_local">VIETINĖ</string>
+    <string name="library_type_all">Visi</string>
+    <string name="library_type_items">elementai</string>
+    <string name="library_empty_local_title">Kol kas čia nieko nėra</string>
+    <string name="library_empty_local_subtitle">Išsaugokite mėgstamiausius, kad pamatytumėte juos čia</string>
+
+    <!-- AccountSettingsContent -->
+    <string name="account_signed_in_label">Prisijungta kaip</string>
+    <string name="account_loading_sync">Sinchronizuojama…</string>
+
+
+    <!-- AuthQrSignInScreen -->
+    <string name="auth_qr_account_login">Paskyros prisijungimas</string>
+    <string name="auth_qr_finishing">Užbaigiama…</string>
+    <string name="auth_qr_expires">Kodas baigsis po %1$s</string>
+    <string name="auth_qr_refresh">Atnaujinti kodą</string>
+    <string name="auth_qr_continue_without_account">Tęsti be paskyros</string>
+    <string name="auth_qr_generating">Generuojama…</string>
+    <string name="auth_qr_unavailable">QR paslauga laikinai nepasiekiama</string>
+    <string name="auth_qr_please_wait">Prašome palaukti…</string>
+    <string name="auth_qr_continue">Tęsti</string>
+    <string name="auth_qr_back">Atgal</string>
+
+
+
+
+    <!-- ProfileSelectionScreen -->
+    <string name="profile_selection_title">Kas žiūri?</string>
+    <string name="profile_selection_empty">Profilių dar nėra</string>
+    <string name="profile_selection_primary_badge">Pagrindinis</string>
+    <string name="profile_selection_options_title">Profilio parinktys</string>
+    <string name="profile_delete_confirm_title">Ištrinti profilį?</string>
+    <string name="profile_delete_confirm_subtitle">Visi šio profilio duomenys bus prarasti.</string>
+
+    <!-- CastDetailScreen -->
+    <string name="cast_detail_error">Nepavyko įkelti informacijos</string>
+
+    <!-- CatalogSeeAllScreen -->
+    <string name="catalog_see_all_from">iš %1$s</string>
+    <string name="catalog_see_all_empty_title">Elementų nėra</string>
+    <string name="catalog_see_all_empty_subtitle">Šiame kataloge turinio nerasta</string>
+
+
+
+    <!-- EpisodeRatingsSection -->
+    <string name="ratings_loading">Įkeliami įvertinimai…</string>
+    <string name="ratings_unavailable">Įvertinimai neprieinami</string>
+    <string name="ratings_load_error">Nepavyko įkelti įvertinimų</string>
+    <string name="ratings_season_summary">Sezono apžvalga</string>
+
+    <!-- SearchDiscoverSection -->
+    <string name="discover_title">Atrasti</string>
+    <string name="discover_load_more">Įkelti daugiau</string>
+    <string name="discover_loading">Įkeliama…</string>
+    <string name="discover_filter_type">Tipas</string>
+    <string name="discover_filter_catalog">Katalogas</string>
+    <string name="discover_filter_genre">Žanras</string>
+    <string name="discover_select_catalog">Pasirinkti katalogą</string>
+    <string name="discover_genre_default">Visi žanrai</string>
+    <string name="discover_empty_no_catalog_title">Katalogų nerasta</string>
+    <string name="discover_empty_no_catalog_subtitle">Įdiekite priedą, kad matytumėte „Atrasti“ turinį</string>
+    <string name="discover_empty_no_content_title">Turinio nerasta</string>
+    <string name="discover_empty_no_content_subtitle">Šioje kategorijoje elementų nėra</string>
+
+    <!-- AddonManagerScreen -->
+    <string name="addon_confirm_total_addons">Iš viso priedų</string>
+    <string name="addon_confirm_total_catalogs">Iš viso katalogų</string>
+
+
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_passthrough_info">Garso pralaidumas tiesiogiai į jūsų garso sistemą</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">Pagrindinis</string>
+    <string name="nav_discover">Atrasti</string>
+    <string name="nav_search">Paieška</string>
+    <string name="nav_library">Biblioteka</string>
+    <string name="nav_settings">Nustatymai</string>
+
+    <string name="playback_player_auto">Automatiškai (Geriausia turiniui)</string>
+    <string name="playback_player_auto_desc">ExoPlayer filmams ir serialams · MPV animėms</string>
+</resources>

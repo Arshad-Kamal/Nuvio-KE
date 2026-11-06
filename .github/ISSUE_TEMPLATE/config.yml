@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Downloads
+    url: https://github.com/Arshad-Kamal/Nuvio-KE/releases
+    about: The latest Nuvio KE APKs.
+  - name: NuvioMedia's app
+    url: https://github.com/NuvioMedia/NuvioTV/issues
+    about: Bugs that also happen in the official Nuvio app belong there.

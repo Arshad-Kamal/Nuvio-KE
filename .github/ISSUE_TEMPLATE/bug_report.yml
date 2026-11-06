@@ -1,0 +1,97 @@
+name: Bug report
+description: Something in Nuvio KE doesn't work the way it should (one bug per issue).
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Replace the title with a short summary of the problem.
+
+        Before you file: if NuvioMedia's app does the same thing, report it on [their tracker](https://github.com/NuvioMedia/NuvioTV/issues). A stream that fails in every player is usually the addon or the source. Leave out addon and debrid URLs, they often carry your account details.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and this isn't a duplicate.
+          required: true
+        - label: This happens on the latest release from this repo.
+          required: false
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: Settings › About shows it.
+      placeholder: "0.9.0-ke52 (1393)"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Box and Android version
+      placeholder: "NVIDIA Shield TV Pro (2019), Android 11"
+    validations:
+      required: true
+
+  - type: input
+    id: setup
+    attributes:
+      label: Audio and video setup (for playback bugs)
+      description: TV and receiver or soundbar, and whether audio passthrough is on.
+      placeholder: "LG C2 over HDMI to a Denon AVR, passthrough on"
+    validations:
+      required: false
+
+  - type: textarea
+    id: playing
+    attributes:
+      label: What you were playing
+      description: The title, and the stream's format if you know it (4K remux, Dolby Vision, TrueHD Atmos and so on). The addon's name helps, its URL doesn't.
+      placeholder: "Movie X (2023), 2160p REMUX, Dolby Vision profile 7, TrueHD Atmos, from addon Y"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: One action per line, starting from the screen you were on.
+      placeholder: |
+        1. Open ...
+        2. Press ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: What you expected, and what happened instead
+      description: Include any error text on screen, and whether it froze, crashed or ignored the remote.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often
+      options:
+        - Every time
+        - Sometimes
+        - Once
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (needed for crashes)
+      description: Run `adb logcat -d > nuvio-log.txt` right after it happens and attach the file, or paste the part around the error.
+      render: shell
+    validations:
+      required: false

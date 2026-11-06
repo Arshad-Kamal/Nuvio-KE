@@ -1,0 +1,72 @@
+*.iml
+.gradle
+/local.properties
+/local.dev.properties
+# IDE state is per machine (Spec 49 R2: the tracked copy carried an upstream dev's home path)
+/.idea/
+.DS_Store
+__pycache__/
+*.py[cod]
+/build
+**/build/
+!app/src/**/java/**/core/build/
+!app/src/**/java/**/core/build/*.kt
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+libass-android
+Stremio addons refer
+nuviotv.jks
+CLAUDE.md
+build_and_install.sh
+android-tv-samples
+JustPlayer
+TODO.local.md
+local.dev.properties
+# Arshad's personal addon URLs (carry his encrypted config; smoke tests only, never read by the build)
+/addons.local.properties
+/shield.local.properties
+trakt-docss
+docs/trakt-implementation/
+Deliverables
+Deliverables 2
+scripts/live_app_logs.sh
+docs/tv_qr_login.sql
+docss
+benchmark
+.mcp.json
+db/
+backups/
+.supabase_db.env
+/supabase
+/SUPPORTER_COSMETICS.md
+tv-samples
+HOME_UI_OPTIMIZATION_NOTES.local.md
+.kotlin/
+bugs/
+avatars/
+local-assets/supporter-profile-backgrounds/
+logs
+status-page/
+# Track docs/ (Arshad, 2026-08-28): everything except the local-only areas below
+# (design mockups are approval artifacts; research corpus and review outputs are generated,
+# machine-local records — their durable distillations are tracked in stack-notes/specs)
+docs/design/mockups/
+docs/research/
+docs/reviews/
+# Subagent run outputs (Arshad 2026-10-11): generated local records like reviews; load-bearing
+# facts are copied into the owning spec before it closes
+docs/subagents/
+# Sayl design sandboxes: same class as design/mockups (local approval artifacts)
+.sayl/
+# Stray local artefacts (never track)
+/Player/
+/build-error.txt
+/build-release.txt
+
+# Project local - APKs and tools (keep out of git)
+/builds/
+/tools/*
+# Wi-Fi nudge tool source is tracked (only copy; its build dirs stay ignored above)
+!/tools/wifi-nudge/

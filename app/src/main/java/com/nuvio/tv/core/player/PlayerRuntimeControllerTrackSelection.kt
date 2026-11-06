@@ -1,0 +1,711 @@
+package com.nuvio.tv.core.player
+
+import com.nuvio.tv.core.util.safeHost
+import android.util.Log
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import com.nuvio.tv.domain.model.Subtitle
+import com.nuvio.tv.data.local.InternalPlayerEngine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+internal fun PlayerRuntimeController.showControlsTemporarily() {
+    hideSeekOverlayJob?.cancel()
+    _uiState.update { it.copy(showControls = true, showSeekOverlay = false) }
+    scheduleHideControls()
+}
+
+internal fun PlayerRuntimeController.showSeekOverlayTemporarily() {
+    hideSeekOverlayJob?.cancel()
+    _uiState.update { it.copy(showSeekOverlay = true) }
+    hideSeekOverlayJob = scope.launch {
+        delay(1500)
+        _uiState.update { it.copy(showSeekOverlay = false) }
+    }
+}
+
+internal fun PlayerRuntimeController.selectAudioTrack(trackIndex: Int) {
+    if (isUsingMpvEngine()) {
+        val wasPlaying = isPlaybackCurrentlyPlaying()
+        val track = _uiState.value.audioTracks.getOrNull(trackIndex)
+        val trackId = track?.trackId?.toIntOrNull()
+        val changed = trackId != null && mpvView?.selectAudioTrackById(trackId) == true
+        if (changed) {
+            keepMpvPlayingIfNeeded(wasPlaying)
+        }
+        return
+    }
+
+    _exoPlayer?.let { player ->
+        val tracks = player.currentTracks
+        var currentAudioIndex = 0
+        
+        tracks.groups.forEach { trackGroup ->
+            if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until trackGroup.length) {
+                    if (currentAudioIndex == trackIndex) {
+                        val override = TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setOverrideForType(override)
+                            .build()
+                        // Nudge the player to avoid infinite buffering after audio track switch
+                        // where the new track requires a different segment.
+                        val pos = player.currentPosition
+                        if (pos > 0) player.seekTo((pos - 1).coerceAtLeast(0))
+                        return
+                    }
+                    currentAudioIndex++
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Tunnelled-playback guard for mid-stream audio track switches.
+ *
+ * Under tunneled playback, video frames are released by the audio HW clock via
+ * the platform AV sync hub. The in-place switch path (TrackSelectionOverride +
+ * nudge seek) destroys and recreates the AudioTrack inside a live tunnel; on
+ * some vendor HALs (community Prism+/MediaTek report, July 2026) the tunnel
+ * comes back with latched bad frame pacing — persistent judder plus a sluggish
+ * compositor until the player is fully rebuilt. The user-discovered workaround
+ * (stop, then resume) is a full rebuild; this mirrors it in-app through the
+ * same rebuildCurrentStream funnel as the 5001 PCM-fallback recovery.
+ *
+ * MUST be called AFTER rememberAudioSelection(): it seeds the engine-switch
+ * carry-over channel from trackSelection.rememberedTrackPreference (target audio + carried
+ * subtitle preference). The restore path consumes that channel with top
+ * priority, and its presence also suppresses the task-3.9 lossless default
+ * from re-running over the user's pick on the rebuilt player.
+ *
+ * Returns true when the rebuild path was taken (caller must skip the in-place
+ * switch); false to fall through to the existing in-place path. Tunneling off
+ * (the default) always returns false — behaviour is byte-identical to today.
+ */
+internal fun PlayerRuntimeController.maybeRebuildForTunneledAudioSwitch(trackIndex: Int): Boolean {
+    if (isUsingMpvEngine()) return false
+    if (!_uiState.value.tunnelingEnabled) return false
+    val player = _exoPlayer ?: return false
+    val track = _uiState.value.audioTracks.getOrNull(trackIndex) ?: return false
+    if (track.isSelected) return false
+    // Seeded by rememberAudioSelection() immediately before this call; if the
+    // preference is somehow absent, fall back to the in-place path rather than
+    // rebuild without a restorable pick.
+    val preference = trackSelection.rememberedTrackPreference?.takeIf { it.audio != null } ?: return false
+    trackSelection.pendingEngineSwitchTrackPreference = PlayerRuntimeController.PendingEngineSwitchTrackPreference(
+        streamUrl = currentStreamUrl,
+        preference = preference,
+        sourceEngine = InternalPlayerEngine.EXOPLAYER
+    )
+    val savedPosition = exoCarryPositionMs(player).takeIf { it > 0L } ?: 0L
+    val paused = userPausedManually
+    Log.d(
+        PlayerRuntimeController.TAG,
+        "Tunneled audio switch: rebuilding player at ${savedPosition}ms for track index=$trackIndex name=${track.name}"
+    )
+    // Plain scope.launch (NOT errorRetryJob): releasePlayer() cancels
+    // errorRetryJob internally, and this job must not cancel itself mid-run.
+    // rebuildCurrentStream is non-suspending, so once launched it runs to
+    // completion.
+    scope.launch {
+        rebuildCurrentStream("tunneled audio switch", savedPosition, paused)
+    }
+    return true
+}
+
+internal fun PlayerRuntimeController.rememberAudioSelection(trackIndex: Int) {
+    val selectedTrack = _uiState.value.audioTracks.getOrNull(trackIndex) ?: return
+    trackSelection.explicitAudioPicked(
+        audio = PlayerRuntimeController.RememberedTrackSelection(
+            language = selectedTrack.language,
+            name = selectedTrack.name,
+            trackId = selectedTrack.trackId
+        ),
+        contentId = contentId
+    )
+    persistTrackPreference()
+}
+
+internal fun PlayerRuntimeController.applyAddonSubtitleOverride(addonTrackId: String): Boolean {
+    val player = _exoPlayer ?: return false
+    player.currentTracks.groups.forEach { trackGroup ->
+        if (trackGroup.type != C.TRACK_TYPE_TEXT) return@forEach
+        for (i in 0 until trackGroup.length) {
+            val format = trackGroup.getTrackFormat(i)
+            if (format.id?.contains(addonTrackId) == true || format.id == addonTrackId) {
+                val override = TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setOverrideForType(override)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .build()
+                Log.d(
+                    PlayerRuntimeController.TAG,
+                    "applyAddonSubtitleOverride: found id=${format.id} at group/track $i " +
+                        "mime=${format.sampleMimeType} codecs=${format.codecs} label=${format.label} lang=${format.language}"
+                )
+                return true
+            }
+        }
+    }
+    Log.d(PlayerRuntimeController.TAG, "applyAddonSubtitleOverride: track not found yet for id=$addonTrackId")
+    return false
+}
+
+internal fun PlayerRuntimeController.applyAddonSubtitleOverrideByLanguage(
+    language: String
+): Boolean {
+    val player = _exoPlayer ?: return false
+    player.currentTracks.groups.forEach { trackGroup ->
+        if (trackGroup.type != C.TRACK_TYPE_TEXT) return@forEach
+        for (i in 0 until trackGroup.length) {
+            val format = trackGroup.getTrackFormat(i)
+            if (format.id?.contains(PlayerRuntimeController.ADDON_SUBTITLE_TRACK_ID_PREFIX) != true) {
+                continue
+            }
+            if (!PlayerSubtitleUtils.matchesLanguageCode(format.language, language)) {
+                continue
+            }
+            val override = TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+            player.trackSelectionParameters = player.trackSelectionParameters
+                .buildUpon()
+                .setOverrideForType(override)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .build()
+            Log.d(
+                PlayerRuntimeController.TAG,
+                "applyAddonSubtitleOverrideByLanguage: found id=${format.id} lang=${format.language} at group/track $i"
+            )
+            return true
+        }
+    }
+    Log.d(
+        PlayerRuntimeController.TAG,
+        "applyAddonSubtitleOverrideByLanguage: track not found yet for language=$language"
+    )
+    return false
+}
+
+internal fun PlayerRuntimeController.selectSubtitleTrack(trackIndex: Int) {
+    if (isUsingMpvEngine()) {
+        Log.d(PlayerRuntimeController.TAG, "Selecting INTERNAL subtitle trackIndex=$trackIndex (mpv)")
+        val shouldKeepPlaying = !userPausedManually && !_uiState.value.playbackEnded
+        val track = _uiState.value.subtitleTracks.getOrNull(trackIndex)
+        val trackId = track?.trackId?.toIntOrNull()
+        val changed = trackId != null && mpvView?.selectSubtitleTrackById(trackId) == true
+        if (changed) {
+            pendingAddonSubtitleLanguage = null
+            pendingAddonSubtitleTrackId = null
+            pendingAudioSelectionAfterSubtitleRefresh = null
+            updateMpvAvailableTracks()
+            keepMpvPlayingIfNeeded(shouldKeepPlaying)
+        }
+        return
+    }
+
+    _exoPlayer?.let { player ->
+        Log.d(PlayerRuntimeController.TAG, "Selecting INTERNAL subtitle trackIndex=$trackIndex")
+        stopSidecarAddonSubtitle(clearView = true)
+        val tracks = player.currentTracks
+        var currentSubIndex = 0
+        
+        tracks.groups.forEach { trackGroup ->
+            if (trackGroup.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until trackGroup.length) {
+                    val format = trackGroup.getTrackFormat(i)
+                    if (format.id?.contains(PlayerRuntimeController.ADDON_SUBTITLE_TRACK_ID_PREFIX) == true) continue
+                    if (currentSubIndex == trackIndex) {
+                        val override = TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+                        player.trackSelectionParameters = player.trackSelectionParameters
+                            .buildUpon()
+                            .setOverrideForType(override)
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .build()
+                        _uiState.update {
+                            it.copy(
+                                selectedSubtitleTrackIndex = trackIndex,
+                                selectedAddonSubtitle = null
+                            )
+                        }
+                        return
+                    }
+                    currentSubIndex++
+                }
+            }
+        }
+    }
+}
+
+internal fun PlayerRuntimeController.rememberInternalSubtitleSelection(trackIndex: Int) {
+    val selectedTrack = _uiState.value.subtitleTracks.getOrNull(trackIndex) ?: return
+    val rememberedSelection = PlayerRuntimeController.RememberedSubtitleSelection.Internal(
+        track = buildRememberedInternalSubtitleSelectionForEngineSwitch(
+            state = _uiState.value,
+            language = selectedTrack.language,
+            name = selectedTrack.name,
+            trackId = selectedTrack.trackId,
+            isForced = selectedTrack.isForced,
+            selectedUiTrackOverride = selectedTrack
+        )
+    )
+    rememberExplicitSubtitleSelection(rememberedSelection)
+}
+
+internal fun PlayerRuntimeController.disableSubtitles() {
+    resetSubtitleAutoSyncState()
+    if (isUsingMpvEngine()) {
+        if (mpvView?.disableSubtitles() == true) {
+            pendingAddonSubtitleLanguage = null
+            pendingAddonSubtitleTrackId = null
+            pendingAudioSelectionAfterSubtitleRefresh = null
+            _uiState.update {
+                it.copy(
+                    selectedAddonSubtitle = null,
+                    selectedSubtitleTrackIndex = -1
+                )
+            }
+            updateMpvAvailableTracks()
+        }
+        return
+    }
+    stopSidecarAddonSubtitle(clearView = true)
+    _exoPlayer?.let { player ->
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build()
+    }
+    _uiState.update {
+        it.copy(
+            selectedAddonSubtitle = null,
+            selectedSubtitleTrackIndex = -1
+        )
+    }
+}
+
+internal fun PlayerRuntimeController.refreshActiveSubtitleTrackAfterTimingChange() {
+    // MPV applies delay via setSubtitleDelayMs; live Exo delay is applied by
+    // SubtitleOffsetRenderer. This path only exists to flush any cue already on
+    // screen under the previous offset. It must re-apply the active override
+    // after re-enabling TEXT - otherwise the track stays selected in UI but
+    // ExoPlayer has no TEXT override and subtitles disappear (issue #2710).
+    if (isUsingMpvEngine()) return
+    val player = _exoPlayer ?: return
+    val state = _uiState.value
+    if (state.selectedAddonSubtitle == null && state.selectedSubtitleTrackIndex < 0) return
+
+    // Sidecar path applies delay via position offset in the render loop — force a fresh paint.
+    if (isSidecarAddonSubtitleActive()) {
+        lastSidecarCueSignature = null
+        renderSidecarCuesAtCurrentPosition()
+        return
+    }
+
+    // Force a renderer reset so stale cues from the old delay do not linger on screen.
+    player.trackSelectionParameters = player.trackSelectionParameters
+        .buildUpon()
+        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        .build()
+
+    subtitleTimingRefreshJob?.cancel()
+    subtitleTimingRefreshJob = scope.launch {
+        delay(90)
+        if (_exoPlayer !== player) return@launch
+        val latestState = _uiState.value
+        val latestAddon = latestState.selectedAddonSubtitle
+        val latestInternalIndex = latestState.selectedSubtitleTrackIndex
+        if (latestAddon == null && latestInternalIndex < 0) {
+            return@launch
+        }
+
+        // Re-enable TEXT, then restore the same selection override that was active
+        // before the bounce. setTrackTypeDisabled(false) alone is not enough when
+        // the previous selection was applied via TrackSelectionOverride.
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .build()
+
+        if (latestAddon != null) {
+            val trackId = buildAddonSubtitleTrackId(latestAddon)
+            val restored = applyAddonSubtitleOverride(trackId) ||
+                applyAddonSubtitleOverrideByLanguage(
+                    PlayerSubtitleUtils.normalizeLanguageCode(latestAddon.lang)
+                )
+            if (!restored) {
+                Log.w(
+                    PlayerRuntimeController.TAG,
+                    "refreshActiveSubtitleTrackAfterTimingChange: failed to restore addon " +
+                        "subtitle id=${latestAddon.id} lang=${latestAddon.lang}"
+                )
+            }
+        } else {
+            selectSubtitleTrack(latestInternalIndex)
+        }
+    }
+}
+
+internal fun PlayerRuntimeController.rememberSubtitleDisabled() {
+    rememberExplicitSubtitleSelection(PlayerRuntimeController.RememberedSubtitleSelection.Disabled)
+}
+
+internal fun PlayerRuntimeController.buildAddonSubtitleTrackId(subtitle: Subtitle): String {
+    val urlHashSuffix = subtitle.url.hashCode().toUInt().toString(16)
+    return "${PlayerRuntimeController.ADDON_SUBTITLE_TRACK_ID_PREFIX}${subtitle.id}:$urlHashSuffix"
+}
+
+internal fun PlayerRuntimeController.isMpvAddonSubtitleTrackActive(
+    subtitle: Subtitle
+): Boolean {
+    if (!isUsingMpvEngine()) return false
+
+    val targetTrackId = buildAddonSubtitleTrackId(subtitle)
+    return mpvView?.readTrackSnapshot()?.subtitleTracks?.any { track ->
+        if (!track.isExternal || !track.isSelected) return@any false
+        val normalizedTrackName = track.name.trim()
+        normalizedTrackName.equals(targetTrackId, ignoreCase = true) ||
+            normalizedTrackName.contains(targetTrackId, ignoreCase = true) ||
+            targetTrackId.contains(normalizedTrackName, ignoreCase = true)
+    } == true
+}
+
+internal fun PlayerRuntimeController.addonSubtitleKey(subtitle: Subtitle): String {
+    return "${subtitle.id}|${subtitle.url}"
+}
+
+internal fun PlayerRuntimeController.toSubtitleConfiguration(subtitle: Subtitle): MediaItem.SubtitleConfiguration {
+    val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
+    val subtitleMimeType = PlayerSubtitleUtils.mimeTypeFromUrl(subtitle.url)
+    val addonTrackId = buildAddonSubtitleTrackId(subtitle)
+    
+    val baseUri = android.net.Uri.parse(subtitle.url)
+    val subtitleUri = baseUri.buildUpon()
+        .appendQueryParameter("nuvio_type", "subtitle")
+        .build()
+
+    return MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+        .setId(addonTrackId)
+        .setLanguage(normalizedLang)
+        .setMimeType(subtitleMimeType)
+        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+        .build()
+}
+
+internal fun PlayerRuntimeController.selectAddonSubtitle(subtitle: Subtitle) {
+    // nt6: any actual selection supersedes a parked auto-restore.
+    deferredAutoAddonSubtitle = null
+    if (isUsingMpvEngine()) {
+        val currentlySelected = _uiState.value.selectedAddonSubtitle
+        if (
+            currentlySelected?.id == subtitle.id &&
+            currentlySelected.url == subtitle.url &&
+            isMpvAddonSubtitleTrackActive(subtitle)
+        ) {
+            return
+        }
+        Log.d(PlayerRuntimeController.TAG, "Selecting ADDON subtitle lang=${subtitle.lang} id=${subtitle.id} (mpv)")
+        val wasPlaying = isPlaybackCurrentlyPlaying()
+        val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
+        val trackTitle = buildAddonSubtitleTrackId(subtitle)
+        // A newer pick supersedes an in-flight download, so the last pick wins
+        // rather than whichever download finishes last.
+        mpvAddonSubtitleSelectJob?.cancel()
+        mpvAddonSubtitleSelectJob = scope.launch {
+            val localPath = try {
+                val decodedBody = downloadSubtitleBody(subtitle.url, subtitle.lang, subtitle.headers)
+                withContext(Dispatchers.IO) {
+                    val sanitized = SubtitleMojibakeSanitizer.sanitize(decodedBody).toString()
+                    val cacheDir = java.io.File(context.cacheDir, "subtitles").also { it.mkdirs() }
+                    val ext = if (subtitle.url.contains(".vtt", ignoreCase = true)) "vtt" else "srt"
+                    val file = java.io.File(cacheDir, "mpv_${subtitle.id.hashCode()}.$ext")
+                    file.writeText(sanitized, Charsets.UTF_8)
+                    file.absolutePath
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(PlayerRuntimeController.TAG, "Failed to cache normalized subtitle for MPV, falling back to URL", e)
+                subtitle.url
+            }
+
+            val added = mpvView?.addAndSelectExternalSubtitle(
+                url = localPath,
+                title = trackTitle,
+                language = normalizedLang
+            ) == true
+            if (!added) return@launch
+
+            pendingAddonSubtitleLanguage = null
+            pendingAddonSubtitleTrackId = null
+            pendingAudioSelectionAfterSubtitleRefresh = null
+            _uiState.update {
+                it.copy(
+                    selectedAddonSubtitle = subtitle,
+                    selectedSubtitleTrackIndex = -1
+                )
+            }
+            updateMpvAvailableTracks()
+            keepMpvPlayingIfNeeded(wasPlaying)
+        }
+        return
+    }
+
+    _exoPlayer?.let { player ->
+        val currentlySelected = _uiState.value.selectedAddonSubtitle
+        if (currentlySelected?.id == subtitle.id && currentlySelected.url == subtitle.url) {
+            // Re-assert sidecar paint if the same track is already selected via hot path.
+            if (isSidecarAddonSubtitleActive()) {
+                lastSidecarCueSignature = null
+                renderSidecarCuesAtCurrentPosition()
+            }
+            return@let
+        }
+        resetSubtitleAutoSyncState()
+        val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
+        val inferredMime = PlayerSubtitleUtils.mimeTypeFromUrl(subtitle.url)
+        Log.d(
+            PlayerRuntimeController.TAG,
+            "Selecting ADDON subtitle addon=${subtitle.addonName} lang=${subtitle.lang} normalizedLang=$normalizedLang " +
+                "id=${subtitle.id} inferredMime=$inferredMime " +
+                "host=${subtitle.url.safeHost()}"
+        )
+
+        // Prefer sidecar hot-attach so progressive/VOD buffer is not wiped (fast-startup path)
+        // and subtitles pass through SubtitleCharsetDetector, SubtitleMojibakeSanitizer, and RTL formatting.
+        // ASS/SSA with libass intentionally fall through to media reload (full Ass pipeline).
+        if (canAttachAddonSubtitleViaSidecar(subtitle)) {
+            Log.d(
+                PlayerRuntimeController.TAG,
+                "Selecting ADDON subtitle via sidecar (buffer preserved) addon=${subtitle.addonName} " +
+                    "id=${subtitle.id} mime=$inferredMime"
+            )
+            disableSubtitles()
+            pendingAddonSubtitleLanguage = null
+            pendingAddonSubtitleTrackId = null
+            pendingAudioSelectionAfterSubtitleRefresh = null
+            _uiState.update {
+                it.copy(
+                    selectedAddonSubtitle = subtitle,
+                    selectedSubtitleTrackIndex = -1
+                )
+            }
+            startSidecarAddonSubtitle(subtitle)
+            return@let
+        }
+
+        val addonTrackId = buildAddonSubtitleTrackId(subtitle)
+        val preAttachedByStartup = attachedAddonSubtitleKeys.contains(addonSubtitleKey(subtitle))
+        val appliedWithoutReload = applyAddonSubtitleOverride(addonTrackId) ||
+            (preAttachedByStartup && applyAddonSubtitleOverrideByLanguage(normalizedLang))
+
+        if (appliedWithoutReload) {
+            Log.d(
+                PlayerRuntimeController.TAG,
+                "Switching ADDON subtitle without media reload addon=${subtitle.addonName} id=${subtitle.id} " +
+                    "trackId=$addonTrackId"
+            )
+            stopSidecarAddonSubtitle(clearView = true)
+            pendingAddonSubtitleLanguage = null
+            pendingAddonSubtitleTrackId = null
+            pendingAudioSelectionAfterSubtitleRefresh = null
+
+            _uiState.update {
+                it.copy(
+                    selectedAddonSubtitle = subtitle,
+                    selectedSubtitleTrackIndex = -1
+                )
+            }
+            return@let
+        }
+
+        if (inferredMime == androidx.media3.common.MimeTypes.TEXT_SSA &&
+            (requestedUseLibassByUser || activePlayerUsesLibass)
+        ) {
+            Log.d(
+                PlayerRuntimeController.TAG,
+                "Selecting ASS/SSA addon via media reload (libass path preserved) " +
+                    "addon=${subtitle.addonName} id=${subtitle.id} " +
+                    "requestedLibass=$requestedUseLibassByUser activeLibass=$activePlayerUsesLibass"
+            )
+        }
+
+        attachAddonSubtitleViaMediaReload(subtitle)
+    }
+}
+
+/**
+ * Legacy path: re-prepare media with sidecar [MediaItem.SubtitleConfiguration] tracks.
+ * Wipes ExoPlayer's in-memory buffer — used only when the hot sidecar path cannot handle the format.
+ */
+internal fun PlayerRuntimeController.attachAddonSubtitleViaMediaReload(subtitle: Subtitle) {
+    val player = _exoPlayer ?: return
+    stopSidecarAddonSubtitle(clearView = true)
+    val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
+    val addonTrackId = buildAddonSubtitleTrackId(subtitle)
+    pendingAddonSubtitleLanguage = normalizedLang
+    pendingAddonSubtitleTrackId = addonTrackId
+    pendingAudioSelectionAfterSubtitleRefresh =
+        captureCurrentAudioSelectionForSubtitleRefresh(player)
+    val subtitleConfigurations = (_uiState.value.addonSubtitles + subtitle)
+        .distinctBy { "${it.id}|${it.url}" }
+        .map(::toSubtitleConfiguration)
+    Log.d(
+        PlayerRuntimeController.TAG,
+        "Selecting ADDON subtitle with media refresh addon=${subtitle.addonName} id=${subtitle.id} " +
+            "attachedConfigs=${subtitleConfigurations.size}"
+    )
+    attachedAddonSubtitleKeys = (_uiState.value.addonSubtitles + subtitle)
+        .distinctBy { addonSubtitleKey(it) }
+        .map(::addonSubtitleKey)
+        .toSet()
+
+    val currentPosition = player.currentPosition
+    val playWhenReady = player.playWhenReady
+
+    player.setMediaSource(
+        mediaSourceFactory.createMediaSource(
+            context = context,
+            url = currentStreamUrl,
+            headers = currentHeaders,
+            subtitleConfigurations = subtitleConfigurations,
+            filename = currentFilename,
+            responseHeaders = currentStreamResponseHeaders,
+            mimeTypeOverride = currentStreamMimeType,
+            audioDelayUsProvider = audioDelayUs::get
+        ),
+        currentPosition
+    )
+    player.prepare()
+    player.playWhenReady = playWhenReady
+
+    player.trackSelectionParameters = player.trackSelectionParameters
+        .buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        .setPreferredTextLanguage(normalizedLang)
+        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+        .build()
+
+    _uiState.update {
+        it.copy(
+            selectedAddonSubtitle = subtitle,
+            selectedSubtitleTrackIndex = -1
+        )
+    }
+}
+
+
+internal fun PlayerRuntimeController.rememberAddonSubtitleSelection(subtitle: Subtitle) {
+    val rememberedSelection = PlayerRuntimeController.RememberedSubtitleSelection.Addon(
+        id = subtitle.id,
+        url = subtitle.url,
+        language = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang),
+        addonName = subtitle.addonName
+    )
+    rememberExplicitSubtitleSelection(rememberedSelection)
+}
+
+/** Records [selection] as the user's explicit subtitle choice (see TrackSelectionState.explicitSubtitlePicked) and persists it. */
+private fun PlayerRuntimeController.rememberExplicitSubtitleSelection(
+    selection: PlayerRuntimeController.RememberedSubtitleSelection
+) {
+    trackSelection.explicitSubtitlePicked(selection, streamUrl = currentStreamUrl, contentId = contentId)
+    persistTrackPreference()
+}
+
+/**
+ * What gets saved for the title. A restore drops the fields it has applied (or could not match on this stream) from
+ * [pending], so the loaded copy fills them back in and a later save keeps them (ysosrs f37b5c231).
+ */
+internal fun trackPreferenceForPersistence(
+    remembered: PlayerRuntimeController.TrackPreference?,
+    pending: PlayerRuntimeController.TrackPreference?,
+    loaded: PlayerRuntimeController.TrackPreference?
+): PlayerRuntimeController.TrackPreference {
+    if (remembered != null) return remembered
+    return PlayerRuntimeController.TrackPreference(
+        audio = pending?.audio ?: loaded?.audio,
+        subtitle = pending?.subtitle ?: loaded?.subtitle
+    )
+}
+
+internal fun PlayerRuntimeController.persistTrackPreference() {
+    val id = contentId ?: return
+    // Use the currently-effective preference (remembered OR previously persisted)
+    // so that a delay-only change does not wipe a previously-saved track selection.
+    // For the resume-from-CW case, trackSelection.rememberedTrackPreference is null for the fresh
+    // session; the pending copy (trimmed as the restore applies it) plus the loaded
+    // copy preserve the user's earlier audio/subtitle choices. See issue #1063.
+    val pref = trackSelection.preferenceForPersistence(contentId)
+    val audio = pref.audio
+    val subtitle = pref.subtitle
+    val persisted = com.nuvio.tv.data.local.PersistedTrackPreference(
+        subtitleType = when (subtitle) {
+            is PlayerRuntimeController.RememberedSubtitleSelection.Internal -> "INTERNAL"
+            is PlayerRuntimeController.RememberedSubtitleSelection.Addon -> "ADDON"
+            PlayerRuntimeController.RememberedSubtitleSelection.Disabled -> "DISABLED"
+            null -> null
+        },
+        subtitleLanguage = when (subtitle) {
+            is PlayerRuntimeController.RememberedSubtitleSelection.Internal -> subtitle.track.language
+            is PlayerRuntimeController.RememberedSubtitleSelection.Addon -> subtitle.language
+            else -> null
+        },
+        subtitleName = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Internal)?.track?.name,
+        subtitleTrackId = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Internal)?.track?.trackId,
+        subtitleIsForced = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Internal)?.track?.isForcedHint,
+        addonSubtitleId = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Addon)?.id,
+        addonSubtitleUrl = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Addon)?.url,
+        addonSubtitleAddonName = (subtitle as? PlayerRuntimeController.RememberedSubtitleSelection.Addon)?.addonName,
+        audioLanguage = audio?.language,
+        audioName = audio?.name,
+        audioTrackId = audio?.trackId
+    )
+    scope.launch { trackPreferenceDataStore.save(id, persisted) }
+    // Subtitle delay is keyed per-videoId (not per-contentId) because a delay
+    // calibrated against one episode release rarely applies to the next
+    // episode. Scoping it to the exact video prevents cross-episode leakage.
+    // See issue #1063 discussion.
+    val vid = currentVideoId?.takeIf { it.isNotBlank() }
+    if (vid != null) {
+        val currentDelayMs = _uiState.value.subtitleDelayMs
+        scope.launch {
+            trackPreferenceDataStore.saveSubtitleDelayMs(vid, currentDelayMs.takeIf { it != 0 })
+        }
+    }
+}
+
+internal fun PlayerRuntimeController.captureCurrentAudioSelectionForSubtitleRefresh(
+    player: Player
+): PlayerRuntimeController.PendingAudioSelection? {
+    val state = _uiState.value
+    state.audioTracks.getOrNull(state.selectedAudioTrackIndex)?.let { selected ->
+        return PlayerRuntimeController.PendingAudioSelection(
+            language = selected.language,
+            name = selected.name,
+            streamUrl = currentStreamUrl
+        )
+    }
+
+    player.currentTracks.groups.forEach { trackGroup ->
+        if (trackGroup.type != C.TRACK_TYPE_AUDIO) return@forEach
+        for (i in 0 until trackGroup.length) {
+            if (trackGroup.isTrackSelected(i)) {
+                val format = trackGroup.getTrackFormat(i)
+                return PlayerRuntimeController.PendingAudioSelection(
+                    language = format.language,
+                    name = format.label ?: format.language,
+                    streamUrl = currentStreamUrl
+                )
+            }
+        }
+    }
+    return null
+}

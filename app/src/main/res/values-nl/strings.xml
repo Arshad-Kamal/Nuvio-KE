@@ -1,0 +1,415 @@
+<resources>
+    <string name="type_movie">Film</string>
+    <string name="type_series">Serie</string>
+    <string name="type_unknown">Onbekend</string>
+
+    <!-- HomeScreen -->
+    <string name="error_generic">Er is een fout opgetreden</string>
+
+    <!-- ErrorState -->
+    <string name="action_retry">Opnieuw proberen</string>
+
+    <!-- ContinueWatchingSection -->
+    <string name="continue_watching">Kijk verder</string>
+    <string name="cw_upcoming">Aankomend</string>
+    <string name="cw_next_up">Volgende aflevering</string>
+    <string name="cw_new_episode">Nieuwe aflevering</string>
+    <string name="cw_resume">Hervatten</string>
+    <string name="cw_hours_min_left">%1$dh %2$dm resterend</string>
+    <string name="cw_min_left">%1$dm resterend</string>
+    <string name="cw_airs_date">Uitgezonden op %1$s</string>
+    <string name="cw_airs_today">Vandaag uitgezonden</string>
+    <string name="cw_airs_tomorrow">Morgen uitgezonden</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="one">Uitgezonden over %d dag</item>
+        <item quantity="other">Uitgezonden over %d dagen</item>
+    </plurals>
+    <string name="cw_action_go_to_details">Ga naar details</string>
+    <string name="cw_action_start_from_beginning">Start vanaf het begin</string>
+    <string name="cw_action_remove">Verwijder</string>
+    <string name="cw_dialog_subtitle">Kies wat je wilt doen met dit item.</string>
+    <string name="home_poster_dialog_subtitle">Titelacties</string>
+
+    <string name="action_see_all">Bekijk alles</string>
+
+    <!-- HeroSection -->
+    <string name="hero_creator">Maker: %1$s</string>
+    <string name="hero_director">Regisseur: %1$s</string>
+    <string name="hero_writer">Schrijver: %1$s</string>
+    <string name="hero_play">Afspelen</string>
+    <string name="hero_add_to_library">Voeg toe aan bibliotheek</string>
+    <string name="hero_remove_from_library">Verwijder uit bibliotheek</string>
+    <string name="hero_mark_watched">Markeer als bekeken</string>
+    <string name="hero_mark_unwatched">Markeer als onbekeken</string>
+    <string name="hero_play_trailer">Bekijk trailer</string>
+    <string name="hero_press_back_trailer">Druk op terug om de trailer af te sluiten</string>
+
+    <!-- EpisodesSection -->
+    <string name="episodes_season">Seizoen %1$d</string>
+    <string name="episodes_specials">Specials</string>
+    <string name="episodes_episode">Aflevering</string>
+    <string name="episodes_cd_watched">Bekeken</string>
+    <string name="episodes_dialog_subtitle">Afleveringsacties</string>
+    <string name="episodes_mark_watched">Markeer als bekeken</string>
+    <string name="episodes_mark_unwatched">Markeer als onbekeken</string>
+    <string name="episodes_mark_season_watched">Markeer seizoen als bekeken</string>
+    <string name="episodes_mark_season_unwatched">Markeer seizoen als onbekeken</string>
+    <string name="episodes_mark_previous_watched">Markeer eerdere afleveringen van dit seizoen als bekeken</string>
+    <string name="episodes_play">Afspelen</string>
+    <string name="episodes_season_actions">Seizoensacties</string>
+
+<!-- MetaDetailsViewModel -->
+<string name="detail_added_to_library">Toegevoegd aan bibliotheek</string>
+<string name="detail_removed_from_library">Verwijderd uit bibliotheek</string>
+<string name="detail_episode_marked_watched">Aflevering gemarkeerd als bekeken</string>
+<string name="detail_episode_marked_unwatched">Aflevering gemarkeerd als niet bekeken</string>
+<string name="detail_lists_updated">Lijsten bijgewerkt</string>
+<string name="detail_movie_marked_watched">Gemarkeerd als bekeken</string>
+<string name="detail_movie_marked_unwatched">Gemarkeerd als niet bekeken</string>
+<string name="detail_all_episodes_watched">Alle afleveringen zijn al bekeken</string>
+<string name="detail_no_watched_episodes">Geen bekeken afleveringen in dit seizoen</string>
+<string name="detail_all_previous_watched">Alle voorgaande afleveringen zijn al bekeken</string>
+<string name="detail_marked_episodes_watched">Afleveringen gemarkeerd als bekeken: %1$d</string>
+<string name="detail_marked_episodes_unwatched">Afleveringen gemarkeerd als niet bekeken: %1$d</string>
+<string name="detail_marked_previous_watched">Voorgaande afleveringen gemarkeerd als bekeken: %1$d</string>
+
+<!-- MetaDetailsScreen -->
+<string name="detail_btn_play">Afspelen</string>
+<string name="detail_btn_resume">Hervatten</string>
+<string name="detail_btn_play_episode">Speel S%1$d E%2$d</string>
+<string name="detail_btn_resume_episode">Hervat S%1$d E%2$d</string>
+<string name="detail_btn_next_episode">Volgende S%1$d E%2$d</string>
+<string name="detail_tab_cast">Maker en cast</string>
+<string name="cast_role_creator">Maker</string>
+<string name="cast_role_director">Regisseur</string>
+<string name="cast_role_writer">Schrijver</string>
+<string name="detail_tab_ratings">Beoordelingen</string>
+<string name="detail_tab_more_like_this">Vergelijkbare titels</string>
+<string name="detail_section_network">Netwerk</string>
+<string name="detail_section_production">Productie</string>
+<string name="detail_lists_fallback">Lijsten</string>
+<string name="detail_lists_subtitle">Selecteer in welke lijsten deze titel moet worden opgenomen.</string>
+<string name="action_save">Opslaan</string>
+<string name="action_saving">Opslaan…</string>
+
+    <!-- AppLanguage -->
+<string name="appearance_language_system">Systeemstandaard</string>
+<string name="appearance_language_dialog_title">Kies taal</string>
+<string name="appearance_language_restart_hint">Herstart de app om de taalwijziging toe te passen.</string>
+
+<!-- Font -->
+<string name="appearance_font_dialog_title">Kies lettertype</string>
+
+<!-- ThemeSettingsScreen -->
+<string name="appearance_title">Weergave</string>
+
+<!-- AboutScreen -->
+<string name="about_title">Over</string>
+
+<!-- SettingsScreen categories -->
+<string name="settings_account">Account</string>
+<string name="settings_profiles">Profielen</string>
+<string name="settings_layout">Indeling</string>
+<string name="settings_integration">Integraties</string>
+<string name="settings_playback">Afspelen</string>
+<string name="settings_debug">Debug</string>
+<string name="settings_account_section_subtitle">Account- en synchronisatiestatus</string>
+<string name="account_stat_addons">addons</string>
+<string name="account_stat_library">bibliotheek</string>
+<string name="account_stat_progress">voortgang</string>
+<string name="account_stat_watched">bekeken</string>
+
+  <!-- PlaybackSettingsScreen -->
+<string name="cd_decrease">Verlagen</string>
+<string name="cd_increase">Verhogen</string>
+<string name="action_cancel">Annuleren</string>
+<string name="action_none">Geen</string>
+
+<!-- PlaybackSettingsSections -->
+<string name="playback_section_general">Algemeen</string>
+<string name="playback_loading_overlay">Laadoverlay</string>
+<string name="playback_loading_overlay_sub">Toon het laadscherm tot het eerste videoframe verschijnt.</string>
+<string name="playback_pause_overlay">Pauze-overlay</string>
+<string name="playback_pause_overlay_sub">Toon detailoverlay na 5 seconden wanneer gepauzeerd.</string>
+<string name="playback_show_clock_sub">Toon huidige tijd en eindtijd zolang de bediening zichtbaar is.</string>
+<string name="playback_osd_clock">OSD-klok</string>
+<string name="playback_skip_intro">Intro overslaan</string>
+<string name="playback_skip_intro_sub">Gebruik introdb.app om intro’s en samenvattingen te detecteren.</string>
+<string name="playback_section_subtitles">Ondertitels</string>
+<string name="playback_afr_off">Uit</string>
+<string name="playback_afr_on_start">Bij starten</string>
+<string name="playback_resolution_matching">Resolutie aanpassen</string>
+
+<!-- PlaybackAudioSettings -->
+<string name="audio_autoplay_trailers">Trailers automatisch afspelen</string>
+<string name="audio_autoplay_trailers_sub">Speel trailers automatisch af op het detailscherm na een periode van inactiviteit</string>
+<string name="audio_trailer_delay">Trailervertraging</string>
+<string name="audio_section">Audio</string>
+<string name="audio_lang_default">Standaard (mediabestand)</string>
+<string name="audio_lang_device">Apparaattaal</string>
+<string name="audio_skip_silence">Stilte overslaan</string>
+<string name="audio_skip_silence_sub">Sla stille delen van audio over tijdens het afspelen</string>
+<string name="audio_advanced_warning">Deze instellingen kunnen op sommige apparaten problemen veroorzaken. Wijzig ze alleen als je weet wat je doet.</string>
+<string name="audio_decoder_device_only">Alleen apparaatdecoders</string>
+<string name="audio_decoder_prefer_device">Voorkeur voor apparaatdecoders</string>
+<string name="audio_decoder_prefer_app">Voorkeur voor app-decoders (FFmpeg)</string>
+<string name="audio_decoder_priority">Decoderprioriteit</string>
+<string name="audio_tunneled">Tunneled playback</string>
+<string name="audio_tunneled_sub">Hardwarematige audio/video-synchronisatie. Kan de weergave verbeteren op sommige Android TV-apparaten</string>
+<string name="audio_decoder_device_only_desc">Gebruik alleen ingebouwde hardwaredecoders. Meest compatibel, maar ondersteunt mogelijk niet alle formaten.</string>
+<string name="audio_decoder_prefer_device_desc">Gebruik hardwaredecoders indien beschikbaar, anders FFmpeg. Aanbevolen voor de meeste apparaten.</string>
+<string name="audio_decoder_prefer_app_desc">Gebruik FFmpeg-decoders indien beschikbaar. Betere formaatondersteuning, maar hoger CPU-gebruik.</string>
+<string name="audio_decoder_controls">Bepaalt of hardware- of softwaredecoders (FFmpeg) worden gebruikt voor audio en video</string>
+
+   <!-- PlaybackSubtitleSettings -->
+<string name="sub_not_set">Niet ingesteld</string>
+<string name="sub_forced_lang">Geforceerd</string>
+<string name="sub_preferred_lang">Voorkeurstaal</string>
+<string name="sub_secondary_lang">Secundaire voorkeurstaal</string>
+<string name="sub_use_forced_subtitles">Geforceerde ondertitels gebruiken</string>
+<string name="sub_use_forced_subtitles_desc">Geef voorkeur aan geforceerde ondertitels wanneer audio overeenkomt met de ondertiteltaal; selecteer niets als ze niet beschikbaar zijn</string>
+    <string name="sub_show_only_preferred_languages">Alleen voorkeurstalen weergeven</string>
+    <string name="sub_show_only_preferred_languages_desc">Alle andere ondertiteltalen verbergen in de selectielijst</string>
+<string name="sub_size">Grootte</string>
+<string name="sub_bold">Vetgedrukt</string>
+<string name="sub_libass">Gebruik libass voor ASS/SSA-ondertitels</string>
+<string name="sub_libass_sub">Tijdelijk uitgeschakeld voor onderhoud</string>
+
+<!-- PlaybackAutoPlaySettings -->
+<string name="autoplay_last_link_cache">Cacheduur laatste link</string>
+<string name="autoplay_mode_manual">Handmatig (stream kiezen)</string>
+<string name="autoplay_mode_first">Eerste bron automatisch afspelen</string>
+<string name="autoplay_mode_regex">Automatisch afspelen bij regex-match</string>
+<string name="autoplay_threshold_pct">Percentage</string>
+<string name="autoplay_threshold_min">Minuten voor einde</string>
+<string name="autoplay_threshold_mode">Drempelmodus volgende aflevering</string>
+<string name="autoplay_threshold_pct_title">Drempelpercentage</string>
+<string name="autoplay_threshold_pct_sub">Fallback wanneer geen outro-tijdstempel beschikbaar is.</string>
+<string name="autoplay_threshold_min_title">Drempel in minuten</string>
+<string name="autoplay_all_addons">Alle geïnstalleerde addons</string>
+<string name="autoplay_regex_placeholder">Geen patroon ingesteld. Voorbeeld: 4K|2160p|Remux</string>
+<string name="autoplay_regex_title">Regex-patroon</string>
+<string name="autoplay_no_items">Geen items beschikbaar</string>
+<string name="autoplay_mode_first_desc">Speel automatisch de eerste beschikbare bron af.</string>
+<string name="autoplay_threshold_pct_desc">Toon op basis van afspeelpercentage wanneer geen outro-tijdstempel beschikbaar is.</string>
+<string name="autoplay_threshold_min_desc">Toon dit aantal minuten vóór het einde wanneer geen outro-tijdstempel beschikbaar is.</string>
+<string name="autoplay_regex_matches">Matcht op streamnaam/titel/beschrijving/addon/url. Voorbeeld: 4K|2160p|Remux</string>
+<string name="autoplay_invalid_regex">Ongeldig regex-patroon</string>
+
+   <!-- LayoutSettingsScreen -->
+<string name="layout_landscape_posters">Liggende posters</string>
+<string name="layout_catalog_type">Catalogustype tonen</string>
+<string name="layout_catalog_type_sub">Toon type achter catalogusnaam (Film/Serie).</string>
+<string name="layout_hide_unreleased">Niet-uitgebrachte content verbergen</string>
+<string name="layout_hide_unreleased_sub">Verberg films en series die nog niet zijn uitgebracht.</string>
+<string name="layout_blur_unwatched">Onbekeken afleveringen vervagen</string>
+<string name="layout_blur_unwatched_sub">Vervaag afleveringsminiaturen tot ze bekeken zijn om spoilers te voorkomen.</string>
+<string name="layout_trailer_button">Trailerknop tonen</string>
+<string name="layout_trailer_button_sub">Toon trailerknop op detailpagina (alleen indien beschikbaar).</string>
+<string name="layout_prefer_external_meta">Externe metadata verkiezen</string>
+<string name="layout_prefer_external_meta_sub">Gebruik metadata van externe addon in plaats van catalogus-addon.</string>
+<string name="layout_trailer_muted">Trailer gedempt afspelen</string>
+<string name="layout_trailer_muted_sub_preview">Dempend trailer-geluid tijdens autoplay preview.</string>
+
+
+
+<!-- TmdbSettingsScreen -->
+<string name="tmdb_language_title">Taal</string>
+<string name="tmdb_collections_title">Collecties</string>
+<string name="tmdb_collections_subtitle">TMDB-filmcollecties in releasevolgorde</string>
+
+<string name="tmdb_language_dialog_title">TMDB-taal</string>
+
+  <!-- TraktScreen -->
+<string name="qr_login_pending">Wachten op goedkeuring op je telefoon…</string>
+
+<!-- DebugSettingsScreen -->
+<string name="debug_title">Foutopsporing</string>
+<string name="debug_subtitle">Ontwikkelaarstools en feature flags (alleen debug-builds)</string>
+<string name="debug_section_popup">Popup / Dialoog testen</string>
+<string name="debug_playback_error_title">Afspeelfout-scherm</string>
+<string name="debug_playback_error_subtitle">Toon een gesimuleerde afspeelfout-popup</string>
+<string name="debug_section_features">Feature-toggles</string>
+<string name="debug_error_dialog_title">Afspeelfout</string>
+<string name="debug_error_dialog_subtitle">Er is een fout opgetreden tijdens het afspelen.\n\nFout: Gesimuleerde testfout - dit is geen echte storing. Bron gaf HTTP 503 (Service Unavailable) terug.</string>
+<string name="debug_dismiss">Sluiten</string>
+
+   <!-- ProfileSettingsContent -->
+<string name="profile_name_placeholder">Profielnaam</string>
+<string name="profile_create_btn">Aanmaken</string>
+
+<!-- AddonManagerScreen -->
+<string name="addon_title">Addons</string>
+<string name="addon_readonly_notice">Gebruikt addons van het primaire profiel en kan niet worden gewijzigd</string>
+<string name="addon_installing">Bezig met installeren</string>
+<string name="addon_install_btn">Installeren</string>
+<string name="addon_installed_section">Geïnstalleerd</string>
+<string name="addon_empty">Geen addons geïnstalleerd. Voeg er één toe om te beginnen.</string>
+<string name="addon_remove">Verwijderen</string>
+<string name="addon_manage_from_phone_title">Beheren via telefoon</string>
+<string name="addon_qr_scan_instruction">Scan met je telefoon om addons en catalogi te beheren</string>
+<string name="addon_qr_close">Sluiten</string>
+<string name="addon_confirm_title">Addon- en cataloguswijzigingen bevestigen</string>
+<string name="addon_confirm_subtitle">De volgende wijzigingen zijn via je telefoon aangebracht:</string>
+<string name="addon_confirm_added">Toegevoegd:</string>
+<string name="addon_confirm_removed">Verwijderd:</string>
+<string name="addon_confirm_catalog_reordered">De catalogusvolgorde is gewijzigd</string>
+<string name="addon_confirm_catalogs_disabled">Catalogi uitgeschakeld op Home:</string>
+<string name="addon_confirm_catalogs_enabled">Catalogi ingeschakeld op Home:</string>
+<string name="addon_confirm_no_changes">Geen zichtbare wijzigingen gedetecteerd</string>
+<string name="addon_confirm_reject">Weigeren</string>
+<string name="addon_confirm_confirm">Bevestigen</string>
+
+<!-- CatalogOrderScreen -->
+<string name="catalog_order_empty">Nog geen Home-catalogi beschikbaar.</string>
+
+<!-- StreamScreen -->
+<string name="stream_retry">Opnieuw proberen</string>
+<string name="stream_no_streams">Geen streams gevonden</string>
+<string name="stream_no_streams_hint">Probeer meer addons te installeren om streams te vinden</string>
+<string name="stream_finding_source">Streambron zoeken</string>
+
+<!-- PlayerScreen -->
+<string name="player_ends_at">Eindigt om %1$s</string>
+<string name="player_subtitle_delay">Ondertitelvertraging</string>
+<string name="player_error_title">Afspeelfout</string>
+<string name="player_go_back">Ga terug</string>
+<string name="player_speed_title">Afspeelsnelheid</string>
+
+<!-- StreamSourcesPanel -->
+<string name="sources_title">Bronnen</string>
+
+<!-- EpisodesPanel -->
+<string name="episodes_panel_no_episodes">Geen afleveringen beschikbaar</string>
+<string name="episodes_panel_title">Afleveringen</string>
+<string name="player_speed_normal">Normaal</string>
+<string name="player_aspect_fit">Passend (Origineel)</string>
+<string name="player_aspect_stretch">Uitrekken</string>
+<string name="player_aspect_fit_width">Passend op breedte</string>
+<string name="player_aspect_fit_height">Passend op hoogte</string>
+<string name="player_aspect_crop">Bijsnijden</string>
+
+<!-- AudioDialog -->
+<string name="audio_dialog_title">Audio</string>
+
+   <!-- SubtitleSelectionOverlay -->
+<string name="subtitle_dialog_title">Ondertitels</string>
+<string name="subtitle_loading_addon">Ondertitels laden van addons…</string>
+<string name="subtitle_reset_defaults">Standaardwaarden herstellen</string>
+<string name="subtitle_tab_delay">Vertraging</string>
+<string name="subtitle_none">Geen</string>
+<string name="subtitle_style_title">Ondertitelstijl</string>
+<string name="subtitle_style_font_size">Lettergrootte</string>
+<string name="subtitle_style_bold">Vet</string>
+<string name="subtitle_style_text_color">Tekstkleur</string>
+<string name="subtitle_style_outline">Rand</string>
+<string name="subtitle_style_bottom_offset">Offset onderaan</string>
+<string name="subtitle_style_on">Aan</string>
+<string name="subtitle_style_off">Uit</string>
+
+<!-- PauseOverlay -->
+<string name="pause_you_are_watching">Je kijkt naar</string>
+<string name="pause_cast_label">Cast</string>
+<string name="pause_back_to_details">Terug naar details</string>
+<string name="pause_as_character">als %1$s</string>
+
+<!-- PostPlayOverlay -->
+<string name="next_episode_label">Volgende aflevering</string>
+<string name="next_episode_finding_source">Bron zoeken…</string>
+<string name="next_episode_unaired">Nog niet uitgezonden</string>
+<string name="skip_intro">Intro overslaan</string>
+<string name="skip_ending">Einde overslaan</string>
+<string name="skip_recap">Samenvatting overslaan</string>
+<string name="skip_generic">Overslaan</string>
+<string name="display_mode_refresh">Vernieuwen</string>
+<string name="display_mode_resolution">Resolutie</string>
+
+<!-- SearchScreen -->
+<string name="search_placeholder">Zoek films &amp; series</string>
+<string name="search_start_title">Begin met zoeken</string>
+<string name="search_start_subtitle">Voer minimaal 2 tekens in</string>
+<string name="search_start_subtitle_no_discover">Ontdek is uitgeschakeld. Voer minimaal 2 tekens in</string>
+
+<!-- LibraryScreen -->
+<string name="library_filter_type">Type</string>
+<string name="library_filter_sort">Sorteer</string>
+<string name="library_source_local">LOKAAL</string>
+<string name="library_type_all">Alles</string>
+<string name="library_type_items">items</string>
+<string name="library_empty_local_title">Nog geen %1$s</string>
+<string name="library_empty_local_subtitle">Begin met het opslaan van je favorieten om ze hier te zien</string>
+
+<!-- AccountSettingsContent -->
+<string name="account_signed_in_label">Ingelogd</string>
+<string name="account_loading_sync">Synchronisatiegegevens laden…</string>
+
+
+<!-- AuthQrSignInScreen -->
+<string name="auth_qr_account_login">Accountinloggen</string>
+<string name="auth_qr_finishing">Inloggen afronden…</string>
+<string name="auth_qr_expires">Verloopt over %1$s</string>
+<string name="auth_qr_refresh">QR vernieuwen</string>
+<string name="auth_qr_continue_without_account">Doorgaan zonder account</string>
+<string name="auth_qr_generating">QR genereren…</string>
+<string name="auth_qr_unavailable">QR niet beschikbaar. Vernieuw om opnieuw te proberen.</string>
+<string name="auth_qr_please_wait">Even geduld…</string>
+<string name="auth_qr_continue">Doorgaan</string>
+<string name="auth_qr_back">Terug</string>
+
+
+
+
+<!-- ProfileSelectionScreen -->
+<string name="profile_selection_title">Wie kijkt er?</string>
+<string name="profile_selection_empty">Geen profielen gevonden</string>
+<string name="profile_selection_primary_badge">PRIMAIR</string>
+
+<!-- CastDetailScreen -->
+<string name="cast_detail_error">Er is iets misgegaan</string>
+
+<!-- CatalogSeeAllScreen -->
+<string name="catalog_see_all_from">van %1$s</string>
+<string name="catalog_see_all_empty_title">Geen items beschikbaar</string>
+<string name="catalog_see_all_empty_subtitle">Probeer een andere catalogus of kom later terug</string>
+
+
+
+
+<!-- EpisodeRatingsSection -->
+<string name="ratings_loading">Afleveringsbeoordelingen laden…</string>
+<string name="ratings_unavailable">Afleveringsbeoordelingen zijn niet beschikbaar.</string>
+<string name="ratings_season_summary">Seizoen %1$d - %2$d afleveringen</string>
+
+<!-- SearchDiscoverSection -->
+<string name="discover_title">Ontdek</string>
+<string name="discover_load_more">Meer laden</string>
+<string name="discover_loading">Laden…</string>
+<string name="discover_filter_type">Type</string>
+<string name="discover_filter_catalog">Catalogus</string>
+<string name="discover_filter_genre">Genre</string>
+<string name="discover_select_catalog">Selecteren</string>
+<string name="discover_genre_default">Standaard</string>
+<string name="discover_empty_no_catalog_title">Selecteer een catalogus</string>
+<string name="discover_empty_no_catalog_subtitle">Kies een ontdek-catalogus om te bladeren</string>
+<string name="discover_empty_no_content_title">Geen inhoud gevonden</string>
+<string name="discover_empty_no_content_subtitle">Probeer een ander genre of catalogus</string>
+
+<!-- AddonManagerScreen -->
+<string name="addon_confirm_total_addons">Totaal addons: %1$d</string>
+<string name="addon_confirm_total_catalogs">Totaal catalogi: %1$d</string>
+
+
+
+<!-- PlaybackAudioSettings -->
+<string name="audio_passthrough_info">Audio passthrough (TrueHD, DTS, AC-3, enz.) is automatisch. Wanneer aangesloten op een compatibele AV-receiver of soundbar via HDMI, wordt lossless audio direct doorgestuurd zonder decodering.</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">Beginpagina</string>
+    <string name="nav_discover">Ontdek</string>
+    <string name="nav_search">Zoeken</string>
+    <string name="nav_library">Bibliotheek</string>
+    <string name="nav_settings">Instellingen</string>
+
+    <string name="playback_player_auto">Automatisch (Beste voor inhoud)</string>
+    <string name="playback_player_auto_desc">ExoPlayer voor films en series · MPV voor anime</string>
+</resources>

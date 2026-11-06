@@ -1,0 +1,305 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
+package com.nuvio.tv.core.player
+
+import android.util.Log
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import com.nuvio.tv.data.local.FrameRateMatchingMode
+import com.nuvio.tv.data.local.InternalPlayerEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+
+// Absolute ceiling on the whole track-AFR step (mode switch wait + settle
+// hold). Timer-released, never event-gated — cannot deadlock startup.
+// P-F4: 8 s covers the worst case (~4 s mode-switch wait + 2 s settle hold)
+// with margin; 7 s could clip a slow HDMI mode change mid-settle.
+private const val TRACK_AFR_ABSOLUTE_DEADLINE_MS = 8_000L
+
+// Settle hold after a real display-mode switch, mirroring
+// AFR_EXO_SETTLE_HOLD_MS on the preflight path (AFR review R5 / community
+// 0.7.14 QMS stutter report): don't start the A/V pipeline inside the mode
+// transition.
+private const val TRACK_AFR_SETTLE_HOLD_MS = 2_000L
+
+/**
+ * nt6 AFR option 1: frame-rate matching driven by ExoPlayer's reported track
+ * format instead of a MediaExtractor/NextLib network probe.
+ *
+ * Called from the tracks-changed handler the moment the selected video
+ * format's frameRate is known — which is during preparation, before the first
+ * frame renders. ExoPlayer has already parsed the container (including
+ * moov-at-end MP4s, which its range-seeking handles and the blocking
+ * MediaExtractor probe did not), so the value is free and always available at
+ * exactly the right moment.
+ *
+ * Start gating: initializePlayer holds playWhenReady false through prepare()
+ * and the first STATE_READY (or first frame) start site sets it true, so a
+ * start may already have fired when the track format arrives. Arming the gate
+ * therefore also pauses the player for the switch window — a paused ExoPlayer
+ * still renders the first frame and still reaches STATE_READY.
+ * While a track-driven switch is in flight the start sites stand down
+ * (afrTrackSwitchInFlight); when the switch settles,
+ * resumePlaybackAfterTrackAfrIfHeld() starts playback if the first frame
+ * arrived during the hold, otherwise the normal onRenderedFirstFrame /
+ * tunneled READY path starts it with the gate now open. If the deadline
+ * expires the finally block releases the gate regardless; the 12 s
+ * first-frame watchdog is a second, longer net and cannot fire inside the
+ * 8 s gate window.
+ */
+internal fun PlayerRuntimeController.maybeRunTrackFormatAfr(rawFps: Float, format: Format) {
+    if (currentInternalPlayerEngine != InternalPlayerEngine.EXOPLAYER) return
+    if (trackAfrAttemptedForCurrentStream) return
+    if (afrModeAppliedPreStart) {
+        // C-2 validate-and-correct: if the applied mode came from a provisional
+        // head seed, check ExoPlayer's real reported rate against it. Match ->
+        // promote the seed to the persistent cache so the next play is a real
+        // hit even unwarmed. Mismatch -> clear the pre-start flags and fall
+        // through into the switch body below to correct the panel (the clean
+        // pre-prepare switch to the wrong rate is discarded; the correction is
+        // today's miss-path switch). rawFps <= 0 / < 20 is unvalidatable: keep
+        // the seed rather than tear down a plausibly-correct mode.
+        val seeded = afrSeededRateRaw
+        if (seeded <= 0f) return
+        if (rawFps < 20f) {
+            Log.w(PlayerRuntimeController.TAG, "AFR seed: cannot validate (track rawFps=$rawFps); keeping seeded mode")
+            return
+        }
+        val snappedSeed = FrameRateUtils.snapToStandardRate(seeded)
+        val snappedTrack = FrameRateUtils.snapToStandardRate(rawFps)
+        if (snappedSeed == snappedTrack) {
+            Log.i(PlayerRuntimeController.TAG, "AFR seed validated: seeded=$seeded track=$rawFps (promoting to cache)")
+            AfrFpsCache.cacheFrameRate(
+                currentStreamUrl,
+                currentHeaders,
+                FrameRateUtils.FrameRateDetection(
+                    raw = rawFps,
+                    snapped = snappedTrack,
+                    videoWidth = format.width.takeIf { it > 0 },
+                    videoHeight = format.height.takeIf { it > 0 }
+                ),
+                currentFilename
+            )
+            return
+        }
+        Log.w(
+            PlayerRuntimeController.TAG,
+            "AFR seed MISMATCH: seeded=$seeded ($snappedSeed) track=$rawFps ($snappedTrack); correcting via track-format switch"
+        )
+        afrModeAppliedPreStart = false
+        afrSeededRateRaw = 0f
+    }
+    if (rawFps <= 0f) return
+    // Mirror of the FrameRateUtils floor, applied before the cache write below so a
+    // bogus rate from a broken source is never persisted for the next play.
+    if (rawFps < 20f) {
+        Log.w(PlayerRuntimeController.TAG, "Track AFR: ignoring implausible frame rate ${rawFps}fps")
+        trackAfrAttemptedForCurrentStream = true
+        return
+    }
+    if (_uiState.value.frameRateMatchingMode == FrameRateMatchingMode.OFF) return
+    if (_uiState.value.afrProbeRunning) return
+    // Too late: playback is already running. A mid-playback mode switch is the
+    // known black-screen/stutter risk this design avoids; skip rather than
+    // switch under a live pipeline.
+    if (hasRenderedFirstFrame && _exoPlayer?.isPlaying == true) {
+        Log.d(
+            PlayerRuntimeController.TAG,
+            "Track AFR: playback already running, skipping display-mode switch (fps=$rawFps)"
+        )
+        trackAfrAttemptedForCurrentStream = true
+        return
+    }
+    val activity = currentHostActivity()
+    if (activity == null) {
+        Log.w(PlayerRuntimeController.TAG, "Track AFR skipped: host activity unavailable")
+        return
+    }
+
+    trackAfrAttemptedForCurrentStream = true
+    afrTrackSwitchInFlight = true
+    // Engage the gate for real: the start sites stand down from here on, but
+    // one may already have set playWhenReady true (the first STATE_READY), and
+    // without this the player would keep starting under the switch. The guards
+    // above ensure playback is not already running; setting an already-false
+    // value is a no-op when no start has fired yet or on the startPaused flow.
+    _exoPlayer?.playWhenReady = false
+    // P-F3: stamp this attempt with the current stream's generation; the
+    // finally block stands down if a per-stream reset happened meanwhile.
+    val startGeneration = afrTrackGeneration
+    // Fix 1: set true only if we actually disable audio for the switch, so
+    // the finally re-enables exactly what was disabled and can never latch a
+    // muted state on an unrelated exit path.
+    var audioQuiesced = false
+    var switchStartElapsedMs = 0L
+    // Spec 50 I6 review 740b6c39: AfrNoisyPolicy's window opens only on a real mode change (not on audio quiescing).
+    var displayModeSwitched = false
+
+    scope.launch {
+        try {
+            withTimeoutOrNull(TRACK_AFR_ABSOLUTE_DEADLINE_MS) {
+                val playerSettings = playerSettingsDataStore.playerSettings.first()
+                val snapped = FrameRateUtils.snapToStandardRate(rawFps)
+                val prefer23976TrackBias = rawFps in 23.95f..23.999f
+                val targetFrameRate = FrameRateUtils.refineFrameRateForDisplay(
+                    activity = activity,
+                    detectedFps = snapped,
+                    prefer23976Near24 = prefer23976TrackBias
+                )
+                val initialDisplayModeId = withContext(Dispatchers.Main) {
+                    activity.window?.decorView?.display?.mode?.modeId
+                }
+
+                Log.d(
+                    PlayerRuntimeController.TAG,
+                    "Track AFR: raw=$rawFps snapped=$snapped target=$targetFrameRate " +
+                        "size=${format.width}x${format.height}"
+                )
+
+                // The cache had exactly one writer in the whole app, and it sat
+                // inside the MPV-only probing preflight. The ExoPlayer branch
+                // calls the read-only variant, so on the default engine the
+                // cache could never be populated: every playback logged
+                // "AFR cache preflight: miss" and paid the full post-prepare
+                // mode switch and settle. Eight for eight on 21 Jul 2026, which
+                // was the steady state rather than eight cold starts.
+                //
+                // Writing here costs nothing on this play and lets the NEXT
+                // play of the same title take the preflight's hit path, where
+                // the switch happens before prepare and the settle overlaps
+                // loading instead of following it. Dimensions come from the
+                // same format used for the switch below, so a later hit
+                // preflights with the size that actually applied.
+                AfrFpsCache.cacheFrameRate(
+                    currentStreamUrl,
+                    currentHeaders,
+                    FrameRateUtils.FrameRateDetection(
+                        raw = rawFps,
+                        snapped = snapped,
+                        videoWidth = format.width.takeIf { it > 0 },
+                        videoHeight = format.height.takeIf { it > 0 }
+                    ),
+                    currentFilename
+                )
+
+                // Fix 1: quiesce audio across the HDMI mode switch. On the
+                // Shield, switching display mode tears the audio output down
+                // under a live AudioTrack, producing AudioSink write failures
+                // (-6) that media3 recovers from but which are the fragile
+                // window for passthrough corruption. Releasing the AudioTrack
+                // before the switch removes the live-track teardown entirely.
+                // Skip under an already-audio-disabled stream (don't fight the
+                // existing state machine) and under tunneling (the tunnel
+                // clock is the audio track).
+                if (!isAudioDisabledForCurrentPlayback && !tunnelsCurrentPlayback(playerSettings)) {
+                    withContext(Dispatchers.Main) {
+                        _exoPlayer?.let { p ->
+                            p.trackSelectionParameters = p.trackSelectionParameters
+                                .buildUpon()
+                                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                                .build()
+                        }
+                    }
+                    audioQuiesced = true
+                    switchStartElapsedMs = android.os.SystemClock.elapsedRealtime()
+                }
+
+                val result = FrameRateUtils.matchFrameRateAndWait(
+                    activity = activity,
+                    frameRate = targetFrameRate,
+                    videoWidth = format.width.takeIf { it > 0 },
+                    videoHeight = format.height.takeIf { it > 0 },
+                    resolutionMatchingEnabled = playerSettings.resolutionMatchingEnabled
+                )
+
+                if (result != null) {
+                    val switchedDisplayMode = initialDisplayModeId != null &&
+                        initialDisplayModeId != result.appliedMode.modeId
+                    _uiState.update {
+                        it.copy(
+                            displayModeInfo = DisplayModeInfo(
+                                width = result.appliedMode.physicalWidth,
+                                height = result.appliedMode.physicalHeight,
+                                refreshRate = result.appliedMode.refreshRate
+                            ),
+                            showDisplayModeInfo = true
+                        )
+                    }
+                    refreshOsdTechBadges()
+                    if (switchedDisplayMode) {
+                        displayModeSwitched = true
+                        lastAfrModeSwitchElapsedMs = android.os.SystemClock.elapsedRealtime()
+                        Log.d(
+                            PlayerRuntimeController.TAG,
+                            "Track AFR: display mode switched; holding playback start ${TRACK_AFR_SETTLE_HOLD_MS}ms"
+                        )
+                        delay(TRACK_AFR_SETTLE_HOLD_MS)
+                        val sinceSwitchMs = if (switchStartElapsedMs > 0L) {
+                            android.os.SystemClock.elapsedRealtime() - switchStartElapsedMs
+                        } else {
+                            -1L
+                        }
+                        Log.d(
+                            PlayerRuntimeController.TAG,
+                            "Track AFR settle complete: elapsedSinceSwitchMs=" + sinceSwitchMs +
+                                " audioQuiesced=" + audioQuiesced +
+                                " firstFrame=" + hasRenderedFirstFrame
+                        )
+                    }
+                }
+            } ?: Log.w(
+                PlayerRuntimeController.TAG,
+                "Track AFR exceeded absolute deadline (${TRACK_AFR_ABSOLUTE_DEADLINE_MS}ms); releasing start gate"
+            )
+        } finally {
+            // P-F3: act only if this coroutine still belongs to the current
+            // stream — an old stream's finally otherwise collapses the new
+            // stream's start-hold (and could start held playback early).
+            if (afrTrackGeneration == startGeneration) {
+                afrTrackSwitchInFlight = false
+                if (displayModeSwitched) {
+                    lastAfrModeSwitchElapsedMs = android.os.SystemClock.elapsedRealtime()
+                }
+                // The frame-rate badge and toast were held while the mode switched.
+                refreshOsdTechBadges()
+                // Fix 1: symmetric re-enable. Only touch audio if we disabled
+                // it above; runs on every exit path (success, deadline, reset,
+                // cancellation). Deliberately non-suspending: `scope` is
+                // Main-dispatched so this already runs on Main, and a suspend
+                // point here would throw on entry when the job is cancelled
+                // and skip the re-enable and the held-playback resume.
+                if (audioQuiesced) {
+                    _exoPlayer?.let { p ->
+                        p.trackSelectionParameters = p.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                            .build()
+                    }
+                }
+                resumePlaybackAfterTrackAfrIfHeld()
+            }
+        }
+    }
+}
+
+/**
+ * If the first frame rendered (or tunneled READY fired) while the track-AFR
+ * gate held playback paused, start playback now with the same guards the
+ * normal start sites use. If the frame hasn't arrived yet, do nothing — the
+ * normal onRenderedFirstFrame / tunneled READY path starts playback, its gate
+ * now open.
+ */
+internal fun PlayerRuntimeController.resumePlaybackAfterTrackAfrIfHeld() {
+    val player = _exoPlayer ?: return
+    if (!hasRenderedFirstFrame) return
+    if (userPausedManually) return
+    if (player.playWhenReady) return
+    Log.d(PlayerRuntimeController.TAG, "Track AFR: settle complete; starting held playback")
+    player.playWhenReady = true
+    player.play()
+}

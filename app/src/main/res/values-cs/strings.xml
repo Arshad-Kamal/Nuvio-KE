@@ -1,0 +1,1449 @@
+<resources>
+    <string name="type_movie">Film</string>
+    <string name="type_movies">Filmy</string>
+    <string name="type_series">Seriál</string>
+    <string name="type_series_plural">Seriály</string>
+    <string name="type_unknown">Neznámé</string>
+
+    <string name="web_manage_addons_title">Spravovat doplňky</string>
+    <string name="web_manage_addons_subtitle">Spravovat doplňky, katalogy a kolekce</string>
+    <string name="web_add_addon_url">Přidat doplněk pomocí URL</string>
+    <string name="web_placeholder_url">https://example.com/manifest.json</string>
+    <string name="web_btn_add">Přidat</string>
+    <string name="web_installed_addons">Nainstalované doplňky</string>
+    <string name="web_no_addons">Žádné nainstalované doplňky</string>
+    <string name="web_home_catalogs">Domovské katalogy a kolekce</string>
+    <string name="web_no_catalogs">Žádné domovské katalogy nejsou k dispozici</string>
+    <string name="web_btn_save">Uložit změny</string>
+    <string name="web_connection_lost">Připojení k TV ztraceno</string>
+    <string name="web_btn_remove">Odebrat</string>
+    <string name="web_badge_new">Nové</string>
+    <string name="web_badge_disabled">Zakázáno</string>
+    <string name="web_btn_enable">Povolit</string>
+    <string name="web_btn_disable">Zakázat</string>
+    <string name="web_error_addon_exists">Tento doplněk již v seznamu je</string>
+    <string name="web_status_waiting_tv">Čekání na TV</string>
+    <string name="web_status_msg_waiting_tv">Pro potvrzení změn je prosím potvrďte na vaší TV.</string>
+    <string name="web_status_changes_applied">Změny aplikovány</string>
+    <string name="web_status_msg_addon_updated">Vaše konfigurace doplňků byla na TV aktualizována.</string>
+    <string name="web_status_changes_rejected">Změny zamítnuty</string>
+    <string name="web_status_msg_changes_rejected">Změny byly na TV odmítnuty. Váš seznam byl vrácen zpět.</string>
+    <string name="web_status_error">Něco se pokazilo</string>
+    <string name="web_error_failed_save">Uložení se nezdařilo. Zkontrolujte připojení k TV.</string>
+    <string name="web_btn_dismiss">Zavřít</string>
+    <string name="web_status_timeout">Časový limit vypršel</string>
+    <string name="web_status_msg_timeout">Žádná odpověď od TV. Zkuste to prosím znovu.</string>
+    <string name="web_status_msg_connection_lost">TV server již není dostupný. Změny mohly být aplikovány.</string>
+    <string name="web_manage_collections_title">Spravovat kolekce</string>
+    <string name="web_manage_collections_subtitle">Vytvářet a spravovat vaše vlastní kolekce</string>
+    <string name="web_status_msg_collections_updated">Vaše kolekce byly na TV aktualizovány.</string>
+    <string name="web_tab_addons">Doplňky</string>
+    <string name="web_tab_home_layout">Rozvržení domů</string>
+    <string name="web_tab_collections">Kolekce</string>
+    <string name="web_btn_enable_all">Povolit vše</string>
+    <string name="web_btn_disable_all">Zakázat vše</string>
+    <string name="web_btn_show_all">Zobrazit vše</string>
+    <string name="web_btn_hide_all">Skrýt vše</string>
+    <string name="web_btn_new_collection">+ Nová kolekce</string>
+    <string name="web_btn_export">Exportovat</string>
+    <string name="web_btn_import">Importovat</string>
+    <string name="web_no_collections">Zatím žádné kolekce</string>
+    <string name="web_badge_collection">Kolekce</string>
+    <string name="web_import_collections_title">Importovat kolekce</string>
+    <string name="web_import_tab_paste">Vložit</string>
+    <string name="web_import_tab_file">Soubor</string>
+    <string name="web_import_tab_url">URL</string>
+    <string name="web_import_paste_placeholder">Vložte JSON kolekcí sem...</string>
+    <string name="web_import_file_select">Klepnutím vyberte soubor .json</string>
+    <string name="web_order_send_to_top">Přesunout nahoru</string>
+    <string name="web_order_send_to_bottom">Přesunout dolů</string>
+    <string name="web_title_show">Zobrazit</string>
+    <string name="web_title_hide">Skrýt</string>
+    <string name="web_issue_singular">problém</string>
+    <string name="web_issue_plural">problémy</string>
+    <string name="web_source_singular">zdroj</string>
+    <string name="web_source_plural">zdroje</string>
+    <string name="web_source_added">Přidáno</string>
+    <string name="web_no_sources_added">Zatím nebyly přidány žádné zdroje</string>
+    <string name="web_import_select_file_first">Nejprve vyberte soubor</string>
+    <string name="web_import_enter_url">Zadejte URL</string>
+    <string name="web_import_failed_fetch_url">Nepodařilo se načíst URL</string>
+    <string name="web_import_no_json">Nebyl poskytnut JSON</string>
+    <string name="web_import_expected_array">Očekáváno pole JSON kolekcí</string>
+    <string name="web_import_empty_array">Prázdné pole: nenalezeny žádné kolekce</string>
+    <string name="web_import_error_collection_invalid_id">Kolekce {index}: chybějící nebo neplatné \"id\"</string>
+    <string name="web_import_error_collection_invalid_title">Kolekce \"{collection}\": chybějící nebo neplatný \"title\"</string>
+    <string name="web_import_error_collection_folders_array">Kolekce \"{collection}\": \"folders\" musí být pole</string>
+    <string name="web_import_error_folder_invalid_format">Kolekce \"{collection}\", složka {index}: neplatný formát</string>
+    <string name="web_import_error_folder_missing_id">Kolekce \"{collection}\", složka {index}: chybějící \"id\"</string>
+    <string name="web_import_error_folder_missing_title">Kolekce \"{collection}\", složka \"{folder}\": chybějící \"title\"</string>
+    <string name="web_import_error_sources_array">Kolekce \"{collection}\", složka \"{folder}\": \"sources\" musí být pole</string>
+    <string name="web_import_error_invalid_tile_shape">Kolekce \"{collection}\", složka \"{folder}\": neplatný tileShape \"{shape}\"</string>
+    <string name="web_import_error_source_invalid_format">Kolekce \"{collection}\", složka \"{folder}\", zdroj {index}: neplatný formát</string>
+    <string name="web_import_error_source_missing_addon_fields">Kolekce \"{collection}\", složka \"{folder}\", zdroj {index}: chybějící povinná pole (addonId, type, catalogId)</string>
+    <string name="web_import_error_source_missing_tmdb_type">Kolekce \"{collection}\", složka \"{folder}\", zdroj {index}: chybějící typ zdroje TMDB</string>
+    <string name="web_import_error_source_missing_trakt_id">Kolekce \"{collection}\", složka \"{folder}\", zdroj {index}: chybějící ID seznamu Trakt</string>
+    <string name="web_import_success">Importováno {count} kolekcí. Zkontrolujte a stiskněte Uložit změny pro aplikování.</string>
+    <string name="web_import_invalid_json">Neplatný JSON</string>
+
+    <string name="auth_notice_nuvio_logged_out">Byli jste odhlášeni z Nuvio. Přihlaste se prosím znovu.</string>
+    <string name="error_generic">Došlo k chybě</string>
+
+    <string name="action_retry">Opakovat</string>
+    <string name="error_state_generic_issue">Něco se pokazilo.</string>
+    <string name="error_state_possible_fix">Možná oprava: %1$s</string>
+    <string name="error_state_fix_retry_soon">zkuste to znovu za chvíli.</string>
+    <string name="error_state_issue_no_metadata_any_addon">Toto ID nemohlo načíst podrobnosti, protože žádný z nainstalovaných doplňků nevrátil metadata.</string>
+    <string name="error_state_fix_no_metadata_any_addon">zkuste jiný doplněk, vypněte \"Preferovat externí meta doplněk\" v nastavení rozvržení nebo ověřte, že nainstalovaný doplněk podporuje toto ID.</string>
+    <string name="error_state_prefix_no_supported_metadata">Žádný nainstalovaný doplněk nepodporuje metadata pro </string>
+    <string name="error_state_prefix_no_addon_for_id">Žádný nainstalovaný doplněk nemohl poskytnout metadata pro id=</string>
+    <string name="error_state_fix_no_supported_metadata">nainstalujte nebo aktualizujte doplněk, který podporuje tento typ obsahu, a zkuste to znovu.</string>
+    <string name="error_state_prefix_tried_meta_addons">Vyzkoušené meta doplňky:</string>
+    <string name="error_state_fix_tried_meta_addons">nainstalujte doplněk, který podporuje toto ID, nebo přenastavte/aktualizujte doplněk a zkuste to znovu.</string>
+    <string name="error_state_issue_missing_metadata_for_id">nemá metadata pro toto id</string>
+    <string name="error_state_fix_missing_metadata_for_id">otevřete toto ID z jiného doplňku, vypněte \"Preferovat externí meta doplněk\" nebo zkontrolujte, že doplněk podporuje toto ID.</string>
+    <string name="error_state_issue_addon_unreachable">je nedostupný</string>
+    <string name="error_state_fix_addon_unreachable">zkontrolujte své internetové připojení, ověřte, že URL doplňku stále funguje, a zkuste to znovu.</string>
+    <string name="error_state_issue_addon_connection_failed">odmítl připojení</string>
+    <string name="error_state_fix_addon_connection_failed">ujistěte se, že server doplňku je online a dostupný, a zkuste to znovu.</string>
+    <string name="error_state_issue_addon_timeout">odpovídal příliš dlouho</string>
+    <string name="error_state_fix_addon_timeout">zkuste to znovu za chvíli, nebo pokud to přetrvává, zkuste jiný doplněk.</string>
+    <string name="error_state_issue_addon_cleartext">používá nezabezpečené HTTP připojení, které Android blokuje</string>
+    <string name="error_state_fix_addon_cleartext">změňte URL doplňku na HTTPS nebo aktualizujte konfiguraci doplňku.</string>
+    <string name="error_state_fix_addon_generic">zkuste to znovu, aktualizujte nebo přeinstalujte doplněk, nebo zkuste jiný doplněk.</string>
+    <string name="error_state_addon_issue_template">%1$s: %2$s.</string>
+    <string name="error_meta_not_found">Meta nenalezeno</string>
+    <string name="error_meta_no_supported_addon">Žádný nainstalovaný doplněk nepodporuje metadata pro \"%1$s\".</string>
+    <string name="error_meta_no_addon_for_id">Žádný nainstalovaný doplněk nemohl poskytnout metadata pro id=%1$s (typ=%2$s).</string>
+    <string name="error_meta_tried_none">Vyzkoušené meta doplňky: %1$s. Žádný z nich neposkytl metadata pro id=%2$s (typ=%3$s).</string>
+    <string name="error_meta_tried_generic">Vyzkoušené meta doplňky: %1$s. Metadata nemohla být načtena pro id=%2$s (typ=%3$s).</string>
+    <string name="error_meta_tried_issues">Vyzkoušené meta doplňky: %1$s. Metadata nemohla být načtena pro id=%2$s (typ=%3$s). Problémy: %4$s.</string>
+    <string name="error_stream_no_supported_addon">Žádný nainstalovaný doplněk nepodporuje streamy pro \"%1$s\".</string>
+    <string name="error_stream_tried_none">Vyzkoušené streamovací doplňky: %1$s. Žádný z nich nevrátil streamy pro id=%2$s (typ=%3$s).</string>
+    <string name="error_stream_tried_generic">Vyzkoušené streamovací doplňky: %1$s. Streamy nemohly být načteny pro id=%2$s (typ=%3$s).</string>
+    <string name="error_stream_tried_issues">Vyzkoušené streamovací doplňky: %1$s. Streamy nemohly být načteny pro id=%2$s (typ=%3$s). Problémy: %4$s.</string>
+
+    <string name="continue_watching">Pokračovat ve sledování</string>
+    <string name="cw_upcoming">Nadcházející</string>
+    <string name="cw_next_up">Další díl</string>
+    <string name="cw_new_episode">Nový díl</string>
+    <string name="cw_new_season">Nová sezóna</string>
+    <string name="cw_resume">Pokračovat</string>
+    <string name="cw_percent_watched">%1$d%% zhlédnuto</string>
+    <string name="cw_hours_min_left">Zbývá %1$dh %2$dm</string>
+    <string name="cw_min_left">Zbývá %1$dm</string>
+    <string name="cw_airs_date">Vysílá se %1$s</string>
+    <string name="cw_airs_today">Vysílá se dnes</string>
+    <string name="cw_airs_tomorrow">Vysílá se zítra</string>
+    <plurals name="cw_airs_in_days">
+        <item quantity="one">Vysílá se za %d den</item>
+        <item quantity="few">Vysílá se za %d dny</item>
+        <item quantity="many">Vysílá se za %d dní</item>
+        <item quantity="other">Vysílá se za %d dní</item>
+    </plurals>
+    <string name="cw_action_go_to_details">Přejít na podrobnosti</string>
+    <string name="cw_action_start_from_beginning">Přehrát od začátku</string>
+    <string name="cw_action_remove">Odebrat</string>
+    <string name="cw_dialog_subtitle">Vyberte, co chcete s touto položkou udělat.</string>
+    <string name="home_poster_dialog_subtitle">Akce titulu</string>
+
+    <string name="action_see_all">Zobrazit vše</string>
+
+    <string name="hero_creator">Tvůrce: %1$s</string>
+    <string name="hero_director">Režisér: %1$s</string>
+    <string name="hero_writer">Scenárista: %1$s</string>
+    <string name="hero_play">Přehrát</string>
+    <string name="hero_add_to_library">Přidat do knihovny</string>
+    <string name="hero_remove_from_library">Odebrat z knihovny</string>
+    <string name="hero_mark_watched">Označit jako zhlédnuté</string>
+    <string name="hero_mark_unwatched">Označit jako nezhlédnuté</string>
+    <string name="hero_play_trailer">Přehrát trailer</string>
+    <string name="hero_press_back_trailer">Stiskněte zpět pro ukončení traileru</string>
+    <string name="hero_synopsis_read_more">Zobrazit více</string>
+    <string name="hero_synopsis_dismiss_hint">Zavřete stisknutím tlačítka zpět</string>
+
+    <string name="episodes_season">Sezóna %1$d</string>
+    <string name="episodes_specials">Speciály</string>
+    <string name="episodes_episode">Epizoda</string>
+    <string name="episodes_cd_watched">Zhlédnuto</string>
+    <string name="episodes_dialog_subtitle">Akce epizody</string>
+    <string name="episodes_mark_watched">Označit jako zhlédnuté</string>
+    <string name="episodes_mark_unwatched">Označit jako nezhlédnuté</string>
+    <string name="episodes_mark_season_watched">Označit sezónu jako zhlédnutou</string>
+    <string name="episodes_mark_season_unwatched">Označit sezónu jako nezhlédnutou</string>
+    <string name="episodes_mark_previous_watched">Označit předchozí v této sezóně jako zhlédnuté</string>
+    <string name="episodes_mark_previous_seasons_watched">Označit předchozí sezóny jako zhlédnuté</string>
+    <string name="episodes_play">Přehrát</string>
+    <string name="episodes_open_comments">Otevřít komentáře k epizodě</string>
+    <string name="play_manually">Přehrát ručně</string>
+    <string name="episodes_season_actions">Akce sezóny</string>
+
+    <string name="detail_added_to_library">Přidáno do knihovny</string>
+    <string name="detail_removed_from_library">Odebráno z knihovny</string>
+    <string name="detail_episode_marked_watched">Epizoda označena jako zhlédnutá</string>
+    <string name="detail_episode_marked_unwatched">Epizoda označena jako nezhlédnutá</string>
+    <string name="detail_lists_updated">Seznamy aktualizovány</string>
+    <string name="detail_movie_marked_watched">Označeno jako zhlédnuté</string>
+    <string name="detail_movie_marked_unwatched">Označeno jako nezhlédnuté</string>
+    <string name="detail_all_episodes_watched">Všechny epizody již zhlédnuty</string>
+    <string name="detail_no_watched_episodes">Žádné zhlédnuté epizody v této sezóně</string>
+    <string name="detail_all_previous_watched">Všechny předchozí epizody již zhlédnuty</string>
+    <string name="detail_all_previous_seasons_watched">Všechny předchozí sezóny už jsou zhlédnuté</string>
+    <string name="detail_marked_episodes_watched">Epizody označené jako zhlédnuté: %1$d</string>
+    <string name="detail_marked_episodes_unwatched">Epizody označené jako nezhlédnuté: %1$d</string>
+    <string name="detail_marked_previous_watched">Předchozí epizody označené jako zhlédnuté: %1$d</string>
+
+    <string name="detail_btn_play">Přehrát</string>
+    <string name="detail_btn_resume">Pokračovat</string>
+    <string name="detail_btn_play_episode">Přehrát S%1$d E%2$d</string>
+    <string name="detail_btn_resume_episode">Pokračovat S%1$d E%2$d</string>
+    <string name="detail_btn_next_episode">Další S%1$d E%2$d</string>
+    <string name="detail_tab_cast">Tvůrci a obsazení</string>
+    <string name="cast_role_creator">Tvůrce</string>
+    <string name="cast_role_director">Režisér</string>
+    <string name="cast_role_writer">Scenárista</string>
+    <string name="detail_tab_ratings">Hodnocení</string>
+    <string name="detail_tab_more_like_this">Podobné</string>
+    <string name="detail_tab_trailer">Trailer</string>
+    <string name="detail_more_like_this_powered_by_tmdb">Běží na TMDB</string>
+    <string name="detail_section_network">Síť</string>
+    <string name="detail_section_production">Produkce</string>
+    <string name="detail_trailer_error">Nepodařilo se načíst trailer.</string>
+    <string name="tmdb_entity_kind_company">Produkční společnost</string>
+    <string name="tmdb_entity_kind_network">Síť</string>
+    <string name="tmdb_entity_rail_popular">Populární</string>
+    <string name="tmdb_entity_rail_top_rated">Nejlépe hodnocené</string>
+    <string name="tmdb_entity_rail_recent">Nedávné</string>
+    <string name="tmdb_entity_rail_most_voted">Nejhodnocenější</string>
+    <string name="collections_editor_tmdb_watch_region">Region sledování</string>
+    <string name="collections_editor_tmdb_quick_watch_regions">Rychlé regiony sledování</string>
+    <string name="collections_editor_tmdb_watch_providers">ID poskytovatelů sledování</string>
+    <string name="collections_editor_tmdb_watch_providers_placeholder">8|337|350</string>
+    <string name="collections_editor_tmdb_quick_watch_providers">Rychlí poskytovatelé sledování</string>
+    <string name="tmdb_error_load_source">Nepodařilo se načíst zdroj TMDB</string>
+    <string name="tmdb_error_list_not_found">Seznam TMDB nenalezen</string>
+    <string name="tmdb_error_collection_not_found">Kolekce TMDB nenalezena</string>
+    <string name="tmdb_error_company_not_found">Společnost TMDB nenalezena</string>
+    <string name="tmdb_error_network_not_found">Síť TMDB nenalezena</string>
+    <string name="tmdb_error_person_not_found">Osoba TMDB nenalezena</string>
+    <string name="tmdb_error_missing_list_id">Chybí ID seznamu TMDB</string>
+    <string name="tmdb_error_missing_collection_id">Chybí ID kolekce TMDB</string>
+    <string name="tmdb_error_missing_person_id">Chybí ID osoby TMDB</string>
+    <string name="tmdb_error_person_credits_not_found">Filmografie osoby TMDB nenalezena</string>
+    <string name="tmdb_error_discover_no_data">TMDB objevování nevrátilo žádná data</string>
+    <string name="tmdb_entity_empty_title">Žádné tituly nenalezeny</string>
+    <string name="tmdb_entity_empty_subtitle">TMDB aktuálně nemá pro tento výběr žádné procházetelné tituly.</string>
+    <string name="episodes_unavailable">Nedostupné</string>
+    <!-- Status labels for series (some languages need gendered forms) -->
+    <string name="series_status_ended">Ukončeno</string>
+    <string name="series_status_continuing">Pokračující</string>
+    <string name="series_status_current">Aktuální</string>
+    <string name="series_status_cancelled">Zrušeno</string>
+    <string name="series_status_released">Vydáno</string>
+    <string name="series_status_planned">Plánováno</string>
+    <string name="series_status_rumored">Fáma</string>
+    <string name="series_status_in_production">Ve výrobě</string>
+    <string name="series_status_post_production">Postprodukce</string>
+    <!-- Status labels for movies (allows gendered translations in languages that need it) -->
+    <string name="movie_status_ended">Ukončeno</string>
+    <string name="movie_status_continuing">Pokračující</string>
+    <string name="movie_status_current">Aktuální</string>
+    <string name="movie_status_cancelled">Zrušeno</string>
+    <string name="movie_status_released">Vydáno</string>
+    <string name="movie_status_planned">Plánováno</string>
+    <string name="movie_status_rumored">Fáma</string>
+    <string name="movie_status_in_production">Ve výrobě</string>
+    <string name="movie_status_post_production">Postprodukce</string>
+    <string name="detail_lists_fallback">Seznamy</string>
+    <string name="detail_lists_subtitle">Vyberte, které seznamy by měly obsahovat tento titul.</string>
+    <string name="action_save">Uložit</string>
+    <string name="action_saving">Ukládání…</string>
+
+    <string name="appearance_language_system">Výchozí systému</string>
+    <string name="appearance_language_dialog_title">Vybrat jazyk</string>
+    <string name="appearance_language_restart_hint">Pro aplikování změny jazyka restartujte aplikaci.</string>
+
+    <string name="appearance_font_dialog_title">Vybrat písmo</string>
+
+    <string name="appearance_title">Vzhled</string>
+    <string name="theme_color_crimson">Karmínová</string>
+    <string name="theme_color_ocean">Oceánová</string>
+    <string name="theme_color_violet">Fialová</string>
+    <string name="theme_color_emerald">Smaragdová</string>
+    <string name="theme_color_amber">Jantarová</string>
+    <string name="theme_color_rose">Růžová</string>
+    <string name="theme_color_white">Bílá</string>
+    <string name="appearance_amoled_mode_subtitle">Použít čistě černou pro pozadí aplikace</string>
+    <string name="appearance_amoled_surfaces_mode_subtitle">Také udělat karty, panely a kontejnery čistě černé</string>
+
+    <string name="about_title">O aplikaci</string>
+
+    <!-- SettingsScreen categories -->
+    <string name="settings_account">Účet</string>
+    <string name="settings_profiles">Profily</string>
+    <string name="settings_layout">Rozvržení</string>
+    <string name="settings_content_discovery">Obsah a objevování</string>
+    <string name="settings_integration">Integrace</string>
+    <string name="settings_playback">Přehrávání</string>
+    <string name="settings_advanced">Pokročilé</string>
+    <string name="external_auto_next_loading">Načítání další epizody…</string>
+    <!-- Account / sign-in error messages -->
+    <string name="account_error_generic_retry">Něco se pokazilo. Zkuste to prosím znovu.</string>
+    <string name="account_error_invalid_credentials">Nesprávný e-mail nebo heslo.</string>
+    <string name="account_error_email_not_confirmed">Nejprve prosím potvrďte svůj e-mail.</string>
+    <string name="account_error_email_already_registered">Účet s tímto e-mailem již existuje.</string>
+    <string name="account_error_invalid_email">Zadejte prosím platnou e-mailovou adresu.</string>
+    <string name="account_error_password_too_short">Heslo je příliš krátké.</string>
+    <string name="account_error_password_too_weak">Heslo je příliš slabé.</string>
+    <string name="account_error_signup_disabled">Registrace je momentálně zakázána.</string>
+    <string name="account_error_rate_limited">Příliš mnoho pokusů. Zkuste to prosím později.</string>
+    <string name="account_error_qr_login_expired">Platnost QR přihlášení vypršela. Zkuste to prosím znovu.</string>
+    <string name="account_error_invalid_qr_login">Neplatný kód QR přihlášení.</string>
+    <string name="account_error_qr_login_other_device">Toto QR přihlášení bylo vyžádáno z jiného zařízení.</string>
+    <string name="account_error_qr_login_outdated">Služba QR přihlášení je zastaralá. Znovu použijte SQL nastavení pro přihlášení na TV.</string>
+    <string name="account_error_qr_login_missing_setup">Backendu QR přihlášení chybí nastavení. Aktualizujte SQL nastavení pro přihlášení na TV.</string>
+    <string name="account_error_qr_login_misconfigured">URL QR přihlášení je nesprávně nastavena.</string>
+    <string name="account_error_qr_login_invalid_request">Požadavek na QR přihlášení byl neplatný. Zkuste to prosím znovu.</string>
+    <string name="account_error_no_internet">Žádné internetové připojení.</string>
+    <string name="account_error_connection_timeout">Časový limit připojení vypršel. Zkuste to prosím znovu.</string>
+    <string name="account_error_connection_refused">Nepodařilo se připojit k serveru.</string>
+    <string name="account_error_not_authenticated">Nejprve se prosím přihlaste.</string>
+    <string name="account_error_service_unavailable">Služba není dostupná. Zkuste to prosím později.</string>
+    <string name="account_error_invalid_request">Neplatný požadavek. Zkontrolujte prosím zadané údaje.</string>
+    <string name="account_error_unexpected">Došlo k neočekávané chybě.</string>
+    <string name="advanced_section_cache">Mezipaměť</string>
+    <string name="advanced_compose_highlighter">Compose Highlighter</string>
+    <string name="advanced_compose_highlighter_subtitle">Blikat okraje kolem překreslovaných UI prvků pro ladění výkonu.</string>
+    <string name="advanced_clear_cw_cache">Vymazat mezipaměť Pokračovat ve sledování</string>
+    <string name="advanced_clear_cw_cache_subtitle">Odebrat miniatury, názvy a obohacená data z mezipaměti pro Pokračovat ve sledování</string>
+    <string name="advanced_clear_cw_cache_done">Mezipaměť vymazána</string>
+    <string name="settings_debug">Ladění</string>
+    <string name="settings_account_section_subtitle">Stav účtu a synchronizace</string>
+    <string name="account_stat_addons">doplňky</string>
+    <string name="account_stat_library">knihovna</string>
+    <string name="account_stat_progress">postup</string>
+    <string name="account_stat_watched">zhlédnuto</string>
+
+    <string name="cd_decrease">Snížit</string>
+    <string name="cd_increase">Zvýšit</string>
+    <string name="action_cancel">Zrušit</string>
+    <string name="sub_opacity">Neprůhlednost</string>
+    <string name="action_none">Žádné</string>
+
+
+    <string name="playback_section_general">Obecné</string>
+    <string name="playback_loading_overlay">Překryv načítání</string>
+    <string name="playback_loading_overlay_sub">Zobrazit obrazovku načítání, dokud se neobjeví první snímek videa.</string>
+    <string name="playback_pause_overlay">Překryv pauzy</string>
+    <string name="playback_pause_overlay_sub">Zobrazit překryv s podrobnostmi po 5 sekundách během pauzy.</string>
+    <string name="playback_show_clock_sub">Zobrazit aktuální čas a čas konce, když jsou ovládací prvky viditelné.</string>
+    <string name="playback_osd_clock">OSD hodiny</string>
+    <string name="playback_skip_intro">Přeskočit intro</string>
+    <string name="playback_skip_intro_sub">Použít introdb.app k detekci intra a rekapitulací.</string>
+    <string name="playback_parental_guide">Varování před obsahem</string>
+    <string name="playback_parental_guide_sub">Zobrazit překryvnou vrstvu s rodičovským doporučením při spuštění přehrávání.</string>
+    <string name="auto_skip_intro">Intro / Zahájení</string>
+    <string name="auto_skip_intro_sub">Přeskakovat intra a anime zahájení automaticky.</string>
+    <string name="auto_skip_recap">Rekapitulace</string>
+    <string name="auto_skip_recap_sub">Přeskakovat segmenty rekapitulace automaticky.</string>
+    <string name="auto_skip_outro">Outro / Ukončení</string>
+    <string name="auto_skip_outro_sub">Přeskakovat outra a anime ukončení automaticky.</string>
+    <string name="playback_engine_exoplayer">ExoPlayer</string>
+    <string name="playback_engine_mvplayer">Libmpv (Beta)</string>
+    <string name="playback_auto_switch_internal_player_on_error">Automaticky přepnout engine při chybě spuštění</string>
+    <string name="playback_section_subtitles">Titulky</string>
+    <string name="playback_afr_off">Vypnuto</string>
+    <string name="playback_afr_on_start">Při spuštění</string>
+    <string name="playback_resolution_matching">Přizpůsobení rozlišení</string>
+    <string name="playback_resolution_matching_unsupported_sub">Displej hlásí pouze jedno rozlišení; přizpůsobení nemusí mít žádný účinek.</string>
+    <string name="playback_afr_capability_unsupported_title">Některá nastavení nemusí fungovat</string>
+    <string name="playback_afr_capability_both_problem_body">Automatická snímková frekvence i přizpůsobení rozlišení jsou povoleny, ale váš displej hlásí pouze jednu obnovovací frekvenci a jedno rozlišení. Žádné nemusí mít účinek a doporučuje se obě zakázat.</string>
+    <string name="playback_afr_capability_only_afr_unsupported_body">Automatická snímková frekvence je povolena, ale váš displej hlásí pouze jednu obnovovací frekvenci. Přepínání nemusí mít žádný účinek a doporučuje se ji zakázat.</string>
+    <string name="playback_afr_capability_only_res_unsupported_body">Přizpůsobení rozlišení je povoleno, ale váš displej hlásí pouze jedno rozlišení. Přizpůsobení nemusí mít žádný účinek a doporučuje se jej zakázat.</string>
+    <string name="playback_afr_capability_disable_button">Zakázat AFR</string>
+    <string name="playback_afr_capability_disable_resolution_button">Zakázat přizpůsobení rozlišení</string>
+    <string name="playback_afr_capability_disable_both_button">Zakázat obojí</string>
+    <string name="playback_player_auto">Auto (Nejlepší pro obsah)</string>
+    <string name="playback_player_auto_desc">ExoPlayer pro filmy a seriály · MPV pro anime</string>
+    <string name="playback_engine_exoplayer_desc">Nejlepší kompatibilita s aktuálními funkcemi Nuvio.</string>
+    <string name="playback_engine_mvplayer_desc">Používá libmpv s OSD ovládacími prvky Nuvio. Experimentální.</string>
+
+    <string name="video_section">Video</string>
+    <string name="audio_autoplay_trailers">Automaticky přehrávat trailery</string>
+    <string name="audio_autoplay_trailers_sub">Automaticky přehrát trailery na detailní obrazovce po chvíli nečinnosti</string>
+    <string name="audio_trailer_delay">Zpoždění traileru</string>
+    <string name="audio_section">Audio</string>
+    <string name="audio_lang_default">Výchozí (podle souboru)</string>
+    <string name="audio_lang_device">Jazyk zařízení</string>
+    <string name="audio_lang_original">Původní jazyk</string>
+    <string name="audio_lang_original_hint">Vyžaduje povolené obohacení TMDB</string>
+    <string name="audio_skip_silence">Přeskočit ticho</string>
+    <string name="audio_skip_silence_sub">Přeskočit tiché části audia během přehrávání</string>
+    <string name="audio_remember_delay_per_device">Pamatovat si zpoždění zvuku podle zařízení</string>
+    <string name="audio_remember_delay_per_device_sub">Uložit a obnovit zpoždění zvuku v přehrávači pro aktuální trasu zvukového výstupu</string>
+    <string name="audio_advanced_warning">Tato nastavení mohou způsobit problémy na některých zařízeních. Měníte na vlastní riziko.</string>
+    <string name="audio_number_of_channels">Počet kanálů</string>
+    <string name="audio_number_of_channels_desc">Nastavuje rozložení reproduktorů použité pro downmix FFmpeg.</string>
+    <string name="audio_decoder_device_only">Pouze hardwarové dekodéry</string>
+    <string name="audio_decoder_prefer_device">Preferovat hardwarové dekodéry</string>
+    <string name="audio_decoder_prefer_app">Preferovat dekodéry aplikace (FFmpeg)</string>
+    <string name="audio_decoder_priority">Priorita dekodéru</string>
+    <string name="audio_enable_downmix_title">Povolit downmix</string>
+    <string name="audio_tunneled">Tunelované přehrávání</string>
+    <string name="audio_tunneled_sub">Hardwarová synchronizace audio/video. Může zlepšit přehrávání na některých Android TV zařízeních</string>
+    <string name="audio_force_optical_passthrough">Vynutit transkódování AC-3 (Optical/SPDIF)</string>
+    <string name="audio_force_optical_passthrough_sub">V reálném čase transkóduje vícekanálové formáty (TrueHD, DTS, AAC atd.) na Dolby Digital 5.1 pro připojení Optical/SPDIF.</string>
+    <!-- DV7 Handling Mode -->
+    <string name="dv7_handling_dialog_subtitle">Vyberte, jak se streamy DV zpracovávají při přehrávání.</string>
+    <string name="dv7_mode_auto">Automaticky (doporučeno)</string>
+    <string name="dv7_mode_auto_desc">Rozpozná váš displej a vybere nejlepší režim. Pokud dochází k problémům s přehráváním, zkuste HDR10 base layer.</string>
+    <string name="dv7_mode_hdr10_base_layer">HDR10 base layer</string>
+    <string name="dv7_mode_hdr10_base_layer_desc">Ignoruje rozšiřující data Dolby Vision. Může pomoct na zařízeních, která podporují HDR, ale mají potíže s DV Profile 7.</string>
+    <string name="dv7_mode_dv81_libdovi">Převést na DV8.1</string>
+    <string name="dv7_mode_dv81_libdovi_desc">Převede DV7 na jednovrstvé DV8.1. Vyžaduje displej podporující Dolby Vision.</string>
+    <string name="dv7_mode_off">Vypnuto (nativní)</string>
+    <string name="dv7_mode_off_desc">Předá DV7 beze změny. Může se zaseknout na hardwaru, který nepodporuje DV Profile 7.</string>
+    <string name="dv7_mode_strip_dv">Vždy odstranit DV</string>
+    <string name="dv7_mode_strip_dv_desc">Odstraní vrstvu RPU Dolby Vision ze všech streamů.</string>
+    <string name="audio_dv5_to_dv81_title">Převést DV5 na DV8.1</string>
+    <string name="audio_dv5_to_dv81_sub">Signalizuje streamy profilu 5 jako profil 8.1 pro výstup kompatibilní s HDR10. Pomáhá na zařízeních bez nativního dekodéru DV5.</string>
+    <string name="audio_strip_hdr10plus_title">Odstranit metadata HDR10+</string>
+    <string name="audio_strip_hdr10plus_sub">Odstraní dynamická metadata HDR10+ ze streamů. Pokud je zároveň zapnuto Převést na DV8.1, odstranění proběhne až po převodu.</string>
+    <string name="dv7_libdovi_mode_caption" translatable="false">Conversion mode (auto-selected, do not change unless instructed). Pick one to force it; None uses auto. Active only when DV7 Handling is Convert to DV8.1.</string>
+    <string name="dv7_libdovi_mode_row_title" translatable="false">Conversion mode</string>
+    <string name="dv7_libdovi_mode_none_title" translatable="false">None</string>
+    <string name="dv7_libdovi_mode_none_sub" translatable="false">No override. Uses the automatically selected conversion mode.</string>
+    <string name="dv7_libdovi_mode_0_title" translatable="false">Mode 0 — Copy (no convert)</string>
+    <string name="dv7_libdovi_mode_0_sub" translatable="false">Parse the RPU and write it back untouched. No profile conversion.</string>
+    <string name="dv7_libdovi_mode_1_title" translatable="false">Mode 1 — MEL</string>
+    <string name="dv7_libdovi_mode_1_sub" translatable="false">Convert the RPU to be MEL (Minimum Enhancement Layer) compatible.</string>
+    <string name="dv7_libdovi_mode_2_title" translatable="false">Mode 2 — 8.1 (no-op mapping)</string>
+    <string name="dv7_libdovi_mode_2_sub" translatable="false">Convert to profile 8.1 with luma and chroma mapping set to no-op. The standard conversion.</string>
+    <string name="dv7_libdovi_mode_3_title" translatable="false">Mode 3 — Profile 5 to 8.1</string>
+    <string name="dv7_libdovi_mode_3_sub" translatable="false">Convert Profile 5 (DV5) streams to Profile 8.1. Same conversion the Convert DV5 to DV8.1 toggle uses.</string>
+    <string name="dv7_libdovi_mode_4_title" translatable="false">Mode 4 — 8.4 (static)</string>
+    <string name="dv7_libdovi_mode_4_sub" translatable="false">Convert to static profile 8.4.</string>
+    <string name="audio_mpv_hwdec_title">Hardwarové dekódování (pouze MPV)</string>
+    <string name="audio_mpv_hwdec_dialog_subtitle">Vyberte, jak má libmpv používat hardwarové dekodéry.</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy">Starší (přímé -> kopírování)</string>
+    <string name="audio_mpv_hwdec_legacy_direct_copy_desc">Předchozí výchozí chování: zkusit nejprve přímý hardware, poté kopírování zpět.</string>
+    <string name="audio_mpv_hwdec_auto_safe">Auto (auto-safe)</string>
+    <string name="audio_mpv_hwdec_auto_safe_desc">Bezpečnější automatický režim s náhradním řešením, když některé hardwarové dekodéry selžou.</string>
+    <string name="audio_mpv_hwdec_hardware_copy">Hardware (kopírování) (mediacodec-copy)</string>
+    <string name="audio_mpv_hwdec_hardware_copy_desc">Používá hardwarové dekódování s kopírováním zpět do softwarové paměti.</string>
+    <string name="audio_mpv_hwdec_hardware_direct">Hardware (přímé) (mediacodec)</string>
+    <string name="audio_mpv_hwdec_hardware_direct_desc">Používá přímé hardwarové dekódování. Nejrychlejší cesta na kompatibilních zařízeních.</string>
+    <string name="audio_mpv_hwdec_disabled">Zakázáno (ne)</string>
+    <string name="audio_mpv_hwdec_disabled_desc">Zakáže hardwarové dekódování a použije pouze softwarové dekódování.</string>
+    <string name="audio_decoder_device_only_desc">Použít pouze vestavěné hardwarové dekodéry. Nejkompatibilnější, ale nemusí podporovat všechny formáty.</string>
+    <string name="audio_decoder_prefer_device_desc">Použít hardwarové dekodéry, pokud jsou dostupné, jinak FFmpeg. Doporučeno pro většinu zařízení.</string>
+    <string name="audio_decoder_prefer_app_desc">Použít FFmpeg dekodéry, pokud jsou dostupné. Lepší podpora formátů, vyšší zatížení CPU.</string>
+    <string name="audio_decoder_controls">Ovládá, zda se použijí hardwarové nebo softwarové (FFmpeg) dekodéry pro audio a video</string>
+
+    <string name="sub_not_set">Nenastaveno</string>
+    <string name="sub_forced_lang">Vynucené</string>
+    <string name="sub_preferred_lang">Preferovaný jazyk</string>
+    <string name="sub_secondary_lang">Sekundární preferovaný jazyk</string>
+    <string name="sub_use_forced_subtitles">Použít vynucené titulky</string>
+    <string name="sub_use_forced_subtitles_desc">Upřednostnit vynucené titulky, když zvuk odpovídá jazyku titulků; pokud nejsou dostupné, nevybrat nic</string>
+    <string name="sub_show_only_preferred_languages">Zobrazit pouze preferované jazyky</string>
+    <string name="sub_show_only_preferred_languages_desc">Skrýt všechny ostatní jazyky titulků ze seznamu výběru</string>
+    <string name="sub_size">Velikost</string>
+    <string name="sub_bold">Tučné</string>
+    <string name="sub_libass">Použít libass pro titulky ASS/SSA</string>
+    <string name="sub_libass_sub">Experimentální: pokročilé vykreslování ASS/SSA (styly, umístění, animace)</string>
+
+    <string name="autoplay_last_link_cache">Doba platnosti mezipaměti posledního odkazu</string>
+    <string name="cache_duration_hour_one">%1$d hodina</string>
+    <string name="cache_duration_hour_other">%1$d hodin</string>
+    <string name="cache_duration_day_one">%1$d den</string>
+    <string name="cache_duration_day_other">%1$d dní</string>
+    <string name="cache_duration_days_hours">%1$dd %2$dh</string>
+    <string name="autoplay_mode_manual">Ručně (vybrat stream)</string>
+    <string name="autoplay_mode_first">Automaticky přehrát první zdroj</string>
+    <string name="autoplay_mode_regex">Automaticky přehrát shodu regex</string>
+    <string name="autoplay_prefer_binge_group">Preferovat skupinu pro binge (další epizoda)</string>
+    <string name="autoplay_prefer_binge_group_sub">Nejprve vyzkoušet stejný profil zdroje (stejná skupina doplňku/kvality) před normálními pravidly automatického přehrávání.</string>
+    <string name="autoplay_reuse_binge_group">Znovu použít binge skupinu</string>
+    <string name="autoplay_reuse_binge_group_sub">Zapamatovat a znovu použít poslední binge skupinu napříč relacemi (Pokračovat ve sledování, Detail atd.).</string>
+    <string name="autoplay_threshold_pct">Procento</string>
+    <string name="autoplay_threshold_min">Minut před koncem</string>
+    <string name="autoplay_threshold_mode">Režim prahu další epizody</string>
+    <string name="autoplay_threshold_pct_title">Procento prahu</string>
+    <string name="autoplay_threshold_pct_sub">Náhradní řešení, když není k dispozici časová značka outra.</string>
+    <string name="autoplay_threshold_min_title">Minut prahu</string>
+    <string name="autoplay_timeout_instant">Okamžitě</string>
+    <string name="autoplay_timeout_unlimited">Neomezeně</string>
+    <string name="autoplay_all_addons">Všechny nainstalované doplňky</string>
+    <string name="autoplay_regex_placeholder">Není nastaven žádný vzor. Příklad: 4K|2160p|Remux</string>
+    <string name="autoplay_regex_title">Vzor regex</string>
+    <string name="autoplay_no_items">Žádné položky nejsou k dispozici</string>
+    <string name="autoplay_mode_first_desc">Automaticky přehrát první dostupný zdroj.</string>
+    <string name="autoplay_threshold_pct_desc">Zobrazit podle procenta přehrávání, když není k dispozici časová značka outra.</string>
+    <string name="autoplay_threshold_min_desc">Zobrazit tolik minut před koncem epizody, když není k dispozici časová značka outra.</string>
+    <string name="autoplay_regex_matches">Porovnává se s názvem streamu/titulkem/popisem/doplňkem/url. Příklad: 4K|2160p|Remux</string>
+    <string name="autoplay_invalid_regex">Neplatný vzor regex</string>
+
+    <string name="layout_landscape_posters">Plakáty na šířku</string>
+    <string name="layout_discover_location_in_search_desc">Objevování se zobrazí uvnitř karty Vyhledávání.</string>
+    <string name="layout_catalog_type">Zobrazit typ katalogu</string>
+    <string name="layout_catalog_type_sub">Zobrazit příponu typu vedle názvu katalogu (Film/Seriál).</string>
+    <string name="layout_hide_unreleased">Skrýt nevydaný obsah</string>
+    <string name="layout_hide_unreleased_sub">Skrýt filmy a seriály, které ještě nebyly vydány.</string>
+    <string name="layout_section_streams">Streamy</string>
+    <string name="layout_use_episode_thumbnails_cw">Použít miniatury epizod v Pokračovat ve sledování</string>
+    <string name="layout_use_episode_thumbnails_cw_sub">Použít miniatury epizod jako výchozí obrázek. Když je zakázáno, použije se pozadí.</string>
+    <string name="layout_blur_unwatched">Rozostřit nezhlédnuté epizody</string>
+    <string name="layout_blur_unwatched_sub">Rozostřit miniatury epizod, dokud nejsou zhlédnuty, aby se zabránilo spoilerům.</string>
+    <string name="layout_blur_cw_next_up">Rozostřit nezhlédnuté v Pokračovat ve sledování</string>
+    <string name="layout_blur_cw_next_up_sub">Rozostřit miniatury dalších epizod v Pokračovat ve sledování, aby se zabránilo spoilerům.</string>
+    <string name="layout_next_up_furthest_episode">Další díl od nejvzdálenější epizody</string>
+    <string name="layout_next_up_furthest_episode_sub">Zobrazit další epizodu na základě nejvzdálenější zhlédnuté epizody. Vypněte pro opakované sledování, aby se místo toho použila naposledy sledovaná epizoda.</string>
+    <string name="layout_show_unaired_next_up">Zobrazit nevysílané epizody Další díl</string>
+    <string name="layout_show_unaired_next_up_sub">Zahrnout nadcházející epizody do Pokračovat ve sledování před jejich odvysíláním.</string>
+    <string name="layout_cw_sort_mode">Řazení</string>
+    <string name="layout_cw_sort_mode_sub">Jak jsou položky Pokračovat ve sledování uspořádány</string>
+    <string name="layout_cw_sort_default">Výchozí</string>
+    <string name="layout_cw_sort_default_desc">Seřadit všechny položky podle aktuálnosti</string>
+    <string name="layout_cw_sort_streaming">Styl streamování</string>
+    <string name="layout_cw_sort_streaming_desc">Nejprve vydané položky, nadcházející na konci</string>
+    <string name="layout_trailer_button">Zobrazit tlačítko traileru</string>
+    <string name="layout_trailer_button_sub">Zobrazit tlačítko traileru na stránce podrobností (pouze pokud je trailer k dispozici).</string>
+    <string name="layout_prefer_external_meta">Preferovat metadata z externího doplňku</string>
+    <string name="layout_prefer_external_meta_sub">Použít metadata z externího doplňku místo z katalogového doplňku.</string>
+    <string name="layout_show_full_release_date">Zobrazit úplné datum vydání</string>
+    <string name="layout_show_full_release_date_sub">Pro filmy zobrazit úplné datum vydání místo pouze roku.</string>
+    <string name="layout_trailer_muted">Přehrát trailer ztlumený</string>
+    <string name="layout_trailer_muted_sub_preview">Ztlumit zvuk traileru během automatického náhledu.</string>
+
+
+
+
+    <!-- Debrid stream filter dialogs (per-resolution / quality / size / multi-choice pickers) -->
+
+    <string name="settings_stream_badges_section">Styl Fusion</string>
+    <string name="settings_stream_size_badges_title">Odznaky velikosti</string>
+    <string name="settings_stream_badge_urls_title">URL odznaků Fusion</string>
+    <string name="settings_stream_badge_urls_description">Importujte až %1$d JSON URL odznaků streamu ve stylu Fusion. Každou URL lze aktualizovat nebo smazat samostatně.</string>
+    <string name="settings_fusion_badges_summary">%1$d/%2$d URL, %3$d aktivních odznaků Fusion</string>
+    <string name="settings_fusion_badges_empty">Nejsou importovány žádné URL odznaků Fusion.</string>
+    <string name="settings_fusion_badge_url_label">JSON URL odznaku Fusion</string>
+    <string name="settings_fusion_badge_url_active">Aktivní</string>
+    <string name="settings_fusion_badge_url_inactive">Neaktivní</string>
+    <string name="settings_fusion_badge_url_status_summary">%1$s, %2$d zapnutých odznaků, %3$d skupin</string>
+    <string name="settings_fusion_badge_preview_action">Náhled</string>
+    <string name="settings_fusion_badge_preview_title">Náhled odznaku Fusion</string>
+    <string name="settings_fusion_badge_preview_count">%1$d odznaků ve stylu Fusion z této URL</string>
+    <string name="settings_fusion_badge_preview_empty">V této URL nejsou žádné obrázky odznaků ve stylu Fusion.</string>
+    <string name="settings_fusion_badge_group_title">Skupina %1$d</string>
+    <string name="settings_fusion_badge_other_group_title">Ostatní odznaky Fusion</string>
+    <string name="stream_badge_qr_instruction">Naskenujte tento QR kód telefonem pro správu URL odznaků Fusion.</string>
+    <string name="action_import">Importovat</string>
+    <string name="action_delete">Odstranit</string>
+
+    <!-- Anime-Skip -->
+
+    <string name="tmdb_language_title">Jazyk</string>
+    <string name="tmdb_trailers_title">Trailery</string>
+    <string name="tmdb_collections_title">Kolekce</string>
+    <string name="tmdb_collections_subtitle">Filmové kolekce TMDB v pořadí vydání</string>
+
+    <string name="tmdb_language_dialog_title">Jazyk TMDB</string>
+
+    <string name="qr_login_pending">Čekání na schválení na vašem telefonu…</string>
+    <string name="qr_login_preparing">Příprava QR přihlášení...</string>
+    <string name="qr_login_scan_prompt">Naskenujte QR a přihlaste se na telefonu</string>
+    <string name="qr_login_signing_in">Přihlašování…</string>
+    <string name="qr_login_success">Úspěšně přihlášeno</string>
+    <string name="trakt_library_source_nuvio">Nuvio knihovna</string>
+
+    <string name="debug_title">Ladění</string>
+    <string name="debug_subtitle">Vývojářské nástroje a příznaky funkcí (pouze ladicí sestavení)</string>
+    <string name="debug_section_popup">Testování vyskakovacích oken / dialogů</string>
+    <string name="debug_playback_error_title">Obrazovka chyby přehrávání</string>
+    <string name="debug_playback_error_subtitle">Zobrazit simulované vyskakovací okno chyby přehrávání</string>
+    <string name="debug_section_progress">Ukazatel průběhu</string>
+    <string name="debug_progress_indicator_title">Ukazatel načítání</string>
+    <string name="debug_progress_indicator_subtitle">Náhled sdílené animace načítání v běžných velikostech UI</string>
+    <string name="debug_progress_indicator_small">Malá</string>
+    <string name="debug_progress_indicator_default">Výchozí</string>
+    <string name="debug_progress_indicator_large">Velká</string>
+    <string name="debug_section_features">Přepínače funkcí</string>
+    <string name="debug_buffer_logs_title">Zapnout BUFFER logy</string>
+    <string name="debug_buffer_logs_subtitle">Odesílat pravidelnou diagnostiku bufferu přehrávače do logcatu (ve výchozím stavu vypnuto)</string>
+    <string name="debug_error_dialog_title">Chyba přehrávání</string>
+    <string name="debug_error_dialog_subtitle">Během přehrávání došlo k chybě.\n\nChyba: Test simulované chyby - toto není skutečné selhání. Zdroj vrátil HTTP 503 (Služba nedostupná).</string>
+    <string name="debug_dismiss">Zavřít</string>
+
+    <string name="profile_name_placeholder">Název profilu</string>
+    <string name="profile_create_btn">Vytvořit</string>
+    <string name="profile_choose_avatar">Vybrat avatar</string>
+    <string name="profile_custom_avatar_web_panel_note">Vlastní URL avatarů lze konfigurovat z webového panelu Nuvio.</string>
+    <string name="profile_avatar_focus_hint">Zaměřte avatara pro zobrazení jeho jména</string>
+    <string name="profile_avatar_category_all">Vše</string>
+    <string name="profile_avatar_category_anime">Anime</string>
+    <string name="profile_avatar_category_animation">Animace</string>
+    <string name="profile_avatar_category_movie">Film</string>
+    <string name="profile_avatar_category_tv">TV</string>
+    <string name="profile_avatar_category_gaming">Hry</string>
+    <string name="profile_cancel">Zrušit</string>
+    <string name="profile_save">Uložit</string>
+    <string name="profile_pin_set">Nastavit PIN</string>
+    <string name="profile_pin_change">Změnit PIN</string>
+    <string name="profile_pin_remove">Odebrat PIN</string>
+    <string name="profile_pin_verifying">Ověřování…</string>
+    <string name="profile_pin_overlay_unlock_heading">Zadejte svůj PIN pro přístup k %1$s.</string>
+    <string name="profile_pin_overlay_set_heading">Vytvořte 4místný PIN pro %1$s.</string>
+    <string name="profile_pin_overlay_confirm_heading">Potvrďte svůj nový PIN.</string>
+    <string name="profile_pin_overlay_change_verify_heading">Zadejte aktuální PIN pro změnu PIN pro %1$s.</string>
+    <string name="profile_pin_overlay_change_verify_support">Před nastavením nového zadejte aktuální 4místný PIN.</string>
+    <string name="profile_pin_overlay_remove_verify_heading">Zadejte aktuální PIN pro odstranění zámku pro %1$s.</string>
+    <string name="profile_pin_overlay_remove_verify_support">Pro odstranění tohoto zámku zadejte aktuální 4místný PIN.</string>
+    <string name="profile_pin_overlay_delete_verify_heading">Zadejte aktuální PIN pro smazání %1$s.</string>
+    <string name="profile_pin_overlay_delete_verify_support">Před smazáním tohoto profilu zadejte aktuální 4místný PIN.</string>
+    <string name="profile_pin_overlay_set_support">Tento PIN bude vyžadován před otevřením tohoto profilu.</string>
+    <string name="profile_pin_overlay_confirm_support">Zadejte znovu stejné 4 číslice pro dokončení nastavení.</string>
+    <string name="profile_pin_overlay_mismatch">PINy se neshodovaly. Zadejte nový PIN znovu.</string>
+
+
+    <!-- Collection editor fallbacks -->
+    <string name="collection_editor_untitled_folder">Bez názvu</string>
+    <string name="collection_editor_untitled_collection">Kolekce bez názvu</string>
+    <!-- AddonManagerScreen -->
+    <string name="addon_title">Doplňky</string>
+    <string name="addon_readonly_notice">Používá doplňky primárního profilu a nelze je změnit</string>
+    <string name="addon_installing">Instalace</string>
+    <string name="addon_install_btn">Instalovat</string>
+    <string name="addon_install_success">Nainstalováno %1$s</string>
+    <string name="addon_error_invalid_url">Zadejte platnou URL doplňku</string>
+    <string name="addon_error_invalid_scheme">URL doplňku musí začínat http nebo https</string>
+    <string name="addon_installed_section">Nainstalováno</string>
+    <string name="addon_empty">Žádné nainstalované doplňky. Přidejte jeden pro začátek.</string>
+    <string name="addon_remove">Odebrat</string>
+    <string name="addons_badge_disabled">Vypnuto</string>
+    <string name="addon_manage_from_phone_title">Spravovat z telefonu</string>
+    <string name="addon_qr_scan_instruction">Naskenujte telefonem pro správu doplňků, katalogů a kolekcí</string>
+    <string name="addon_qr_collections_scan_instruction">Naskenujte telefonem pro správu kolekcí</string>
+    <string name="addon_qr_close">Zavřít</string>
+    <string name="addon_confirm_title">Potvrdit změny doplňků a katalogů</string>
+    <string name="addon_confirm_subtitle">Následující změny byly provedeny z vašeho telefonu:</string>
+    <string name="addon_confirm_added">Přidáno:</string>
+    <string name="addon_confirm_removed">Odebráno:</string>
+    <string name="addon_confirm_catalog_reordered">Pořadí katalogů bylo změněno</string>
+    <string name="addon_confirm_catalogs_disabled">Katalogy zakázané na Domově:</string>
+    <string name="addon_confirm_catalogs_enabled">Katalogy povolené na Domově:</string>
+    <string name="addon_confirm_no_changes">Nebyly zjištěny žádné viditelné změny</string>
+    <string name="addon_confirm_reject">Odmítnout</string>
+    <string name="addon_confirm_confirm">Potvrdit</string>
+    <string name="addon_refresh_done_subtitle">Doplňky byly právě obnoveny</string>
+    <string name="addon_pending_collections_updated">Kolekce aktualizovány</string>
+    <string name="addon_pending_collections_replace">%1$d kolekcí nahradí současné kolekce</string>
+    <string name="addon_confirm_total_addons">Celkem doplňků: %1$d</string>
+    <string name="addon_confirm_total_catalogs">Celkem katalogů: %1$d</string>
+
+    <string name="catalog_order_follow_addons">Následovat pořadí doplňků</string>
+    <string name="catalog_order_empty">Zatím žádné dostupné domovské katalogy.</string>
+
+
+    <string name="stream_retry">Opakovat</string>
+    <string name="stream_no_streams">Nenalezeny žádné streamy</string>
+    <string name="stream_no_streams_hint">Zkuste nainstalovat více doplňků pro nalezení streamů</string>
+    <string name="stream_finding_source">Hledání zdroje streamu</string>
+    <string name="p2p_consent_title">P2P streamování</string>
+    <string name="p2p_consent_body">Tento stream používá technologii peer-to-peer (P2P). Povolením P2P berete na vědomí a souhlasíte, že:\n\n\u2022 Vaše IP adresa bude viditelná pro ostatní peer v síti\n\u2022 Jste výhradně odpovědní za obsah, ke kterému přistupujete\n\u2022 Potvrzujete, že máte zákonné právo streamovat tento obsah ve vaší jurisdikci\n\u2022 Nuvio nehostuje, nedistribuuje ani nekontroluje žádný P2P obsah\n\u2022 Nuvio nenese žádnou odpovědnost za jakékoli právní důsledky vyplývající z vašeho použití P2P streamování\n\nTuto funkci používáte výhradně na vlastní riziko. P2P lze kdykoli zakázat v Nastavení.</string>
+    <string name="p2p_consent_enable">Povolit P2P</string>
+    <string name="p2p_consent_cancel">Zrušit</string>
+    <string name="settings_p2p_title">P2P streamování</string>
+    <string name="settings_p2p_subtitle">Povolit peer-to-peer (torrent) streamy</string>
+    <string name="settings_p2p_hide_stats_title">Skrýt statistiky torrentu</string>
+    <string name="settings_p2p_hide_stats_subtitle">Skrýt vyrovnávací paměť, seedy, peery a rychlost stahování během načítání a přehrávání</string>
+    <string name="stream_filter_all">Vše</string>
+    <string name="stream_episode_label">S%1$d E%2$d</string>
+
+    <string name="player_no_external_player">Nebyl nalezen žádný externí přehrávač</string>
+    <string name="player_loading_preparing">Příprava streamu…</string>
+    <string name="player_loading_detecting_format">Detekce formátu streamu…</string>
+    <string name="player_loading_building">Vytváření přehrávače…</string>
+    <string name="player_loading_starting">Spouštění streamu…</string>
+    <string name="player_loading_buffering">Načítání…</string>
+    <string name="player_engine_switching_title">Přepínání enginu přehrávače</string>
+    <string name="player_engine_switching_message">Spuštění selhalo. Přepínání na %1$s…</string>
+    <string name="player_engine_switching_manual_message">Přepínání na %1$s...</string>
+    <string name="playback_show_loading_status">Zobrazit stav načítání</string>
+    <string name="playback_show_loading_status_sub">Zobrazit postup krok za krokem během inicializace přehrávače.</string>
+    <string name="player_sync_line">Synchronizační linie</string>
+    <string name="subtitle_timing_press_sync">Stiskněte Sync, když uslyšíte linii dialogu.</string>
+    <string name="subtitle_timing_sync_button">Sync</string>
+    <string name="subtitle_timing_select_addon_first">Nejprve vyberte stopu titulků z doplňku.</string>
+    <string name="subtitle_auto_sync_select_addon_track">Vyberte stopu titulků z doplňku pro použití Auto Sync.</string>
+    <string name="subtitle_auto_sync_applied">Synchronizace aplikována: %1$s</string>
+    <string name="subtitle_timing_loading">Načítání řádků titulků…</string>
+    <string name="subtitle_timing_no_lines_found">Kolem tohoto okamžiku nebyly nalezeny žádné řádky titulků.</string>
+    <string name="subtitle_timing_press_back_cancel">Stiskněte Zpět pro zrušení</string>
+    <string name="subtitle_timing_captured_at">Zachyceno v %1$s</string>
+    <string name="subtitle_timing_capturing">Zachytávání…</string>
+
+    <!-- ParentalGuideOverlay -->
+    <string name="parental_nudity">Nahota</string>
+    <string name="parental_violence">Násilí</string>
+    <string name="parental_profanity">Vulgarita</string>
+    <string name="parental_alcohol">Alkohol/Drogy</string>
+    <string name="parental_frightening">Děsivé</string>
+    <string name="parental_severity_severe">Silné</string>
+    <string name="parental_severity_moderate">Střední</string>
+    <string name="parental_severity_mild">Mírné</string>
+    <string name="player_ends_at">Končí v %1$s</string>
+    <!-- Season/episode code shown in player UI (e.g. S01E02). %1$d = season, %2$d = episode. -->
+    <string name="season_episode_format">S%1$d E%2$d</string>
+    <string name="player_subtitle_delay">Zpoždění titulků</string>
+    <string name="player_error_title">Chyba přehrávání</string>
+    <string name="player_go_back">Jít zpět</string>
+    <plurals name="player_report_loading_issue_prompt">
+        <item quantity="one">Stále se načítá po %1$d sekundě</item>
+        <item quantity="few">Stále se načítá po %1$d sekundách</item>
+        <item quantity="many">Stále se načítá po %1$d sekundách</item>
+        <item quantity="other">Stále se načítá po %1$d sekundách</item>
+    </plurals>
+    <string name="player_speed_title">Rychlost přehrávání</string>
+    <string name="player_error_no_stream_url">Nebyla poskytnuta URL streamu</string>
+
+
+
+    <string name="sources_title">Zdroje</string>
+
+    <string name="episodes_panel_no_episodes">Žádné dostupné epizody</string>
+    <string name="episodes_panel_title">Epizody</string>
+    <string name="player_speed_normal">Normální</string>
+    <string name="player_aspect_fit">Přizpůsobit (původní)</string>
+    <string name="player_aspect_stretch">Roztáhnout</string>
+    <string name="player_aspect_fit_width">Přizpůsobit šířce</string>
+    <string name="player_aspect_fit_height">Přizpůsobit výšce</string>
+    <string name="player_aspect_crop">Oříznout</string>
+    <string name="player_aspect_tunneling_unavailable">Nedostupné při tunelovaném přehrávání</string>
+    <string name="player_aspect_mode_slight_zoom">Mírné přiblížení</string>
+    <string name="player_aspect_mode_cinema_zoom">Kino přiblížení</string>
+
+    <string name="audio_dialog_title">Zvuk</string>
+    <string name="audio_delay_label">Zpoždění zvuku</string>
+    <string name="audio_delay_range">Rozsah: %1$.2fs až %2$.2fs</string>
+    <string name="audio_mix_label">Zesílení (PCM)</string>
+    <string name="audio_mix_value_db">%1$d dB</string>
+    <string name="audio_mix_persist_on">Zachovat mezi relacemi: ZAPNUTO</string>
+    <string name="audio_mix_persist_off">Zachovat mezi relacemi: VYPNUTO</string>
+    <string name="audio_mix_range">Rozsah: %1$d dB až %2$d dB</string>
+    <string name="audio_mix_range_saved">Rozsah: %1$d dB až %2$d dB (uloženo)</string>
+    <string name="audio_mix_unavailable">Zesílení není na tomto zařízení dostupné</string>
+    <string name="audio_center_mix_label">Downmix: úroveň centrálního kanálu</string>
+    <string name="audio_center_mix_value_db">%1$d dB</string>
+    <string name="audio_center_mix_help">Úroveň centrálního kanálu v dB vzhledem k metadatům nebo výchozí hodnotě (-3 dB)</string>
+    <string name="audio_center_mix_unavailable">Úroveň centrálního kanálu je dostupná jen při aktivním downmixu FFmpeg.</string>
+    <string name="audio_maintain_original_audio_on_downmix_title">Zachovat původní zvuk při downmixu</string>
+    <string name="audio_maintain_original_audio_on_downmix_subtitle">Je-li vypnuto, normalizace downmixu může snížit celkovou hlasitost.</string>
+
+    <string name="subtitle_dialog_title">Titulky</string>
+    <string name="subtitle_loading_addon">Načítání titulků z doplňků…</string>
+    <string name="subtitle_reset_defaults">Obnovit výchozí</string>
+    <string name="subtitle_tab_delay">Zpoždění</string>
+    <string name="subtitle_none">Žádné</string>
+    <string name="subtitle_built_in">Vestavěné</string>
+    <string name="subtitle_style_title">Styl titulků</string>
+    <string name="subtitle_style_font_size">Velikost písma</string>
+    <string name="subtitle_style_bold">Tučné</string>
+    <string name="subtitle_style_text_color">Barva textu</string>
+    <string name="subtitle_style_text_opacity">Neprůhlednost textu</string>
+    <string name="subtitle_style_outline">Obrys</string>
+    <string name="subtitle_style_bottom_offset">Spodní posun</string>
+    <string name="subtitle_style_on">Zapnuto</string>
+    <string name="subtitle_style_off">Vypnuto</string>
+
+    <string name="pause_you_are_watching">Právě sledujete</string>
+    <string name="pause_cast_label">Obsazení</string>
+    <string name="pause_back_to_details">Zpět na podrobnosti</string>
+    <string name="pause_as_character">jako %1$s</string>
+
+    <!-- PostPlayOverlay -->
+    <string name="next_episode_label">Další epizoda</string>
+    <string name="next_episode_finding_source">Hledání zdroje…</string>
+    <string name="player_next_episode_prompt_title">Pokračovat ve sledování?</string>
+    <string name="player_next_episode_prompt_message">Chcete přehrát další epizodu?</string>
+    <string name="player_next_episode_prompt_yes">Ano</string>
+    <string name="player_next_episode_prompt_no">Ne, zpět na detail</string>
+    <string name="next_episode_unaired">Nevysíláno</string>
+    <string name="next_episode_not_aired_yet">Další epizoda ještě nebyla vysílána</string>
+    <string name="still_watching_title">Stále sledujete?</string>
+    <string name="still_watching_continue">Přehrát</string>
+    <string name="still_watching_exit">Ukončit</string>
+    <string name="still_watching_countdown">Zastavení za %1$d</string>
+    <string name="still_watching_setting_title">Stále sledujete?</string>
+    <string name="still_watching_setting_sub">Zeptat se po sobě jdoucích automaticky přehraných epizodách.</string>
+    <string name="still_watching_threshold_title">Práh počtu epizod</string>
+    <string name="still_watching_threshold_sub">Počet automaticky přehraných epizod, po kterém se zobrazí dotaz.</string>
+    <string name="skip_intro">Přeskočit intro</string>
+    <string name="skip_ending">Přeskočit konec</string>
+    <string name="skip_recap">Přeskočit rekapitulaci</string>
+    <string name="skip_generic">Přeskočit</string>
+    <string name="display_mode_refresh">Obnovit</string>
+    <string name="display_mode_resolution">Rozlišení</string>
+
+
+    <string name="search_placeholder">Hledat filmy a seriály</string>
+    <string name="search_start_title">Začněte hledat</string>
+    <string name="search_start_subtitle">Zadejte alespoň 2 znaky</string>
+    <string name="search_start_subtitle_no_discover">Objevování je zakázáno. Zadejte alespoň 2 znaky</string>
+    <string name="search_recent_title">Nedávná hledání</string>
+    <string name="search_recent_clear">Vymazat historii</string>
+    <string name="search_voice_no_speech">Nebyla rozpoznána žádná řeč. Zkuste to znovu.</string>
+    <string name="search_voice_mic_permission">Pro hlasové vyhledávání je vyžadováno oprávnění k mikrofonu.</string>
+    <string name="search_voice_failed">Rozpoznání hlasu selhalo. Zkuste to znovu.</string>
+    <string name="search_voice_unavailable">Hlasové vyhledávání není na tomto zařízení dostupné.</string>
+    <string name="search_error_no_catalogs">V nainstalovaných doplňcích nebyly nalezeny žádné prohledávatelné katalogy</string>
+
+    <string name="library_filter_type">Typ</string>
+    <string name="library_filter_sort">Řazení</string>
+    <string name="library_filter_genre">Žánr</string>
+    <string name="library_filter_year">Rok</string>
+    <string name="genre_action">Akční</string>
+    <string name="genre_adventure">Dobrodružný</string>
+    <string name="genre_animation">Animovaný</string>
+    <string name="genre_comedy">Komedie</string>
+    <string name="genre_crime">Krimi</string>
+    <string name="genre_documentary">Dokumentární</string>
+    <string name="genre_drama">Drama</string>
+    <string name="genre_family">Rodinný</string>
+    <string name="genre_fantasy">Fantasy</string>
+    <string name="genre_history">Historický</string>
+    <string name="genre_horror">Horor</string>
+    <string name="genre_music">Hudební</string>
+    <string name="genre_mystery">Mysteriózní</string>
+    <string name="genre_romance">Romantický</string>
+    <string name="genre_science_fiction">Sci-Fi</string>
+    <string name="genre_tv_movie">TV film</string>
+    <string name="genre_thriller">Thriller</string>
+    <string name="genre_war">Válečný</string>
+    <string name="genre_western">Western</string>
+    <string name="genre_action_adventure">Akční a dobrodružný</string>
+    <string name="genre_kids">Dětský</string>
+    <string name="genre_news">Zprávy</string>
+    <string name="genre_reality">Reality</string>
+    <string name="genre_sci_fi_fantasy">Sci-Fi a fantasy</string>
+    <string name="genre_soap">Telenovela</string>
+    <string name="genre_talk">Talk show</string>
+    <string name="genre_war_politics">Válka a politika</string>
+    <string name="library_sort_added_desc">Přidáno ↓</string>
+    <string name="library_sort_added_asc">Přidáno ↑</string>
+    <string name="library_sort_title_asc">Název A-Z</string>
+    <string name="library_sort_title_desc">Název Z-A</string>
+    <string name="library_source_local">MÍSTNÍ</string>
+    <string name="library_source_nuvio">NUVIO</string>
+    <string name="library_type_all">Vše</string>
+    <string name="library_type_items">položky</string>
+    <string name="library_empty_local_title">Zatím žádné %1$s</string>
+    <string name="library_empty_local_subtitle">Začněte ukládat své oblíbené, abyste je zde viděli</string>
+
+
+    <!-- AccountSettingsContent -->
+    <string name="account_signin_email_title">Přihlásit se</string>
+    <string name="account_signin_email_subtitle">Zadejte e-mail a heslo svého self-hosted účtu</string>
+    <string name="account_signed_in_label">Přihlášeno</string>
+    <string name="account_loading_sync">Načítání synchronizačních dat…</string>
+    <string name="account_sign_out_confirm_title">Odhlásit se?</string>
+
+    <string name="auth_email_hint">Přihlaste se přímo účtem na svém self-hosted serveru.</string>
+    <string name="auth_email_instruction">Pro pokračování zadejte svůj e-mail a heslo.</string>
+    <string name="auth_email_placeholder">E-mailová adresa</string>
+    <string name="auth_password_placeholder">Heslo</string>
+    <string name="auth_email_sign_in">Přihlásit se</string>
+    <string name="auth_email_signing_in">Přihlašování\u2026</string>
+
+    <string name="auth_qr_tagline">Sledujte svou knihovnu odkudkoli</string>
+    <string name="auth_qr_account_login">Přihlášení k účtu</string>
+    <string name="auth_qr_finishing">Dokončování přihlášení…</string>
+    <string name="auth_qr_expires">Vyprší za %1$s</string>
+    <string name="auth_qr_refresh">Obnovit QR</string>
+    <string name="auth_qr_continue_without_account">Pokračovat bez účtu</string>
+    <string name="auth_qr_generating">Generování QR…</string>
+    <string name="auth_qr_unavailable">QR nedostupný. Obnovte pro opakování.</string>
+    <string name="auth_qr_please_wait">Prosím čekejte…</string>
+    <string name="auth_qr_continue">Pokračovat</string>
+    <string name="auth_qr_back">Zpět</string>
+
+
+
+
+    <string name="profile_selection_title">Kdo se dívá?</string>
+    <string name="profile_selection_empty">Nenalezeny žádné profily</string>
+    <string name="profile_selection_primary_badge">PRIMÁRNÍ</string>
+    <string name="profile_selection_options_title">Možnosti profilu</string>
+    <string name="profile_delete_confirm_title">Smazat profil?</string>
+    <string name="profile_delete_confirm_subtitle">Toto trvale smaže tento profil a všechna jeho data včetně knihovny, historie sledování a nastavení doplňků. Tuto akci nelze vrátit zpět.</string>
+
+    <string name="cast_detail_error">Něco se pokazilo</string>
+
+    <string name="catalog_see_all_from">od %1$s</string>
+    <string name="catalog_see_all_empty_title">Žádné položky nejsou k dispozici</string>
+    <string name="catalog_see_all_empty_subtitle">Zkuste jiný katalog nebo to zkontrolujte později</string>
+
+
+
+    <!-- EpisodeRatingsSection -->
+    <string name="ratings_loading">Načítání hodnocení epizod...</string>
+    <string name="ratings_unavailable">Hodnocení epizod nejsou k dispozici.</string>
+    <string name="ratings_load_error">Nepodařilo se načíst hodnocení epizod.</string>
+    <string name="ratings_season_summary">Sezóna %1$d - %2$d epizod</string>
+
+    <!-- SearchDiscoverSection -->
+    <string name="discover_title">Objevovat</string>
+    <string name="discover_load_more">Načíst další</string>
+    <string name="discover_loading">Načítání...</string>
+    <string name="discover_filter_type">Typ</string>
+    <string name="discover_filter_catalog">Katalog</string>
+    <string name="discover_filter_genre">Žánr</string>
+    <string name="discover_select_catalog">Vybrat</string>
+    <string name="discover_genre_default">Výchozí</string>
+    <string name="discover_empty_no_catalog_title">Vyberte katalog</string>
+    <string name="discover_empty_no_catalog_subtitle">Vyberte katalog objevování k procházení</string>
+    <string name="discover_empty_no_content_title">Nebyl nalezen žádný obsah</string>
+    <string name="discover_empty_no_content_subtitle">Zkuste jiný žánr nebo katalog</string>
+
+
+
+
+    <!-- PlaybackAudioSettings -->
+    <string name="audio_passthrough_info">Zvukový passthrough (TrueHD, DTS, AC-3 atd.) je automatický. Při připojení ke kompatibilnímu AV receiveru nebo soundbaru přes HDMI je bezztrátový zvuk odesílán tak, jak je, bez dekódování.</string>
+
+    <!-- Top bar / MainActivity -->
+    <string name="nav_home">Domů</string>
+    <string name="nav_discover">Objevovat</string>
+    <string name="nav_search">Hledat</string>
+    <string name="nav_library">Knihovna</string>
+    <string name="nav_settings">Nastavení</string>
+    <string name="action_select">Vybrat</string>
+
+
+
+    <!-- Profile PIN errors -->
+    <string name="profile_pin_save_error">PIN nemohl být uložen. Zkuste to znovu.</string>
+    <string name="profile_pin_locked">Profil je uzamčen. Zkuste to znovu za %1$ds.</string>
+    <string name="profile_pin_invalid">Neplatný PIN. Zkuste to znovu.</string>
+    <string name="profile_pin_verify_error">PIN nemohl být ověřen. Zkuste to znovu.</string>
+    <string name="profile_pin_incorrect">Aktuální PIN je nesprávný.</string>
+    <string name="profile_pin_current_required">Tento profil již má PIN. Pro změnu zadejte aktuální PIN.</string>
+
+
+
+    <!-- Search -->
+    <string name="discover_disabled_title">Objevování je zakázáno</string>
+    <string name="discover_disabled_subtitle">Povolte Objevování ve vyhledávání v nastavení</string>
+
+
+    <!-- Error messages (shared) -->
+    <string name="error_network_required">Pro použití této funkce se připojte k Wi-Fi nebo Ethernetu</string>
+    <string name="error_server_ports_unavailable">Nepodařilo se spustit server. Všechny porty jsou obsazeny.</string>
+
+
+
+
+    <!-- General errors -->
+    <string name="error_unknown">Neznámá chyba</string>
+    <string name="addon_error_not_found">Doplněk nenalezen</string>
+
+
+
+    <!-- Home errors -->
+    <string name="home_error_no_addons">Nejsou nainstalovány žádné doplňky</string>
+    <string name="home_error_no_catalog_addons">Nejsou nainstalovány žádné katalogové doplňky</string>
+
+    <!-- Player errors -->
+    <string name="player_error_failed_start_torrent">Nepodařilo se spustit torrent: %1$s</string>
+
+    <string name="ratings_season_label">S%1$d</string>
+    <string name="ratings_episode_label">E%1$d</string>
+
+    <string name="cd_subtitles">Titulky</string>
+    <string name="cd_audio_tracks">Zvukové stopy</string>
+    <string name="cd_sources">Zdroje</string>
+    <string name="cd_switch_player_engine">Přepnout engine přehrávače</string>
+    <string name="cd_playback_speed">Rychlost přehrávání</string>
+    <string name="cd_aspect_ratio">Poměr stran</string>
+    <string name="cd_open_external_player">Otevřít v externím přehrávači</string>
+    <string name="cd_more_actions">Další akce</string>
+    <string name="cd_close_more_actions">Zavřít další akce</string>
+    <string name="cd_back">Zpět</string>
+    <string name="cd_next_episode_thumbnail">Miniatura další epizody</string>
+    <string name="cd_move_up">Přesunout nahoru</string>
+    <string name="cd_move_down">Přesunout dolů</string>
+    <string name="cd_edit">Upravit</string>
+    <string name="cd_delete">Smazat</string>
+    <string name="cd_qr_code">QR kód</string>
+    <string name="cd_refresh">Obnovit</string>
+    <string name="cd_remove">Odebrat</string>
+    <string name="cd_nuvio_logo">NuvioTV</string>
+    <string name="cd_open_discover">Otevřít objevování</string>
+    <string name="cd_voice_search">Hlasové vyhledávání</string>
+    <string name="cd_expand">Rozbalit %1$s</string>
+    <string name="cd_collapse">Sbalit %1$s</string>
+    <string name="cd_qr_login">QR přihlašovací kód</string>
+    <string name="cd_nuvio">Nuvio</string>
+
+
+    <!-- Collection Management -->
+    <string name="collections_header">Kolekce</string>
+    <string name="collections_delete_confirm">Odstranit</string>
+    <string name="collections_delete_confirm_subtitle">Toto trvale odstraní \"%1$s\". Tuto akci nelze vrátit zpět.</string>
+    <string name="collections_new">Nová kolekce</string>
+    <string name="collections_import">Importovat</string>
+    <string name="collections_export_file">Exportovat soubor</string>
+    <string name="collections_saved_downloads">Uloženo do Stahování</string>
+    <string name="collections_export_failed">Export selhal</string>
+    <string name="collections_import_header">Importovat kolekce</string>
+    <string name="collections_import_url_placeholder">https://example.com/collections.json</string>
+    <string name="collections_import_failed_fetch_http">Nepodařilo se načíst: HTTP %1$d</string>
+    <string name="collections_import_failed_fetch_url">Nepodařilo se načíst URL: %1$s</string>
+    <string name="collections_import_no_data">Žádná data k importu</string>
+    <string name="collections_import_invalid_or_empty">Neplatný formát nebo prázdné kolekce</string>
+    <string name="collections_import_file_not_found_downloads">Soubor nebyl nalezen ve Stahování.\nNejprve exportujte kolekce pro jeho vytvoření.</string>
+    <string name="collections_import_failed_read_file">Nepodařilo se přečíst soubor: %1$s</string>
+    <string name="collections_cancel">Zrušit</string>
+    <string name="collections_mode_file">Ze souboru</string>
+    <string name="collections_mode_url">Z URL</string>
+    <string name="collections_file_description">Čte soubor nuvio-collections.json ze složky Stahování.</string>
+    <string name="collections_load_file">Načíst soubor</string>
+    <string name="collections_fetch_url">Načíst URL</string>
+    <string name="collections_fetching">Načítání…</string>
+    <string name="collections_confirm_import">Potvrdit import</string>
+
+    <!-- Collection Editor -->
+    <string name="collections_editor_save">Uložit</string>
+    <string name="collections_editor_backdrop">Obrázek pozadí</string>
+    <string name="collections_editor_pin_above">Připnout nad katalogy</string>
+    <string name="collections_editor_focus_glow">Záře zaměření</string>
+    <string name="collections_editor_view_mode">Režim zobrazení</string>
+    <string name="collections_editor_show_all_tab">Zobrazit kartu \"Vše\"</string>
+    <string name="collections_editor_show_all_tab_desc">Sloučit všechny katalogy do jedné karty</string>
+    <string name="collections_editor_folders">Složky</string>
+    <string name="collections_editor_add_folder">Přidat složku</string>
+    <string name="collections_editor_new_folder">Nová složka</string>
+    <string name="collections_editor_edit_folder">Upravit složku</string>
+    <string name="collections_editor_cover">Obálka</string>
+    <string name="collections_editor_cover_none">Žádná</string>
+    <string name="collections_editor_cover_emoji">Emoji</string>
+    <string name="collections_editor_cover_image_url">URL obrázku</string>
+    <string name="collections_editor_focus_gif">GIF zaměření</string>
+    <string name="collections_editor_play_gif">Přehrát GIF při zaměření</string>
+    <string name="collections_editor_tile_shape">Tvar dlaždice</string>
+    <string name="collections_editor_shape_poster">Plakát</string>
+    <string name="collections_editor_shape_wide">Širokoúhlý</string>
+    <string name="collections_editor_shape_square">Čtverec</string>
+    <string name="collections_editor_hide_title">Skrýt název</string>
+    <string name="collections_editor_display">Zobrazení</string>
+    <string name="collections_editor_catalogs">Katalogy</string>
+    <string name="collections_editor_add_catalog">Přidat katalog</string>
+    <string name="collections_editor_view_mode_tabs">Karty</string>
+    <string name="collections_editor_view_mode_rows">Řádky</string>
+    <string name="collections_editor_view_mode_follow">Následovat rozvržení domova</string>
+    <string name="collections_editor_addon_missing">Doplněk není nainstalován: %1$s</string>
+    <string name="collections_editor_add_tmdb_source">Přidat zdroj TMDB</string>
+    <string name="collections_editor_edit_tmdb_source">Upravit zdroj TMDB</string>
+    <string name="collections_editor_tmdb_sources">Zdroje TMDB</string>
+    <string name="collections_editor_trakt_list">Seznam Trakt</string>
+    <string name="collections_editor_tmdb_id_or_url">TMDB ID nebo URL</string>
+    <string name="collections_editor_tmdb_public_list">Veřejný seznam TMDB</string>
+    <string name="collections_editor_tmdb_network_id">ID sítě</string>
+    <string name="collections_editor_tmdb_collection_id">ID kolekce</string>
+    <string name="collections_editor_tmdb_company_search">Název produkční společnosti, ID nebo URL</string>
+    <string name="collections_editor_tmdb_display_title">Zobrazovaný název</string>
+    <string name="collections_editor_tmdb_search">Hledat</string>
+    <string name="collections_editor_add_source">Přidat zdroj</string>
+    <string name="collections_editor_save_source">Uložit zdroj</string>
+    <string name="collections_editor_tmdb_collection">Kolekce TMDB</string>
+    <string name="collections_editor_tmdb_default_list">Seznam TMDB</string>
+    <string name="collections_editor_tmdb_default_production">Produkce TMDB</string>
+    <string name="collections_editor_tmdb_default_network">Síť TMDB</string>
+    <string name="collections_editor_tmdb_default_discover">Objevování TMDB</string>
+    <string name="collections_editor_tmdb_movie_collection">Filmová kolekce TMDB</string>
+    <string name="collections_editor_tmdb_mode_presets">Předvolby</string>
+    <string name="collections_editor_tmdb_mode_public_list">Veřejný seznam</string>
+    <string name="collections_editor_tmdb_mode_production">Produkce</string>
+    <string name="collections_editor_tmdb_mode_network">Síť</string>
+    <string name="collections_editor_tmdb_mode_person">Osoba</string>
+    <string name="collections_editor_tmdb_mode_director">Režisér</string>
+    <string name="collections_editor_tmdb_mode_custom">Vlastní</string>
+    <string name="collections_editor_tmdb_person_credits">Filmografie osoby</string>
+    <string name="collections_editor_tmdb_director_credits">Filmografie režiséra</string>
+    <string name="collections_editor_tmdb_company_fallback">Společnost TMDB %1$d</string>
+    <string name="collections_editor_tmdb_help_presets">Vyberte hotový zdroj. Po přidání jej můžete upravit nebo odebrat.</string>
+    <string name="collections_editor_tmdb_help_list">Vložte URL veřejného seznamu TMDB nebo pouze číslo z URL.</string>
+    <string name="collections_editor_tmdb_help_production">Hledejte podle názvu studia nebo vložte ID/URL společnosti TMDB a přidejte ji přímo.</string>
+    <string name="collections_editor_tmdb_help_network">Zadejte ID sítě. Běžné sítě jsou k dispozici v Předvolbách a rychlých filtrech.</string>
+    <string name="collections_editor_tmdb_help_collection">Hledejte název filmové kolekce nebo vložte ID kolekce z TMDB.</string>
+    <string name="collections_editor_tmdb_help_person">Zadejte ID osoby TMDB nebo URL pro vytvoření řádku z herecké filmografie.</string>
+    <string name="collections_editor_tmdb_help_director">Zadejte ID osoby TMDB nebo URL pro vytvoření řádku z režijní filmografie.</string>
+    <string name="collections_editor_tmdb_help_discover">Vytvořte živý řádek TMDB pomocí volitelných filtrů. Ponechte pole prázdná, pokud daný filtr nepotřebujete.</string>
+    <string name="collections_editor_tmdb_search_helper">Příklady: Marvel Studios, 420, nebo https://www.themoviedb.org/company/420.</string>
+    <string name="collections_editor_tmdb_collection_helper">Příklad: Star Wars kolekce, Harry Potter kolekce, nebo URL kolekce.</string>
+    <string name="collections_editor_tmdb_network_helper">Příklady ID: Netflix 213, HBO 49, Disney+ 2739.</string>
+    <string name="collections_editor_tmdb_list_helper">Příklad: https://www.themoviedb.org/list/8504994 nebo 8504994.</string>
+    <string name="collections_editor_tmdb_person_id">ID osoby</string>
+    <string name="collections_editor_tmdb_person_helper">Příklad: https://www.themoviedb.org/person/31-tom-hanks nebo 31.</string>
+    <string name="collections_editor_tmdb_title_helper">Zobrazuje se jako název řádku/karty. Pokud je prázdné, Nuvio jej vytvoří ze zdroje.</string>
+    <string name="collections_editor_tmdb_quick_genres">Rychlé žánry</string>
+    <string name="collections_editor_tmdb_quick_languages">Rychlé jazyky</string>
+    <string name="collections_editor_tmdb_quick_countries">Rychlé země</string>
+    <string name="collections_editor_tmdb_quick_keywords">Rychlá klíčová slova</string>
+    <string name="collections_editor_tmdb_quick_companies">Rychlá studia</string>
+    <string name="collections_editor_tmdb_quick_networks">Rychlé sítě</string>
+    <string name="collections_editor_tmdb_genres">ID žánrů</string>
+    <string name="collections_editor_tmdb_date_from">Datum vydání nebo vysílání od</string>
+    <string name="collections_editor_tmdb_date_to">Datum vydání nebo vysílání do</string>
+    <string name="collections_editor_tmdb_rating_min">Minimální hodnocení</string>
+    <string name="collections_editor_tmdb_rating_max">Maximální hodnocení</string>
+    <string name="collections_editor_tmdb_votes_min">Minimální počet hlasů</string>
+    <string name="collections_editor_tmdb_language">Původní jazyk</string>
+    <string name="collections_editor_tmdb_country">Země původu</string>
+    <string name="collections_editor_tmdb_keywords">ID klíčových slov</string>
+    <string name="collections_editor_tmdb_companies">ID společností</string>
+    <string name="collections_editor_tmdb_networks">ID sítí</string>
+    <string name="collections_editor_tmdb_year">Rok</string>
+    <string name="collections_editor_sort_original">Původní</string>
+    <string name="collections_editor_sort_list_order">Pořadí seznamu</string>
+    <string name="collections_editor_sort_recently_added">Nedávno přidané</string>
+    <string name="collections_editor_sort_title">Název</string>
+    <string name="collections_editor_sort_released">Vydáno</string>
+    <string name="collections_editor_sort_votes">Hlasy</string>
+    <string name="collections_editor_trakt_list_with_id">Seznam Trakt %1$d</string>
+    <string name="collections_editor_error_valid_tmdb_id_or_url">Zadejte platné TMDB ID nebo URL</string>
+    <string name="collections_editor_error_load_tmdb_source">Nepodařilo se načíst zdroj TMDB</string>
+    <string name="collections_editor_tmdb_placeholder_list">https://www.themoviedb.org/list/8504994 nebo 8504994</string>
+    <string name="collections_editor_tmdb_placeholder_collection">10 pro kolekci Star Wars</string>
+    <string name="collections_editor_tmdb_placeholder_company">Marvel Studios, 420, nebo URL společnosti</string>
+    <string name="collections_editor_tmdb_placeholder_network">213 pro Netflix, 49 pro HBO, 2739 pro Disney+</string>
+    <string name="collections_editor_tmdb_person_placeholder">31 pro Toma Hankse, nebo URL osoby</string>
+    <string name="collections_editor_tmdb_genres_movie_placeholder">28,12</string>
+    <string name="collections_editor_tmdb_genres_tv_placeholder">18,35</string>
+    <string name="collections_editor_tmdb_date_from_placeholder">2020-01-01</string>
+    <string name="collections_editor_tmdb_date_to_placeholder">2024-12-31</string>
+    <string name="collections_editor_tmdb_rating_min_placeholder">7.0</string>
+    <string name="collections_editor_tmdb_rating_max_placeholder">10</string>
+    <string name="collections_editor_tmdb_votes_min_placeholder">100</string>
+    <string name="collections_editor_tmdb_language_placeholder">en, ko, ja, hi</string>
+    <string name="collections_editor_tmdb_country_placeholder">US, KR, JP, IN</string>
+    <string name="collections_editor_tmdb_year_placeholder">2024</string>
+    <string name="collections_editor_language_english">Angličtina</string>
+    <string name="collections_editor_language_korean">Korejština</string>
+    <string name="collections_editor_language_japanese">Japonština</string>
+    <string name="collections_editor_language_hindi">Hindština</string>
+    <string name="collections_editor_language_spanish">Španělština</string>
+    <string name="collections_editor_country_us">Spojené státy</string>
+    <string name="collections_editor_country_korea">Korea</string>
+    <string name="collections_editor_country_japan">Japonsko</string>
+    <string name="collections_editor_country_india">Indie</string>
+    <string name="collections_editor_country_uk">Spojené království</string>
+    <string name="collections_editor_keyword_superhero">Superhrdina</string>
+    <string name="collections_editor_keyword_based_on_novel">Podle románu</string>
+    <string name="collections_editor_keyword_time_travel">Cestování časem</string>
+    <string name="collections_editor_keyword_space">Vesmír</string>
+    <string name="collections_editor_placeholder_name">Název kolekce</string>
+    <string name="collections_editor_placeholder_backdrop">URL obrázku pozadí (volitelné)</string>
+    <string name="collections_editor_placeholder_cover_image">URL obrázku obálky</string>
+    <string name="collections_editor_placeholder_folder">Název složky</string>
+    <string name="collections_editor_placeholder_gif">URL animovaného GIFu (přehrává se pouze při zaměření)</string>
+    <string name="collections_editor_hero_backdrop">Pozadí hrdiny (Moderní domov)</string>
+    <string name="collections_editor_placeholder_hero_backdrop">URL vlastního pozadí hrdiny (volitelné)</string>
+    <string name="collections_editor_hero_video">Video hrdiny (Moderní domov)</string>
+    <string name="collections_editor_placeholder_hero_video">URL vlastního videa hrdiny (volitelné)</string>
+    <string name="collections_editor_title_logo">Logo názvu (Moderní domov)</string>
+    <string name="collections_editor_placeholder_title_logo">URL vlastního loga názvu (volitelné)</string>
+    <string name="collections_editor_search_emoji_placeholder">Hledat emoji...</string>
+    <string name="collections_editor_filter_active_sources_placeholder">Filtrovat aktivní zdroje...</string>
+    <string name="collections_editor_search_catalogs_placeholder">Hledat katalogy...</string>
+    <string name="collections_editor_genre_filter">Filtr žánru</string>
+    <string name="collections_editor_all_genres">Všechny žánry</string>
+    <string name="collections_editor_genre_required">Žánr vyžadován</string>
+    <string name="collections_editor_genre_optional">Filtr žánru k dispozici</string>
+    <string name="collections_tab_all">Vše</string>
+    <string name="collection_editor_choice_both">Obojí</string>
+    <string name="collections_editor_delete_folder_subtitle">Toto trvale odstraní \"%1$s\" a její obsah.</string>
+    <string name="collections_editor_tmdb_keywords_placeholder">9715 pro superhrdina</string>
+    <string name="collections_editor_tmdb_companies_placeholder">420 pro Marvel Studios</string>
+    <string name="collections_editor_tmdb_networks_placeholder">213 pro Netflix</string>
+    <string name="folder_detail_not_found">Složka nenalezena</string>
+    <string name="cast_error_load_details_for">Nepodařilo se načíst podrobnosti pro %1$s</string>
+    <string name="tmdb_entity_error_load_named">Nepodařilo se načíst %1$s</string>
+    <string name="tmdb_entity_error_load">Nepodařilo se načíst entitu TMDB</string>
+
+    <!-- Catalog see-all fallback -->
+    <string name="catalog_see_all_title_fallback">Katalog</string>
+
+    <!-- Collection editor: emoji categories -->
+    <string name="collections_editor_emoji_category_streaming">Streamování</string>
+    <string name="collections_editor_emoji_category_genres">Žánry</string>
+    <string name="collections_editor_emoji_category_sports">Sport</string>
+    <string name="collections_editor_emoji_category_music">Hudba</string>
+    <string name="collections_editor_emoji_category_nature">Příroda</string>
+    <string name="collections_editor_emoji_category_animals">Zvířata</string>
+    <string name="collections_editor_emoji_category_food">Jídlo</string>
+    <string name="collections_editor_emoji_category_travel">Cestování</string>
+    <string name="collections_editor_emoji_category_people">Lidé</string>
+    <string name="collections_editor_emoji_category_objects">Předměty</string>
+    <string name="collections_editor_emoji_category_flags">Vlajky</string>
+    <string name="collections_editor_emoji_category_symbols">Symboly</string>
+    <!-- Collection editor: TMDB picker placeholders + genres -->
+    <string name="collections_editor_tmdb_network_placeholder_example">213 pro Netflix, 49 pro HBO, 2739 pro Disney+</string>
+    <string name="collections_editor_tmdb_collection_placeholder_example">10 pro kolekci Star Wars</string>
+    <string name="collections_editor_tmdb_company_placeholder_example">Marvel Studios, 420, nebo URL společnosti</string>
+    <string name="collections_editor_tmdb_genre_action">Akční</string>
+    <string name="collections_editor_tmdb_genre_adventure">Dobrodružný</string>
+    <string name="collections_editor_tmdb_genre_animation">Animovaný</string>
+    <string name="collections_editor_tmdb_genre_comedy">Komedie</string>
+    <string name="collections_editor_tmdb_genre_horror">Horor</string>
+    <string name="collections_editor_tmdb_genre_scifi">Sci-Fi</string>
+    <string name="collections_editor_tmdb_genre_drama">Drama</string>
+    <string name="collections_editor_tmdb_genre_crime">Krimi</string>
+    <string name="collections_editor_tmdb_genre_reality">Reality</string>
+    <!-- Auto-play regex presets -->
+    <string name="autoplay_regex_preset_any_1080p_plus">Jakékoli 1080p+</string>
+    <string name="autoplay_regex_preset_4k_remux">4K / Remux</string>
+    <string name="autoplay_regex_preset_1080p_standard">1080p standardní</string>
+    <string name="autoplay_regex_preset_720p_smaller">720p / menší</string>
+    <string name="autoplay_regex_preset_web_sources">Zdroje WEB</string>
+    <string name="autoplay_regex_preset_bluray_quality">Kvalita BluRay</string>
+    <string name="autoplay_regex_preset_hevc_x265">HEVC / x265</string>
+    <string name="autoplay_regex_preset_avc_x264">AVC / x264</string>
+    <string name="autoplay_regex_preset_hdr_dolby_vision">HDR / Dolby Vision</string>
+    <string name="autoplay_regex_preset_dolby_atmos_dts">Dolby Atmos / DTS</string>
+    <string name="autoplay_regex_preset_english">Angličtina</string>
+    <string name="autoplay_regex_preset_no_cam_ts">Bez CAM/TS</string>
+    <string name="autoplay_regex_preset_no_remux_hdr">Bez REMUX/HDR</string>
+
+
+    <!-- Player runtime: torrent overlay + tracks -->
+    <string name="player_torrent_peer_info">%1$d seedů · %2$d peerů</string>
+    <string name="player_torrent_buffered_status">%1$s načteno v bufferu · %2$s · %3$s</string>
+    <string name="player_torrent_status">%1$s · %2$s</string>
+    <string name="player_torrent_connecting_peers">Připojování k peerům…</string>
+    <string name="player_track_audio_fallback">Zvuk %1$d</string>
+    <string name="player_track_subtitle_fallback">Titulky %1$d</string>
+
+    <!-- Player runtime: error recovery -->
+    <string name="player_error_stream_blocked">\n\nZdroj streamu je blokovaný nebo omezený. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_removed">\n\nPlatnost odkazu na stream vypršela nebo byl odstraněn. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_expired">\n\nPlatnost odkazu na stream vypršela. Zkuste jiný zdroj.</string>
+    <string name="player_error_stream_rate_limited">\n\nPříliš mnoho požadavků na zdroj streamu. Chvíli počkejte a zkuste to znovu.</string>
+    <string name="player_error_stream_unavailable">\n\nServer streamu je momentálně nedostupný. Zkuste jiný zdroj.</string>
+    <string name="player_error_source_invalid_content">Chyba zdroje: Zdroj streamu vrátil neplatný nebo nepřehratelný obsah. Platnost odkazu mohla vypršet, nebo server vrátil chybovou stránku místo videa.\n\nZkuste jiný zdroj. [%1$s]</string>
+    <string name="player_error_decoder">Chyba dekodéru</string>
+    <string name="player_error_unsupported_format">Tento stream používá formát, který vaše zařízení možná nepodporuje. Zkuste jiný zdroj. [%1$s]</string>
+    <string name="player_error_initialize_failed">Nepodařilo se inicializovat přehrávač</string>
+    <string name="player_error_mpv_surface_failed">Nepodařilo se inicializovat plochu libmpv</string>
+    <string name="player_error_mpv_playback_failed">Nepodařilo se inicializovat přehrávání libmpv</string>
+    <string name="player_error_torrent">Chyba torrentu: %1$s</string>
+    <string name="player_error_playback_fallback">Chyba přehrávání</string>
+    <!-- Subtitle timing recovery -->
+    <string name="subtitle_timing_file_no_lines">V tomto souboru nebyly nalezeny žádné řádky titulků.</string>
+    <string name="subtitle_timing_load_lines_failed">Načtení řádků titulků selhalo.</string>
+    <string name="subtitle_download_failed_http">Stažení titulků selhalo (HTTP %1$d)</string>
+    <string name="subtitle_download_empty_content">Stažení titulků vrátilo prázdný obsah.</string>
+
+    <!-- Collection import errors -->
+    <string name="collections_import_error_empty_input">Prázdný vstup</string>
+    <string name="collections_import_error_empty_array">Prázdné pole: nebyly nalezeny žádné kolekce</string>
+    <string name="collections_import_error_missing_id">Kolekce %1$d: chybějící nebo neplatné \"id\"</string>
+    <string name="collections_import_error_missing_title">Kolekce \"%1$s\": chybějící nebo neplatný \"title\"</string>
+    <string name="collections_import_error_folders_array">Kolekce \"%1$s\": \"folders\" musí být pole</string>
+    <string name="collections_import_error_folder_invalid">Kolekce \"%1$s\", složka %2$d: neplatný formát</string>
+    <string name="collections_import_error_folder_missing_id">Kolekce \"%1$s\", složka %2$d: chybí \"id\"</string>
+    <string name="collections_import_error_folder_missing_title">Kolekce \"%1$s\", složka \"%2$s\": chybí \"title\"</string>
+    <string name="collections_import_error_sources_array">Kolekce \"%1$s\", složka \"%2$s\": \"sources\" musí být pole</string>
+    <string name="collections_import_error_invalid_tile_shape">Kolekce \"%1$s\", složka \"%2$s\": neplatný tileShape \"%3$s\"</string>
+    <string name="collections_import_error_source_invalid">Kolekce \"%1$s\", složka \"%2$s\", zdroj %3$d: neplatný formát</string>
+    <string name="collections_import_error_source_required_fields">Kolekce \"%1$s\", složka \"%2$s\", zdroj %3$d: chybí povinná pole</string>
+    <string name="collections_import_error_missing_tmdb_type">Kolekce \"%1$s\", složka \"%2$s\", zdroj %3$d: chybí typ zdroje TMDB</string>
+    <string name="collections_import_error_missing_trakt_list_id">Kolekce \"%1$s\", složka \"%2$s\", zdroj %3$d: chybí ID seznamu Trakt</string>
+    <string name="collections_import_error_json_parse">Chyba parsování JSON: %1$s</string>
+
+
+
+    <!-- Detail / poster options errors -->
+    <string name="detail_error_update_library_failed">Aktualizace knihovny selhala</string>
+    <string name="detail_error_load_lists_failed">Načtení seznamů selhalo</string>
+    <string name="detail_error_update_lists_failed">Aktualizace seznamů selhala</string>
+    <string name="detail_error_update_watched_failed">Aktualizace stavu zhlédnutí selhala</string>
+    <string name="detail_error_update_episode_watched_failed">Aktualizace stavu zhlédnutí epizody selhala</string>
+
+    <!-- Search errors -->
+    <string name="search_error_load_addons_failed">Načtení doplňků selhalo</string>
+    <string name="search_error_failed">Vyhledávání selhalo</string>
+
+    <!-- Stream / TMDB / addons fallbacks -->
+    <string name="stream_unknown">Neznámý stream</string>
+    <string name="stream_embedded_group">Vložené streamy</string>
+    <string name="stream_embedded_fallback_name">Vložený stream</string>
+    <string name="stream_quality_unknown">Neznámá</string>
+    <string name="stream_addon_unknown">Neznámý</string>
+    <string name="web_tmdb_company_fallback">Společnost TMDB %1$d</string>
+    <string name="web_tmdb_collection_fallback">Kolekce TMDB %1$d</string>
+    <string name="web_error_invalid_request_body">Neplatné tělo požadavku</string>
+
+    <!-- Network / safe API errors -->
+    <string name="network_error_empty_response_body">Prázdné tělo odpovědi</string>
+    <string name="network_error_unknown">Došlo k neznámé chybě</string>
+
+    <!-- Torrent service / TorrServer binary errors -->
+    <string name="torrent_error_add_failed">Přidání torrentu selhalo</string>
+    <string name="torrent_error_binary_missing">Binární soubor TorrServer nebyl nalezen na %1$s</string>
+    <string name="torrent_error_process_died">Proces TorrServer při spuštění spadl (kód ukončení %1$d)</string>
+    <string name="torrent_error_start_timeout">TorrServer se nepodařilo spustit do %1$ds</string>
+
+    <!-- Player runtime: stream / external link errors -->
+    <string name="player_torrent_starting_engine">Spouštění P2P jádra…</string>
+    <string name="player_stream_error_invalid_external_url">Neplatná externí URL</string>
+    <string name="player_stream_error_open_external_link_failed">Externí odkaz se nepodařilo otevřít</string>
+    <string name="player_stream_error_invalid_url">Neplatná URL streamu</string>
+    <string name="player_stream_error_missing_content_type">Chybí typ obsahu</string>
+
+    <!-- Meta repository: addon detail error fragments -->
+    <string name="meta_error_detail_no_metadata_for_id">nevrátil žádná metadata pro toto ID</string>
+
+    <!-- Stream repository: addon detail error fragments + fetch -->
+    <string name="stream_error_detail_no_streams_for_id">nevrátil žádné streamy pro toto ID</string>
+    <string name="stream_error_detail_addon_unreachable">server doplňku nebyl dostupný</string>
+    <string name="stream_error_detail_addon_connection_failed">připojení k doplňku selhalo</string>
+    <string name="stream_error_detail_addon_timeout">vypršel časový limit požadavku na doplněk</string>
+    <string name="stream_error_detail_addon_cleartext_blocked">doplněk používá nezabezpečené HTTP připojení blokované Androidem</string>
+    <string name="stream_error_detail_addon_request_failed">požadavek na doplněk selhal</string>
+    <string name="stream_error_fetch_failed">Načtení streamů selhalo</string>
+
+
+
+    <!-- Profile selection: PIN overlay messages -->
+    <string name="profile_pin_saved_for_profile">PIN uložen pro %1$s.</string>
+    <string name="profile_pin_lock_removed_for_profile">Zámek PIN odebrán pro %1$s.</string>
+
+
+
+
+
+    <!-- Subtitle selection: unknown language fallback -->
+    <string name="subtitle_language_unknown">Neznámý</string>
+
+    <!-- External playback keep-alive service -->
+    <string name="external_playback_notification_text">Přehrávání v externím přehrávači</string>
+    <string name="external_playback_channel_description">Udržuje aplikaci aktivní během přehrávání v externím přehrávači</string>
+
+
+    <!-- Web config pages: shared save status -->
+    <string name="web_status_saved_streams">Uloženo. Nové streamy použijí toto nastavení.</string>
+    <string name="web_status_could_not_save">Nepodařilo se uložit</string>
+
+    <!-- Web config page: stream badge import status -->
+    <string name="web_stream_badge_importing">Importování…</string>
+    <string name="web_stream_badge_imported">URL odznaku importována.</string>
+    <string name="web_stream_badge_import_error">Import odznaku selhal.</string>
+    <string name="web_stream_badge_deleted">URL odznaku odstraněna.</string>
+    <string name="web_stream_badge_load_error">Nastavení odznaků streamu se nepodařilo načíst</string>
+    <string name="web_stream_badge_error_url_required">Zadejte URL JSON odznaku.</string>
+    <string name="web_stream_badge_error_url_scheme">URL odznaku musí začínat http:// nebo https://.</string>
+    <string name="web_stream_badge_error_import_limit">Můžete importovat až %1$d URL odznaků.</string>
+
+    <!-- Playback — Buffer & Network settings -->
+    <string name="playback_net_device_memory_info">Paměť zařízení: %1$s | Doporučený bezpečný limit: %2$d MB</string>
+    <string name="playback_net_nuvio_performance_mode">Nativní paměť ExoPlayer</string>
+    <string name="playback_net_nuvio_performance_mode_sub">Zapnout nativní off-heap alokátor a optimalizace scrubování.</string>
+    <string name="playback_net_nuvio_performance_mode_not_supported">Tato funkce není vaším zařízením podporována.</string>
+    <string name="playback_buffer_custom">Vlastní buffery přehrávání</string>
+    <string name="playback_buffer_custom_sub">Přepsat výchozí buferování Media3 níže uvedenými hodnotami. Je-li vypnuto, přehrávač používá výchozí délky bufferu a cílovou velikost Media3.</string>
+    <string name="playback_buffer_header">Buffer</string>
+    <string name="playback_buffer_warning">Toto nastavení ovlivňuje chování bufferování. Nesprávné hodnoty mohou způsobit problémy s přehráváním.</string>
+    <string name="playback_buffer_min">Min. délka bufferu</string>
+    <string name="playback_buffer_min_sub">Minimální množství médií k bufferování. Přehrávač se pokusí zajistit, aby bylo vždy nabufferováno alespoň tolik obsahu před aktuální pozicí přehrávání.</string>
+    <string name="playback_buffer_max">Max. délka bufferu</string>
+    <string name="playback_buffer_max_sub">Maximální množství médií k bufferování. Musí být alespoň tak velké jako minimální délka bufferu. Vyšší hodnoty využívají více paměti, ale poskytují plynulejší přehrávání na nestabilních připojeních.</string>
+    <string name="playback_buffer_value_same_as_min">%1$ds (stejné jako min.)</string>
+    <string name="playback_buffer_initial">Počáteční buffer</string>
+    <string name="playback_buffer_initial_sub">Kolik obsahu musí být nabufferováno před začátkem přehrávání. Nižší hodnoty startují rychleji, ale mohou způsobit počáteční sekání na pomalých připojeních.</string>
+    <string name="playback_buffer_after_rebuffer">Buffer po opětovném bufferování</string>
+    <string name="playback_buffer_after_rebuffer_sub">Kolik obsahu bufferovat poté, co se přehrávání zastaví kvůli bufferování. Vyšší hodnoty snižují počet opakovaných přerušení bufferováním.</string>
+    <string name="playback_buffer_back">Délka zpětného bufferu</string>
+    <string name="playback_buffer_back_sub">Kolik již přehraného obsahu udržovat v paměti. Umožňuje rychlé přetáčení zpět bez opětovného stahování. Nastavením na 0 vypnete a ušetříte paměť.</string>
+    <string name="playback_buffer_back_reserve">Vyhrazuje ~%1$dMB navíc k cílovému bufferu. Zvýšení max. délky bufferu toto zmenší bez ztráty času zpětného bufferu.</string>
+    <string name="playback_buffer_managed">Spravovaný rozpočet paměti</string>
+    <string name="playback_buffer_managed_sub">Omezí buffer na bezpečný podíl paměti tohoto zařízení. Vypněte pro ruční nastavení cílové velikosti bufferu (pokročilé – vysoké hodnoty mohou způsobit pád zařízení s malou pamětí).</string>
+    <string name="playback_buffer_target">Cílová velikost bufferu</string>
+    <string name="playback_buffer_target_sub">Maximální RAM použitá pro předbufferování. Maximum se počítá z dostupné paměti zařízení (limit haldy na aplikaci v Androidu), takže zařízení s vyšší RAM automaticky odemknou vyšší limity.</string>
+    <string name="playback_buffer_target_managed_hint">Spravováno rozpočtem paměti zařízení. Pro ruční nastavení vypněte Spravovaný rozpočet paměti.</string>
+    <string name="playback_buffer_target_warning">Varování: nad bezpečným limitem zařízení (%1$d MB). Aplikace může během přehrávání spadnout.</string>
+    <string name="playback_buffer_target_danger_warning">Nebezpečí: nad varovným limitem (%1$d MB). Vysoké riziko pádu.</string>
+    <string name="playback_buffer_allow_large">Povolit větší cílový buffer</string>
+    <string name="playback_buffer_allow_large_sub">Odstraní omezení cílové velikosti bufferu podle paměti zařízení a umožní hodnoty až 2GB. Může způsobit pád na zařízeních s méně než 2GB RAM.</string>
+    <string name="playback_net_custom">Vlastní síť</string>
+    <string name="playback_net_custom_sub">Použít více paralelních spojení pro získávání progresivních streamů. Je-li vypnuto, použije se jedno spojení.</string>
+    <string name="playback_net_http2">Zapnout HTTP/2</string>
+    <string name="playback_net_http2_sub">Zapnout protokol HTTP/2 pro síťová spojení, umožňující multiplexování požadavků a rychlejší handshake.</string>
+    <string name="playback_net_parallel">Paralelní spojení</string>
+    <string name="playback_net_parallel_sub">Použít více spojení paralelně pro získávání streamů. Aktivujte, pokud dochází k bufferování, přestože je rychlost stahování jednoznačně dostatečná.</string>
+    <string name="playback_net_connection_count">Počet spojení</string>
+    <string name="playback_net_connection_count_sub">Počet paralelních TCP spojení. Vyšší hodnoty zvyšují využití paměti a propustnost, ale s klesajícím přínosem.</string>
+    <string name="playback_net_chunk_size">Velikost bloku</string>
+    <string name="playback_net_chunk_size_sub">Velikost každého staženého bloku na spojení. Větší bloky snižují režii, ale využívají více paměti.</string>
+
+    <!-- Playback diagnostics card -->
+    <string name="diag_last_playback_title">Diagnostika posledního přehrávání</string>
+    <string name="diag_no_data">Zatím žádná data o přehrávání. Přehrajte stream a vraťte se sem pro zobrazení podrobností rozhodnutí DV pro dané přehrávání.</string>
+    <string name="diag_section_source_hardware">Zdroj a hardware</string>
+    <string name="diag_section_source_hardware_sub">Při hlášení problému vyfoťte tuto kartu.</string>
+    <string name="diag_label_host">Hostitel</string>
+    <string name="diag_label_when">Kdy</string>
+    <string name="diag_label_device">Zařízení</string>
+    <string name="diag_label_display">Displej</string>
+    <string name="diag_label_dv7_decoder">Dekodér DV7</string>
+    <string name="diag_label_dv_decoder">Dekodér DV</string>
+    <string name="diag_label_dv_bridge">Můstek DV</string>
+    <string name="diag_label_bridge_version">Verze můstku</string>
+    <string name="diag_label_bridge_reason">Důvod můstku</string>
+    <string name="diag_section_decision_settings">Rozhodnutí a nastavení</string>
+    <string name="diag_label_dv_mode_requested">Režim DV (požadovaný)</string>
+    <string name="diag_label_dv_mode_effective">Režim DV (efektivní)</string>
+    <string name="diag_label_auto_decision">Rozhodnutí AUTO</string>
+    <string name="diag_label_source_profile">Profil zdroje</string>
+    <string name="diag_label_conversions">Konverze</string>
+    <string name="diag_label_signal_rewrites">Přepisy signálu</string>
+    <string name="diag_label_custom_buffers">Vlastní buffery</string>
+    <string name="diag_label_custom_network_cache">Vlastní síť/cache</string>
+    <string name="diag_section_outcome">Výsledek</string>
+    <string name="diag_label_hdr_format_intended">Formát HDR (zamýšlený)</string>
+    <string name="diag_label_first_frame">První snímek</string>
+    <string name="diag_label_rebuffers">Opětovná bufferování</string>
+    <string name="diag_label_result">Výsledek</string>
+    <string name="diag_value_available">Dostupné</string>
+    <string name="diag_value_none">Žádné</string>
+    <string name="diag_value_ready">Připraveno</string>
+    <string name="diag_value_not_ready">Nepřipraveno</string>
+    <string name="diag_value_decoder_hidden">%1$s (skryto)</string>
+    <string name="diag_value_on">Zapnuto</string>
+    <string name="diag_value_off">Vypnuto</string>
+    <string name="diag_value_conversions_fmt">%1$d z %2$d úspěšných</string>
+    <string name="diag_value_never_rendered">Nikdy nevykresleno</string>
+
+
+    <!-- Size and speed units -->
+    <string name="unit_size_mb">%1$s MB</string>
+    <string name="unit_size_gb">%1$s GB</string>
+    <string name="unit_speed_b_s">%1$d B/s</string>
+    <string name="unit_speed_kb_s">%1$s KB/s</string>
+    <string name="unit_speed_mb_s">%1$s MB/s</string>
+
+    <!-- Misc fallbacks -->
+    <string name="playback_estimated_memory_usage">Odhadované využití paměti: %1$d / %2$d MB</string>
+    <string name="profile_default_name">Profil %1$d</string>
+    <string name="detail_tmdb_fallback_title">TMDB %1$d</string>
+    <string name="collections_editor_tmdb_collection_fallback">Kolekce TMDB %1$d</string>
+
+    <!-- Stream Throughput Speed & Chunk Diagnostic Test -->
+    <string name="stream_test_server_label">Server: %1$s</string>
+    <string name="stream_test_no_stream">Nezaznamenáno žádné přehrávání. Přehrajte video pro spuštění diagnostických testů na jeho hostiteli.</string>
+    <string name="stream_test_btn_running">Probíhá...</string>
+    <string name="stream_test_label_baseline">Standardní jedno spojení (základ)</string>
+    <string name="stream_test_error_prefix">Chyba: %1$s</string>
+    <string name="stream_test_error_connection">Připojení selhalo. Platnost posledního přehraného odkazu na stream mohla vypršet, nebo je nedostupný. Přehrajte prosím video znovu a zkuste to opět.</string>
+
+</resources>
