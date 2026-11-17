@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -228,5 +229,20 @@ class LiveTvSourcesModelTest {
         assertEquals("i.mjh.nz", LiveTvSourcesModel.guideName("i.mjh.nz", null))
         assertEquals("i.mjh.nz Australia", LiveTvSourcesModel.guideName("i.mjh.nz", "au"))
         assertEquals("epgshare01 India", LiveTvSourcesModel.guideName("www.epgshare01.online", "in"))
+    }
+
+    @Test
+    fun `withoutStatus ignores refresh status but keeps what hidden and suggestions read`() {
+        val base = LiveSource(id = "s1", kind = SourceKind.M3U, name = "List", url = "https://a/l.m3u", addedAtMs = 1)
+        val refreshed = base.copy(lastRefreshMs = 9, lastError = "x", channelCount = 40, playlistAttrs = mapOf("k" to "v"))
+        assertEquals(LiveTvSourcesModel.withoutStatus(listOf(base)), LiveTvSourcesModel.withoutStatus(listOf(refreshed)))
+        for (changed in listOf(
+            base.copy(name = "Renamed"),
+            base.copy(url = "https://a/m.m3u"),
+            base.copy(headerGuides = HeaderGuides(listOf("https://g/epg_IN.xml.gz"), false)),
+            base.copy(country = "in")
+        )) {
+            assertNotEquals(LiveTvSourcesModel.withoutStatus(listOf(base)), LiveTvSourcesModel.withoutStatus(listOf(changed)))
+        }
     }
 }

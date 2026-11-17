@@ -69,12 +69,16 @@ class LiveTvViewModelTest {
     val tmp = TemporaryFolder()
 
     private val io = UnconfinedTestDispatcher()
+
+    // Completes `loadGuides` (Spec 115 I2); a test that holds the guide read swaps in an open one.
+    private var guidesGate = CompletableDeferred(Unit)
     private val sources = MutableStateFlow(
         listOf(LiveSource("a", SourceKind.M3U, "My playlist", "https://example.org/a.m3u", 0L))
     )
     private val manager = mockk<LiveSourceManager>().also {
         every { it.sources } returns sources
-        coEvery { it.load() } just runs
+        coEvery { it.loadChannels() } just runs
+        coEvery { it.loadGuides() } coAnswers { guidesGate.await() }
         coEvery { it.refreshStale() } just runs
         coEvery { it.packSummary() } returns null
     }
@@ -103,7 +107,7 @@ class LiveTvViewModelTest {
 
     private val guides by lazy { GuideRepository(tmp.root, io) }
 
-    private fun TestScope.viewModel(): LiveTvViewModel {
+    private fun TestScope.viewModel(subscribe: Boolean = true): LiveTvViewModel {
         val vm = LiveTvViewModel(
             manager,
             channels,
@@ -116,8 +120,10 @@ class LiveTvViewModelTest {
             player,
             mainDispatcherRule.dispatcher
         )
-        backgroundScope.launch { vm.uiState.collect {} }
-        backgroundScope.launch { vm.info.collect {} }
+        if (subscribe) {
+            backgroundScope.launch { vm.uiState.collect {} }
+            backgroundScope.launch { vm.info.collect {} }
+        }
         runCurrent()
         return vm
     }
@@ -480,5 +486,120 @@ class LiveTvViewModelTest {
         val ui = viewModel().uiState.value
         assertEquals(LiveTvView.LIST, ui.view)
         assertNull(ui.guide)
+    }
+
+    /** One guided channel (a1, tvg-id One.us) beside a3 (no guide), and the guide source "g" holding its programme. */
+    private suspend fun seedGuided(): Channel {
+        val guided = ch("a1").copy(tvgId = "One.us")
+        channels.replaceSource("a", listOf(guided, a3))
+        sources.value = sources.value + LiveSource("g", SourceKind.XMLTV, "Pluto TV", "https://example.org/g.xml", 0L)
+        putGuide("Airing")
+        return guided
+    }
+
+    /** Guide "g" with [title] airing on One.us now. */
+    private suspend fun putGuide(title: String) {
+        val now = System.currentTimeMillis()
+        guides.put(
+            "g",
+            EpgSnapshot(
+                channels = mapOf("One.us" to EpgChannel("One.us", listOf("One"), null)),
+                programmes = mapOf("One.us" to listOf(EpgProgramme(now - 600_000, now + 1_200_000, title))),
+                windowStartMs = now, windowEndMs = now + 6 * 3_600_000L, complete = true
+            )
+        )
+    }
+
+    @Test
+    fun `rows show before the guides are read, saying the guide is loading, and gain now and next once matched`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val guided = seedGuided()
+            guidesGate = CompletableDeferred()
+            val vm = viewModel()
+            vm.selectFilter(LiveTvFilter.ALL)
+            runCurrent()
+            // Channels first (D5): no skeleton, every row guide-less and loading, Right inert.
+            val waiting = vm.uiState.value
+            assertFalse(waiting.loading)
+            assertEquals(listOf(guided.key, a3.key), waiting.rows.map { it.channel.key })
+            assertTrue(waiting.rows.all { it.guideLoading && !it.hasGuide && it.now == null && !it.hasSchedule })
+            vm.onRowFocused(guided)
+            runCurrent()
+            assertTrue(vm.info.value!!.guideLoading)
+            val panel = vm.guidePanel(guided.key)!!
+            assertTrue(panel.loading)
+            assertTrue(panel.candidates.isEmpty())
+            // The side panel waits on this to read again.
+            val matched = backgroundScope.launch { vm.awaitGuideMatch() }
+            runCurrent()
+            assertTrue(matched.isActive)
+            coVerify(exactly = 0) { manager.refreshStale() }
+
+            guidesGate.complete(Unit)
+            runCurrent()
+            val rows = vm.uiState.value.rows.associateBy { it.channel.key }
+            assertEquals("Airing", rows.getValue(guided.key).now?.title)
+            assertFalse(rows.getValue(guided.key).guideLoading)
+            // Matched and guide-less: now it says No guide, not loading.
+            assertFalse(rows.getValue(a3.key).hasGuide)
+            assertFalse(rows.getValue(a3.key).guideLoading)
+            assertFalse(vm.info.value!!.guideLoading)
+            assertEquals("Airing", vm.info.value!!.now?.title)
+            assertTrue(matched.isCompleted)
+            assertFalse(vm.guidePanel(guided.key)!!.loading)
+            // The refresh waits for the guide read (it decides staleness from what is read).
+            coVerify(exactly = 1) { manager.refreshStale() }
+        }
+
+    @Test
+    fun `a guide refresh after the first match never shows the loading line`() = runTest(mainDispatcherRule.dispatcher) {
+        val guided = seedGuided()
+        val vm = viewModel()
+        vm.selectFilter(LiveTvFilter.ALL)
+        runCurrent()
+        val seen = mutableListOf<LiveTvUiState>()
+        backgroundScope.launch { vm.uiState.collect { seen += it } }
+        runCurrent()
+        putGuide("Refreshed")
+        runCurrent()
+        assertEquals("Refreshed", vm.uiState.value.rows.single { it.channel.key == guided.key }.now?.title)
+        assertTrue(seen.isNotEmpty())
+        assertTrue(seen.none { ui -> ui.loading || ui.rows.any { it.guideLoading } })
+    }
+
+    @Test
+    fun `without a guide source the rows never say the guide is loading`() = runTest(mainDispatcherRule.dispatcher) {
+        seedChannels()
+        guidesGate = CompletableDeferred()
+        val vm = viewModel()
+        vm.selectFilter(LiveTvFilter.ALL)
+        runCurrent()
+        val ui = vm.uiState.value
+        assertFalse(ui.loading)
+        assertTrue(ui.rows.isNotEmpty())
+        assertTrue(ui.rows.none { it.guideLoading })
+        assertFalse(vm.guidePanel(a1.key)!!.loading)
+    }
+
+    @Test
+    fun `the screen's return after the first match shows no loading line`() = runTest(mainDispatcherRule.dispatcher) {
+        val guided = seedGuided()
+        val vm = viewModel(subscribe = false)
+        val shown = launch { vm.uiState.collect {} }
+        vm.selectFilter(LiveTvFilter.ALL)
+        runCurrent()
+        assertEquals("Airing", vm.uiState.value.rows.single { it.channel.key == guided.key }.now?.title)
+        // The screen leaves: uiState stops 5 s later, refs (its upstream) 5 s after that.
+        shown.cancel()
+        advanceTimeBy(11_000)
+        runCurrent()
+        // The matches are kept while away (a reset would bring the loading line back on return).
+        assertFalse(vm.guidePanel(guided.key)!!.loading)
+        val seen = mutableListOf<LiveTvUiState>()
+        backgroundScope.launch { vm.uiState.collect { seen += it } }
+        runCurrent()
+        assertTrue(seen.isNotEmpty())
+        assertTrue(seen.none { ui -> ui.loading || ui.rows.any { it.guideLoading } })
+        assertEquals("Airing", seen.last().rows.single { it.channel.key == guided.key }.now?.title)
     }
 }

@@ -204,6 +204,13 @@ object LiveTvSourcesModel {
         else -> SourceHealth.Ok
     }
 
+    /**
+     * [sources] with the fields a refresh rewrites per source blanked (last refresh, error, channel
+     * count, playlist attributes): the input of [hidden] and the suggestions, which read none of them.
+     */
+    fun withoutStatus(sources: List<LiveSource>): List<LiveSource> =
+        sources.map { it.copy(lastRefreshMs = null, lastError = null, channelCount = 0, playlistAttrs = null) }
+
     /** Hidden channels that still exist, by name; keys of vanished channels are left out. */
     fun hidden(keys: Set<String>, channels: List<Channel>, sources: List<LiveSource>): List<HiddenRow> {
         if (keys.isEmpty()) return emptyList()

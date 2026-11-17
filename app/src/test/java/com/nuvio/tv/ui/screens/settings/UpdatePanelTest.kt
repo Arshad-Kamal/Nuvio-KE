@@ -84,6 +84,12 @@ class UpdatePanelTest {
         assertEquals(UpdateStatus.UP_TO_DATE, updateStatus(idle.copy(lastOkCheckMs = 5L)))
         assertEquals(UpdateStatus.FAILED, updateStatus(idle.copy(lastCheckFailed = true)))
         assertEquals(UpdateStatus.FAILED_AFTER_OK, updateStatus(idle.copy(lastCheckFailed = true, lastOkCheckMs = 5L)))
+        // Spec 128 D7 (a): the rate limit has its own line; checking and a known release still come first.
+        val limited = idle.copy(lastCheckFailed = true, rateLimited = true)
+        assertEquals(UpdateStatus.RATE_LIMITED, updateStatus(limited))
+        assertEquals(UpdateStatus.RATE_LIMITED_AFTER_OK, updateStatus(limited.copy(lastOkCheckMs = 5L)))
+        assertEquals(UpdateStatus.CHECKING, updateStatus(limited.copy(checking = true)))
+        assertEquals(UpdateStatus.UP_TO_DATE, updateStatus(idle.copy(rateLimited = true, lastOkCheckMs = 5L)))
         assertEquals(UpdateStatus.CHECKING, updateStatus(idle.copy(checking = true, lastCheckFailed = true)))
         assertEquals(UpdateStatus.RELEASE, updateStatus(state.copy(checking = true, lastCheckFailed = true)))
         assertEquals(

@@ -10,6 +10,7 @@ import com.nuvio.tv.livetv.parse.EpgProgramme
 import com.nuvio.tv.livetv.parse.EpgSnapshot
 import com.nuvio.tv.livetv.parse.XmltvNowNextParser
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -633,6 +634,43 @@ class LiveSourceManagerTest {
         assertEquals(requests + 1, server.requestCount)
         assertEquals(now, store.get(guide.id)!!.lastRefreshMs)
         assertEquals(list.lastRefreshMs, store.get(list.id)!!.lastRefreshMs)
+    }
+
+    @Test
+    fun `refreshStale publishes its saved channels once, when it ends`() = runTest {
+        val manager = manager()
+        server.enqueue(MockResponse().setBody(playlist("a")))
+        manager.addUrl(server.url("/one.m3u").toString())
+        server.enqueue(MockResponse().setBody(playlist("b")))
+        manager.addUrl(server.url("/two.m3u").toString())
+        val seen = mutableListOf<List<String>>()
+        val job = backgroundScope.launch(io) { channels.channels.collect { list -> seen += list.map { it.key } } }
+        seen.clear()
+
+        now += LiveSourceManager.MAX_AGE_MS
+        server.enqueue(MockResponse().setBody(playlist("a", "c")))
+        server.enqueue(MockResponse().setBody(playlist("b", "d")))
+        manager.refreshStale()
+
+        assertEquals(listOf(listOf("s1#id:a.in", "s1#id:c.in", "s2#id:b.in", "s2#id:d.in")), seen)
+        job.cancel()
+    }
+
+    @Test
+    fun `a guide refreshed after a held playlist counts against the held channels`() = runTest {
+        now = guideAt
+        val manager = manager()
+        val list = added(manager, playlist("x"))
+        server.enqueue(MockResponse().setBody(epgBody()))
+        val guide = (manager.addUrl(server.url("/xmltv/epg_IN.xml.gz").toString()) as LiveSourceManager.AddResult.Added).source
+        assertEquals(0, guide.channelCount)
+
+        now += LiveSourceManager.MAX_AGE_MS
+        server.enqueue(MockResponse().setBody(playlist("StarJalsha").replace("STARJALSHA", "Star Jalsha HD")))
+        server.enqueue(MockResponse().setBody(epgBody()))
+        manager.refreshStale()
+        assertEquals(now, store.get(list.id)!!.lastRefreshMs)
+        assertEquals(1, store.get(guide.id)!!.channelCount)
     }
 
     @Test

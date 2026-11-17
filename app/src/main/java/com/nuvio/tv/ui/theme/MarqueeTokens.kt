@@ -136,7 +136,8 @@ data class NuvioMarqueeTokens(
  * ruler; channel column [guideChannelWidth] (number [guideNumberWidth], tile [guideLogoSize] / Compact
  * [guideCompactLogoSize]) then the strip. Cells radius [guideCellRadius] ([guideCutRadius] at a cut
  * edge), padded [guideCellPaddingHorizontal], [guideCellFill], airing [guideAiringFill]; the no-guide cell
- * a [guideNoneEdge] hairline; the guide-end cell [guideEndStripe] stripes. Ruler marks a [guideMarkEdge]
+ * a [guideNoneEdge] hairline (a [guideWaitEdge] one while the guides load, Spec 115 D5); the guide-end cell
+ * [guideEndStripe] stripes. Ruler marks a [guideMarkEdge]
  * hairline ([guideMidnightEdge] at midnight); the now-line [guideNowLineWidth] in `accent`.
  */
 @Immutable
@@ -289,6 +290,7 @@ data class NuvioMarqueeLiveTvTokens(
     val guideCellFill: Color,
     val guideAiringFill: Color,
     val guideNoneEdge: Color,
+    val guideWaitEdge: Color,
     val guideEndStripe: Color,
     val guideMarkEdge: Color,
     val guideMidnightEdge: Color,
@@ -2933,6 +2935,7 @@ object NuvioMarquee {
             guideCellFill = NuvioPrimitives.white.copy(alpha = 0.07f),
             guideAiringFill = NuvioPrimitives.white.copy(alpha = 0.13f),
             guideNoneEdge = NuvioPrimitives.white.copy(alpha = 0.08f),
+            guideWaitEdge = NuvioPrimitives.white.copy(alpha = 0.06f),
             guideEndStripe = NuvioPrimitives.white.copy(alpha = 0.035f),
             guideMarkEdge = NuvioPrimitives.white.copy(alpha = 0.18f),
             guideMidnightEdge = NuvioPrimitives.white.copy(alpha = 0.5f),

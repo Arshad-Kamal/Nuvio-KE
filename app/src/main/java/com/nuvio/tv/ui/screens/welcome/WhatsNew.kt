@@ -29,6 +29,7 @@ import com.nuvio.tv.core.update.ChangelogRelease
 import com.nuvio.tv.core.update.ChangelogRepository
 import com.nuvio.tv.core.update.SeenBuild
 import com.nuvio.tv.core.update.UpdateStore
+import com.nuvio.tv.core.update.autoCheckDue
 import com.nuvio.tv.ui.components.marquee.MarqueeGlassTextButton
 import com.nuvio.tv.ui.components.marquee.MarqueePrimaryButton
 import com.nuvio.tv.ui.screens.detail.formatShortDate
@@ -106,16 +107,18 @@ internal data class WhatsNewCard(
  * public changelog and offers its What's new card once. A build not on GitHub (every private build)
  * or a release without a What's new section gets no card. The new build is recorded once the lookup
  * answers, BEFORE the card is offered (Spec 107 S1: a card that crashes while rendering must not
- * crash every later start too; the cost is a card that never reached Home is lost); a lookup that
- * fails (offline, GitHub down) records nothing, so the next start tries again. Activity-scoped, so a
- * recreate keeps a card that shows.
+ * crash every later start too; the cost is a card that never reached Home is lost). The lookup runs
+ * at most once a day (Spec 128 D7 (d), as the update check and tip.json): an unusable GitHub answer
+ * (down, rate limit) records its time and the lookup waits a day; no answer at all (offline) records
+ * nothing, so the next start tries again. Activity-scoped, so a recreate keeps a card that shows.
  */
 @HiltViewModel
 class WhatsNewViewModel internal constructor(
     private val store: UpdateStore,
     private val repository: ChangelogRepository,
     private val installed: SeenBuild,
-    private val updatedSinceInstall: () -> Boolean
+    private val updatedSinceInstall: () -> Boolean,
+    private val nowMs: () -> Long = System::currentTimeMillis
 ) : ViewModel() {
 
     @Inject constructor(
@@ -144,8 +147,9 @@ class WhatsNewViewModel internal constructor(
                 when (val start = whatsNewStart(seen, installed.versionCode, updated)) {
                     WhatsNewStart.Same -> Unit
                     WhatsNewStart.Record -> record()
-                    is WhatsNewStart.Lookup -> when (val load = repository.load()) {
-                        ChangelogLoad.Failed -> Unit
+                    is WhatsNewStart.Lookup -> when (val load = lookupIfDue()) {
+                        null, ChangelogLoad.Unreached -> Unit
+                        ChangelogLoad.Failed -> withContext(NonCancellable) { store.setWhatsNewAttempt(nowMs()) }
                         is ChangelogLoad.Loaded -> {
                             val release = load.releases.firstOrNull { it.versionCode == installed.versionCode }
                             val rows = release?.let { whatsNewRows(it.whatsNew) }.orEmpty()
@@ -164,6 +168,10 @@ class WhatsNewViewModel internal constructor(
             }
         }
     }
+
+    /** The changelog, unless a lookup got an unusable GitHub answer within the last day (null). */
+    private suspend fun lookupIfDue(): ChangelogLoad? =
+        if (autoCheckDue(nowMs(), store.whatsNewAttemptMs())) repository.load() else null
 
     fun dismiss() {
         _card.value = null

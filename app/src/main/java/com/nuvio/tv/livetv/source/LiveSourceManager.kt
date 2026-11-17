@@ -184,15 +184,25 @@ class LiveSourceManager internal constructor(
      */
     val packSaves: StateFlow<Int> = _packSaves.asStateFlow()
 
-    /**
-     * Reads the source list, channel cache, iptv-org metadata and cached guides from disk (once
-     * each), after removing any retired preset guide ([retireGuides]).
-     */
+    /** [loadChannels], then [loadGuides]. */
     suspend fun load() {
+        loadChannels()
+        loadGuides()
+    }
+
+    /**
+     * Reads the source list, channel cache and iptv-org metadata from disk (once each) and removes any
+     * retired preset guide ([retireGuides]): enough for Live TV's rows (Spec 115 I2, D5).
+     */
+    suspend fun loadChannels() {
         store.load()
         channels.load()
         metadata.load()
         retireGuides()
+    }
+
+    /** Reads the cached guides of the saved guide sources from disk (once each); after [loadChannels]. */
+    suspend fun loadGuides() {
         guides.load(store.sources.value.filter { it.kind == SourceKind.XMLTV }.map { it.id })
     }
 
@@ -418,18 +428,25 @@ class LiveSourceManager internal constructor(
      * Refreshes every source [isStale] calls stale, one at a time (each takes the lock on its
      * own, so a removal can slip in between), after the iptv-org metadata when there are channel
      * sources (L5c, every 3 days) so guide match counts see its names. Called on Live TV open,
-     * off the UI path (D14).
+     * off the UI path (D14). The channels it saves publish once, when it ends (Spec 115 D4: one
+     * lineup re-derivation per refresh); guides publish as each is saved, so each old snapshot is
+     * freed at once. Any other channel write meanwhile publishes at once.
      */
     suspend fun refreshStale() {
         load()
         // Only playlists and the pack carry tvg-ids to enrich; Stremio channels have provider ids.
         if (store.sources.value.any { it.kind == SourceKind.M3U || it.kind == SourceKind.PACK }) metadata.refreshIfStale()
-        for (id in store.sources.value.map { it.id }) {
-            // Re-checked under the lock: an overlapping call may have refreshed it meanwhile.
-            mutex.withLock {
-                val source = store.get(id) ?: return@withLock
-                if (isStale(source, guides.guides.value[id], nowMs(), zone())) refreshLocked(source)
+        try {
+            for (id in store.sources.value.map { it.id }) {
+                // Re-checked under the lock: an overlapping call may have refreshed it meanwhile.
+                mutex.withLock {
+                    val source = store.get(id) ?: return@withLock
+                    if (isStale(source, guides.guides.value[id], nowMs(), zone())) refreshLocked(source, publish = false)
+                }
             }
+        } finally {
+            // Also when cancelled: what was saved must reach the screens.
+            withContext(NonCancellable) { channels.publishLatest() }
         }
     }
 
@@ -462,7 +479,8 @@ class LiveSourceManager internal constructor(
         }
     }
 
-    private suspend fun refreshLocked(source: LiveSource): LiveSource {
+    /** [publish] false: saved channels reach disk and [ChannelRepository.latest], not the screens ([refreshStale]). */
+    private suspend fun refreshLocked(source: LiveSource, publish: Boolean = true): LiveSource {
         if (source.kind == SourceKind.XMLTV) guides.load(listOf(source.id))
         val loaded = try {
             when {
@@ -485,7 +503,7 @@ class LiveSourceManager internal constructor(
         }
         val saving = if (partial != null && cached != null) Loaded.Guide(fillFrom(partial, cached)) else loaded
         return try {
-            save(source, saving)
+            save(source, saving, publish)
             val saved = record(
                 source.copy(
                     lastRefreshMs = nowMs(),
@@ -579,8 +597,8 @@ class LiveSourceManager internal constructor(
             ?: throw SourceFetchException("Addon did not answer")
     }
 
-    private suspend fun save(source: LiveSource, loaded: Loaded) = when (loaded) {
-        is Loaded.Channels -> channels.replaceSource(source.id, loaded.list)
+    private suspend fun save(source: LiveSource, loaded: Loaded, publish: Boolean = true) = when (loaded) {
+        is Loaded.Channels -> channels.replaceSource(source.id, loaded.list, publish)
         is Loaded.Guide -> guides.put(source.id, loaded.snapshot)
         // The whole pack first (the scan's input), then its scan results kept by URL, then the listing.
         is Loaded.Pack -> {
@@ -588,7 +606,7 @@ class LiveSourceManager internal constructor(
             val stored = scans.read()
             val results = withContext(io) { forPack(stored.results, loaded.channels) }
             if (results.size != stored.results.size) scans.save(stored.copy(results = results))
-            channels.replaceSource(source.id, withContext(io) { ChannelPack.listing(loaded.channels, results) })
+            channels.replaceSource(source.id, withContext(io) { ChannelPack.listing(loaded.channels, results) }, publish)
             _packSaves.update { it + 1 }
         }
     }
@@ -622,11 +640,11 @@ class LiveSourceManager internal constructor(
         // Every pack channel, listed or waiting for a scan (the PACK row's count, D6).
         is Loaded.Pack -> loaded.channels.size
         is Loaded.Guide -> {
-            channels.load()
+            val all = channels.latest()
             metadata.load()
             withContext(io) {
                 EpgMatcher.match(
-                    ChannelEnricher.listable(ChannelEnricher.enrich(channels.channels.value, metadata.metadata.value)),
+                    ChannelEnricher.listable(ChannelEnricher.enrich(all, metadata.metadata.value)),
                     listOf(EpgSource(source.id, source.country, loaded.snapshot)),
                     channels.overrides.value
                 ).values.count { it.epgSourceId == source.id }

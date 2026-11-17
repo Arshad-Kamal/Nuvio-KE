@@ -287,6 +287,29 @@ class UpdateControllerTest {
     }
 
     @Test
+    fun `a rate-limited answer counts as the day's attempt`() = runBlocking<Unit> {
+        // Spec 128 D7 (c): GitHub's 403 rate limit is an answer: the next automatic check waits a day.
+        val controller = controller()
+        server.enqueue(
+            MockResponse().setResponseCode(403).setHeader("x-ratelimit-remaining", "0")
+                .setHeader("x-ratelimit-reset", "1763350000").setBody("{}")
+        )
+        controller.autoCheckIfDue()!!.join()
+        assertTrue(controller.state.value.lastCheckFailed)
+        assertTrue(controller.state.value.rateLimited)
+        assertEquals(1_763_350_000_000L, controller.state.value.retryAtMs)
+        assertEquals(now.get(), store.read().lastAttemptMs)
+        now.addAndGet(AUTO_CHECK_INTERVAL_MS - 1)
+        controller.autoCheckIfDue()!!.join()
+        assertEquals(1, server.requestCount)
+        now.addAndGet(1)
+        answer(200, releaseJson())
+        controller.autoCheckIfDue()!!.join()
+        assertEquals(2, server.requestCount)
+        assertFalse(controller.state.value.rateLimited)
+    }
+
+    @Test
     fun `a build without the check never asks GitHub`() = runBlocking<Unit> {
         val controller = controller(supported = false)
         assertNull(controller.awaitCheck())
@@ -564,6 +587,17 @@ class UpdateControllerTest {
         assertTrue(state.testReleases)
         assertTrue(store.read().testReleases)
         assertTrue(controller.testReleasesOn())
+        assertEquals("/repos/Arshad-Kamal/Nuvio-KE/releases?per_page=$CHANGELOG_SIZE", server.takeRequest().path)
+    }
+
+    @Test
+    fun `test releases on, the release list's rate limit shows as rate limited`() = runBlocking<Unit> {
+        server.enqueue(MockResponse().setResponseCode(429).setHeader("retry-after", "60").setBody("{}"))
+        val controller = controller()
+        assertTrue(controller.setTestReleases(true))
+        val state = controller.settled { it.lastCheckFailed }
+        assertTrue(state.rateLimited)
+        assertEquals(now.get() + 60_000L, state.retryAtMs)
         assertEquals("/repos/Arshad-Kamal/Nuvio-KE/releases?per_page=$CHANGELOG_SIZE", server.takeRequest().path)
     }
 

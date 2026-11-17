@@ -167,9 +167,9 @@ data class UserLists(val favorites: List<Channel>, val recents: List<Channel>) {
 }
 
 /**
- * One list row (D16): [hasGuide] false = "No guide for this channel"; now/next null when the guide
- * is silent now. [progress] (0..1) is how far [now] has run. Without a current programme the row
- * reads "[category] · country" ([LiveTvModel.facts] words both).
+ * One list row (D16): [hasGuide] false = "No guide for this channel" ("Loading the guide" while
+ * [guideLoading]); now/next null when the guide is silent now. [progress] (0..1) is how far [now] has
+ * run. Without a current programme the row reads "[category] · country" ([LiveTvModel.facts] words both).
  */
 data class LiveRow(
     val channel: Channel,
@@ -178,7 +178,9 @@ data class LiveRow(
     val next: EpgProgramme?,
     val hasGuide: Boolean,
     val progress: Float?,
-    val favorite: Boolean = false
+    val favorite: Boolean = false,
+    /** No guide yet because the guides are still being read and matched (Spec 115 D5): "Loading the guide", not "No guide". */
+    val guideLoading: Boolean = false
 ) {
     /** The LIVE badge: the current programme is broadcast live (XMLTV `<live/>`). */
     val live: Boolean get() = now?.live == true
@@ -437,6 +439,7 @@ object LiveTvModel {
     /**
      * Rows for [channels] at [nowMs]; a ref to a guide no longer cached reads as no guide. Lost
      * channels are never matched ([guideRefs] takes the listable ones), so they carry no programme.
+     * [guideLoading]: the first match is still pending, so a guide-less row says so (Spec 115 D5).
      */
     fun rows(
         channels: List<Channel>,
@@ -444,7 +447,8 @@ object LiveTvModel {
         refs: Map<String, EpgRef>,
         guides: Map<String, EpgSnapshot>,
         nowMs: Long,
-        favorites: Set<String> = emptySet()
+        favorites: Set<String> = emptySet(),
+        guideLoading: Boolean = false
     ): List<LiveRow> = channels.map { listed ->
         val ref = refs[listed.key]
         val ch = withGuideLogo(listed, ref, guides)
@@ -455,7 +459,9 @@ object LiveTvModel {
         }
         LiveRow(
             ch, numbers[ch.key].orEmpty(), now, next,
-            hasGuide = snapshot != null, progress = progress, favorite = ch.key in favorites
+            hasGuide = snapshot != null, progress = progress, favorite = ch.key in favorites,
+            // Lost channels are never matched: they never wait for a guide.
+            guideLoading = guideLoading && snapshot == null && !ch.lost
         )
     }
 

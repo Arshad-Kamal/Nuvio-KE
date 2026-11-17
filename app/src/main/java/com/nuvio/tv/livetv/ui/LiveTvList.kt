@@ -47,6 +47,7 @@ import coil3.compose.AsyncImage
 import com.nuvio.tv.R
 import com.nuvio.tv.livetv.model.Channel
 import com.nuvio.tv.ui.components.marquee.FACT_SEPARATOR
+import com.nuvio.tv.ui.components.marquee.MarqueeSpinner
 import com.nuvio.tv.ui.components.marquee.SUFFIX_ALPHA
 import com.nuvio.tv.ui.components.marquee.rememberMarqueeLongPress
 import com.nuvio.tv.ui.theme.NuvioPrimitives
@@ -355,6 +356,44 @@ private fun LiveTvRowBar(fraction: Float, focused: Boolean) {
                 .fillMaxHeight()
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
                 .background(ink)
+        )
+    }
+}
+
+/**
+ * Where a guide-less channel's programme goes (info block, guide band, full-screen OSD): `.lvquiet`
+ * "No guide for this channel", or while the guides are still read and matched ([loading], Spec 115 D5)
+ * [LiveTvGuideLoadingLine].
+ */
+@Composable
+internal fun LiveTvNoGuideLine(loading: Boolean, modifier: Modifier = Modifier) {
+    if (loading) {
+        LiveTvGuideLoadingLine(modifier)
+    } else {
+        Text(
+            text = stringResource(R.string.live_tv_no_guide),
+            style = NuvioTheme.textStyles.meta,
+            color = NuvioTheme.marquee.onImage3,
+            maxLines = 1,
+            modifier = modifier
+        )
+    }
+}
+
+/** `.lvquiet.ld` (Spec 115 D5): a small spinner and "Loading the guide". */
+@Composable
+internal fun LiveTvGuideLoadingLine(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        MarqueeSpinner()
+        Text(
+            text = stringResource(R.string.live_tv_guide_loading),
+            style = NuvioTheme.textStyles.meta,
+            color = NuvioTheme.marquee.onImage3,
+            maxLines = 1
         )
     }
 }

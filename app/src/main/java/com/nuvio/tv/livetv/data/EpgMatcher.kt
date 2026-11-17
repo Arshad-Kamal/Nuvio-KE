@@ -39,27 +39,49 @@ object EpgMatcher {
         val out = HashMap<String, EpgRef>()
         for (ch in channels) {
             val override = overrides[ch.key]
-            val ref = if (override != null) override.ref
-            else matchOne(ch, indexes, live = true) ?: matchOne(ch, indexes, live = false)
+            val ref = if (override != null) {
+                override.ref
+            } else {
+                // Keys once per channel, both passes (Spec 115 I5: recomputing them per pass was the
+                // largest cold-open cost at 41k channels).
+                val keys = Keys(ch, indexes)
+                matchOne(keys, indexes, live = true) ?: matchOne(keys, indexes, live = false)
+            }
             if (ref != null) out[ch.key] = ref
         }
         return out
     }
 
-    private fun matchOne(ch: Channel, indexes: List<Index>, live: Boolean): EpgRef? {
-        for (id in ChannelIdentity.providerIds(ch)) {
+    /**
+     * A channel's lookup keys in chain order: provider ids, then per tvg-id key its exact and loose
+     * forms, then (only when its country has a guide of that country) its normalised names.
+     */
+    private class Keys(ch: Channel, indexes: List<Index>) {
+        val providerIds = ChannelIdentity.providerIds(ch)
+        val tvgIds: List<Pair<String, String?>> =
+            ChannelIdentity.tvgIdKeys(ch.tvgId).map { it to ChannelIdentity.looseId(it) }
+        val country = ChannelIdentity.normalizeCountry(ch.country)
+        val names: List<String> =
+            if (country == null || indexes.none { it.country == country }) {
+                emptyList()
+            } else {
+                (listOf(ch.name) + ch.altNames).map(ChannelIdentity::normalizeName).filter { it.isNotEmpty() }
+            }
+    }
+
+    private fun matchOne(keys: Keys, indexes: List<Index>, live: Boolean): EpgRef? {
+        for (id in keys.providerIds) {
             for (ix in indexes) ix.pick(ix.byId[id], live)?.let { return EpgRef(ix.source.id, it) }
         }
-        for (key in ChannelIdentity.tvgIdKeys(ch.tvgId)) {
+        for ((key, loose) in keys.tvgIds) {
             for (ix in indexes) ix.pick(ix.byId[key], live)?.let { return EpgRef(ix.source.id, it) }
-            val loose = ChannelIdentity.looseId(key) ?: continue
+            if (loose == null) continue
             for (ix in indexes) ix.pick(ix.byLoose[loose], live)?.let { return EpgRef(ix.source.id, it) }
         }
-        val country = ChannelIdentity.normalizeCountry(ch.country) ?: return null
-        val names = (listOf(ch.name) + ch.altNames).map(ChannelIdentity::normalizeName).filter { it.isNotEmpty() }
+        if (keys.names.isEmpty()) return null
         for (ix in indexes) {
-            if (ix.country != country) continue
-            for (n in names) ix.pick(ix.byName[n], live)?.let { return EpgRef(ix.source.id, it) }
+            if (ix.country != keys.country) continue
+            for (n in keys.names) ix.pick(ix.byName[n], live)?.let { return EpgRef(ix.source.id, it) }
         }
         return null
     }

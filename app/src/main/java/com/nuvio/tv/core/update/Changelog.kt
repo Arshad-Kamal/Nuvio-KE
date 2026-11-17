@@ -160,10 +160,15 @@ internal fun releaseVideo(asset: GitHubAssetDto): ReleaseVideo? {
     return ReleaseVideo(url, size)
 }
 
-/** One changelog load: the entries newest first, or nothing usable (no network, GitHub down, rate limit). */
+/** One changelog load: the entries newest first, or nothing usable. */
 sealed interface ChangelogLoad {
     data class Loaded(val releases: List<ChangelogRelease>) : ChangelogLoad
+
+    /** GitHub answered, unusably (down, rate limit, a body that did not decode). */
     data object Failed : ChangelogLoad
+
+    /** No HTTP answer (no network, DNS, timeout): Spec 128 D7 (d), What's new tries again at the next start. */
+    data object Unreached : ChangelogLoad
 }
 
 /**
@@ -191,12 +196,15 @@ class ChangelogRepository internal constructor(
                 ChangelogLoad.Loaded(body.mapNotNull { changelogRelease(it, includeTest) })
             // 404: no release yet (or no such repo): an empty changelog, not an error.
             response.code() == 404 -> ChangelogLoad.Loaded(emptyList())
-            else -> ChangelogLoad.Failed
+            else -> {
+                Log.w(TAG, "changelog failed: ${gitHubAnswerNote(response.code(), response.headers())}")
+                ChangelogLoad.Failed
+            }
         }
     } catch (e: CancellationException) {
         throw e
     } catch (_: IOException) {
-        ChangelogLoad.Failed
+        ChangelogLoad.Unreached
     } catch (e: Exception) {
         // An answer that did not decode (SerializationException) or a converter failure.
         Log.w(TAG, "changelog answer unusable: ${e.javaClass.simpleName}")

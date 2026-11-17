@@ -162,7 +162,13 @@ class PackSourceTest {
         assertEquals(listOf("pack#nc:one|ca"), channels.channels.value.map { it.key })
 
         enqueuePack(streamsTsv("Three" to "https://a/3.m3u8"))
+        // Spec 115 D4: a stale refresh's pack save is held and published once, when it ends.
+        val seen = mutableListOf<Int>()
+        val job = backgroundScope.launch(io) { channels.channels.collect { seen += it.size } }
+        seen.clear()
         manager.refreshStale()
+        job.cancel()
+        assertEquals(listOf(2), seen)
         assertEquals(listOf("Three"), pack.read().map { it.name })
         val keys = channels.channels.value.associate { it.key to it.lost }
         // A channel the refresh dropped reads Source lost, as a playlist's.

@@ -79,8 +79,11 @@ sealed interface TrailerPreviewEvent {
     /** Left, cancelled, failed or timed out before shown; [hidden] = before the dwell ended (C2). */
     data class Aborted(override val sinceArmMs: Long, val phase: TrailerPreviewAbortPhase, val hidden: Boolean = false) :
         TrailerPreviewEvent
-    /** C4: one bar-detection sample: its frame copy and copy + scan in ms, its visible aspect (null = invalid). */
-    data class ShapeSample(override val sinceArmMs: Long, val copyMs: Float, val totalMs: Float, val aspect: Float?) :
+    /**
+     * C4: one bar-detection sample: its frame copy on the copy thread and its main-thread getPixels + scan in ms
+     * (Spec 128 D5), its visible aspect (null = invalid).
+     */
+    data class ShapeSample(override val sinceArmMs: Long, val copyMs: Float, val mainMs: Float, val aspect: Float?) :
         TrailerPreviewEvent
     data class ShapeDecided(override val sinceArmMs: Long, val shape: TrailerShape) : TrailerPreviewEvent
 }
@@ -256,8 +259,8 @@ class TrailerPreviewMachine(
     fun rememberedShape(videoUrl: String): Float? = shapes[videoUrl]
 
     /** A bar-detection sample (trace only). */
-    fun onShapeSample(copyMs: Float, totalMs: Float, aspect: Float?) {
-        trace(TrailerPreviewEvent.ShapeSample(sinceArm(), copyMs, totalMs, aspect))
+    fun onShapeSample(copyMs: Float, mainMs: Float, aspect: Float?) {
+        trace(TrailerPreviewEvent.ShapeSample(sinceArm(), copyMs, mainMs, aspect))
     }
 
     /** [videoUrl]'s panel took [shape]: remembered only when sampling agreed (never the fallback). */

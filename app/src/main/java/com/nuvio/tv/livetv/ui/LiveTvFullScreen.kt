@@ -377,12 +377,7 @@ private fun LiveTvOsd(row: LiveRow, nowMs: Long, timeFormat: DateFormat, clock: 
                 LiveTvTimeLine(row, nowMs, timeFormat, live.fullProgressWidth)
                 row.next?.let { LiveTvNextLine(it, timeFormat) }
             } else if (!row.hasGuide) {
-                Text(
-                    text = stringResource(R.string.live_tv_no_guide),
-                    style = NuvioTheme.textStyles.meta,
-                    color = marquee.onImage3,
-                    maxLines = 1
-                )
+                LiveTvNoGuideLine(loading = row.guideLoading)
             }
             Row(
                 modifier = Modifier.padding(top = 8.dp),

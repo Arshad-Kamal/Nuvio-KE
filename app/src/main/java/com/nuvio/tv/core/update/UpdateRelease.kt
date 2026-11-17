@@ -3,6 +3,7 @@ package com.nuvio.tv.core.update
 import com.nuvio.tv.data.remote.dto.GitHubAssetDto
 import com.nuvio.tv.data.remote.dto.GitHubReleaseDto
 import kotlinx.serialization.Serializable
+import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -97,6 +98,12 @@ sealed interface CheckOutcome {
     /** Any other status, or a body that did not decode. */
     data object Failed : CheckOutcome
 
+    /**
+     * Spec 128 D7 (a): GitHub refused for its rate limit; [retryAtMs] when it says the limit resets (epoch ms, null =
+     * not given). Recorded as an attempt, like [Failed].
+     */
+    data class RateLimited(val retryAtMs: Long?) : CheckOutcome
+
     /** No HTTP answer (no network, DNS, timeout). */
     data object Unreached : CheckOutcome
 }
@@ -114,6 +121,37 @@ private inline fun <T : Any> outcomeOf(code: Int, body: T?, offer: (T) -> KnownR
     code == 404 -> CheckOutcome.NoRelease
     else -> CheckOutcome.Failed
 }
+
+/**
+ * Spec 128 D7 (b): a GitHub answer's status and its rate-limit headers, for the log when it is not usable. GitHub
+ * answers 403 or 429 with `x-ratelimit-remaining: 0` (reset at `x-ratelimit-reset`, epoch seconds) or `retry-after`.
+ */
+internal fun gitHubAnswerNote(code: Int, headers: Headers): String =
+    "http $code" + RATE_LIMIT_HEADERS.mapNotNull { name -> headers[name]?.let { " $name=$it" } }.joinToString("")
+
+private val RATE_LIMIT_HEADERS = listOf("x-ratelimit-remaining", "x-ratelimit-reset", "retry-after")
+
+/**
+ * Spec 128 D7 (a): a 403 or 429 is GitHub's rate limit when its headers say so; then [CheckOutcome.RateLimited] with
+ * the time GitHub gives. Its primary limit sends `x-ratelimit-remaining: 0` with the reset in `x-ratelimit-reset`
+ * (epoch seconds); its secondary limit sends `retry-after` (seconds from [nowMs]; an HTTP date reads as no time).
+ * Null for any other answer (a 429 with neither header stays a plain failure).
+ */
+fun rateLimitOutcome(code: Int, headers: Headers, nowMs: Long): CheckOutcome.RateLimited? {
+    if (code != 403 && code != 429) return null
+    val retryAfter = headers["retry-after"]
+    val primary = headers["x-ratelimit-remaining"]?.trim() == "0"
+    if (!primary && retryAfter == null) return null
+    val retryAtMs = if (primary) {
+        headers["x-ratelimit-reset"]?.trim()?.toLongOrNull()?.takeIf { it in 1..MAX_EPOCH_S }?.let { it * 1000 }
+    } else {
+        retryAfter?.trim()?.toLongOrNull()?.takeIf { it in 0..MAX_EPOCH_S }?.let { nowMs + it * 1000 }
+    }
+    return CheckOutcome.RateLimited(retryAtMs)
+}
+
+// Bounds header numbers so seconds x 1000 cannot overflow (year ~2286).
+private const val MAX_EPOCH_S = 9_999_999_999L
 
 internal const val AUTO_CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000
 

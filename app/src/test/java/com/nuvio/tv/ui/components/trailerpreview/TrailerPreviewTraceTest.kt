@@ -199,6 +199,15 @@ class TrailerPreviewTraceTest {
         )
         assertEquals("first frame (hidden)", trailerPreviewTimingLine(FirstFrame(9, hidden = true), null))
         assertEquals("dwell end", trailerPreviewTimingLine(DwellEnded(3_000), null))
+        // Spec 128 D5: the copy runs off the main thread; both numbers are logged.
+        assertEquals(
+            "shape sample copy 12.3 ms (off main) main 1.5 ms 2.400",
+            trailerPreviewTimingLine(TrailerPreviewEvent.ShapeSample(9, 12.34f, 1.5f, 2.4f), null)
+        )
+        assertEquals(
+            "shape sample copy 0.0 ms (off main) main 0.8 ms invalid",
+            trailerPreviewTimingLine(TrailerPreviewEvent.ShapeSample(9, 0f, 0.8f, null), null)
+        )
     }
 }
 

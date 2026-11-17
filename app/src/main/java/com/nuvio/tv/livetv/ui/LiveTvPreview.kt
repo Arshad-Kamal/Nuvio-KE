@@ -405,18 +405,15 @@ internal fun LiveTvInfo(
             row.next?.let { LiveTvNextLine(it, timeFormat) }
         }
         if (!row.hasGuide) {
-            Text(
-                text = stringResource(R.string.live_tv_no_guide),
-                style = NuvioTheme.textStyles.meta,
-                color = marquee.onImage3,
-                maxLines = 1
-            )
-            Text(
-                text = stringResource(R.string.live_tv_no_guide_hint),
-                style = NuvioTheme.textStyles.caption,
-                color = marquee.onImage3,
-                maxLines = 1
-            )
+            LiveTvNoGuideLine(loading = row.guideLoading)
+            if (!row.guideLoading) {
+                Text(
+                    text = stringResource(R.string.live_tv_no_guide_hint),
+                    style = NuvioTheme.textStyles.caption,
+                    color = marquee.onImage3,
+                    maxLines = 1
+                )
+            }
         }
         if (unavailable) {
             Text(

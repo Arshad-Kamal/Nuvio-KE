@@ -207,7 +207,7 @@ class ChangelogTest {
     }
 
     @Test
-    fun `404 is an empty changelog, other answers and no answer fail`() = runBlocking {
+    fun `404 is an empty changelog, other answers fail`() = runBlocking {
         answer(404, """{"message":"Not Found"}""")
         assertEquals(ChangelogLoad.Loaded(emptyList()), repository.load())
         answer(403, """{"message":"rate limit"}""")
@@ -216,8 +216,13 @@ class ChangelogTest {
         assertEquals(ChangelogLoad.Failed, repository.load())
         answer(200, """{"name":"an object, not a list"}""")
         assertEquals(ChangelogLoad.Failed, repository.load())
+    }
+
+    @Test
+    fun `no answer at all is unreached (What's new tries again next start)`() = runBlocking {
+        // Its own server queue: after a body that failed to decode, MockWebServer serves the drop out of order.
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
-        assertTrue(repository.load() is ChangelogLoad.Failed)
+        assertEquals(ChangelogLoad.Unreached, repository.load())
     }
 
     @Test

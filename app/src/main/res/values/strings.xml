@@ -396,6 +396,11 @@
     <string name="update_up_to_date">Up to date · checked %1$s</string>
     <string name="update_check_failed">Couldn\'t reach GitHub</string>
     <string name="update_check_failed_last">Couldn\'t reach GitHub · last checked %1$s</string>
+    <!-- Spec 128 D7 (a): GitHub refused the check for its rate limit; %1$s = the reset time in the TV's clock format. -->
+    <string name="update_rate_limited">Rate limited by GitHub · try again after %1$s</string>
+    <string name="update_rate_limited_later">Rate limited by GitHub · try again later</string>
+    <!-- %1$s = update_rate_limited or update_rate_limited_later, %2$s = when the last good check was. -->
+    <string name="update_rate_limited_last">%1$s · last checked %2$s</string>
     <string name="update_when_today">today at %1$s</string>
     <string name="update_when_yesterday">yesterday at %1$s</string>
     <string name="update_when_date">%1$s at %2$s</string>
@@ -1898,6 +1903,7 @@
         <item quantity="other">%d min left</item>
     </plurals>
     <string name="live_tv_no_guide">No guide for this channel</string>
+    <string name="live_tv_guide_loading">Loading the guide</string>
     <string name="live_tv_no_guide_hint">Hold OK › Choose guide to pick one from your guides</string>
     <string name="live_tv_hint_ok">OK</string>
     <string name="live_tv_hint_full_screen">Full screen</string>

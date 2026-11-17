@@ -319,6 +319,15 @@ class LiveTvModelTest {
         assertEquals("https://img.example.org/g1.png", row.channel.logo)
     }
 
+    @Test
+    fun `while the first match is pending, guide-less rows say loading, lost ones never do`() {
+        val lost = ch("a", "x2").copy(lostAtMs = 1L)
+        val rows = LiveTvModel.rows(listOf(ch("a", "x1"), lost), emptyMap(), emptyMap(), emptyMap(), 0L, guideLoading = true)
+        assertTrue(rows[0].guideLoading)
+        assertFalse(rows[1].guideLoading)
+        assertTrue(LiveTvModel.rows(listOf(ch("a", "x1")), emptyMap(), emptyMap(), emptyMap(), 0L).none { it.guideLoading })
+    }
+
     private fun row(key: String) = LiveRow(ch("a", key), key, null, null, hasGuide = false, progress = null)
 
     @Test

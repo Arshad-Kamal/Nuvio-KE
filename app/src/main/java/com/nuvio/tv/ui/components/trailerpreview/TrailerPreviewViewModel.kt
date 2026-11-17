@@ -121,8 +121,8 @@ internal fun trailerPreviewTimingLine(event: TrailerPreviewEvent, source: Traile
     is TrailerPreviewEvent.Aborted ->
         "aborted while ${event.phase.name.lowercase()}${if (event.hidden) " (hidden, before dwell end)" else ""}"
     is TrailerPreviewEvent.ShapeSample -> String.format(
-        Locale.US, "shape sample copy %.1f ms total %.1f ms %s",
-        event.copyMs, event.totalMs, event.aspect?.let { String.format(Locale.US, "%.3f", it) } ?: "invalid"
+        Locale.US, "shape sample copy %.1f ms (off main) main %.1f ms %s",
+        event.copyMs, event.mainMs, event.aspect?.let { String.format(Locale.US, "%.3f", it) } ?: "invalid"
     )
     is TrailerPreviewEvent.ShapeDecided ->
         String.format(Locale.US, "shape %.3f (%s)", event.shape.aspect, event.shape.reason.name.lowercase())

@@ -122,12 +122,16 @@ class LiveTvSourcesViewModel @Inject constructor(
         refreshing
     ) { sources, channels, guides, busy -> LiveTvSourcesModel.rows(sources, channels, guides, busy) }
 
-    private val hidden = combine(hiddenStore.keys, channelRepository.channels, sourceManager.sources) { keys, channels, sources ->
+    // Hidden and suggestions read no refresh status: a refresh's record writes must not re-derive them
+    // over every channel (Spec 115 S3).
+    private val sourcesSansStatus = sourceManager.sources.map(LiveTvSourcesModel::withoutStatus).distinctUntilChanged()
+
+    private val hidden = combine(hiddenStore.keys, channelRepository.channels, sourcesSansStatus) { keys, channels, sources ->
         LiveTvSourcesModel.hidden(keys, channels, sources)
     }
 
     // Their own flow: a refresh starting or ending must not rescan every stream URL.
-    private val suggestions = combine(sourceManager.sources, channelRepository.channels) { sources, channels ->
+    private val suggestions = combine(sourcesSansStatus, channelRepository.channels) { sources, channels ->
         Suggestions(
             LiveTvSourcesModel.presetSuggestions(sources, channels),
             LiveTvSourcesModel.headerSuggestions(sources, channels)

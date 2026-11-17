@@ -102,7 +102,7 @@ class ChangelogViewModel @Inject constructor(
             val load = repository.load()
             _list.value = when (load) {
                 is ChangelogLoad.Loaded -> ChangelogListState.Loaded(load.releases)
-                ChangelogLoad.Failed -> ChangelogListState.Failed
+                ChangelogLoad.Failed, ChangelogLoad.Unreached -> ChangelogListState.Failed
             }
             val wanted = pendingPage ?: return@launch
             pendingPage = null

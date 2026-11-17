@@ -251,12 +251,7 @@ internal fun LiveTvGuideBand(
             val airing = slot != null && LiveTvGuideGrid.airing(slot, nowMs)
             when {
                 // The grid draws this row's "No guide" cell (no programmes in the bounds count as none).
-                slot == null && noGuide -> Text(
-                    text = stringResource(R.string.live_tv_no_guide),
-                    style = NuvioTheme.textStyles.meta,
-                    color = marquee.onImage3,
-                    maxLines = 1
-                )
+                slot == null && noGuide -> LiveTvNoGuideLine(loading = row.guideLoading)
                 slot == null -> Unit
                 airing -> GuideAiringLine(slot, nowMs, timeFormat)
                 else -> Text(
@@ -748,7 +743,7 @@ private fun GuideRowView(
         }
         Box(modifier = Modifier.width(stripWidth).fillMaxHeight()) {
             if (slots.isEmpty()) {
-                GuideNoneCell(focused = rowFocused, width = stripWidth)
+                GuideNoneCell(focused = rowFocused, width = stripWidth, loading = row.guideLoading)
                 return@Box
             }
             for (cell in LiveTvGuideGrid.cells(slots, strip, nowMs)) {
@@ -865,9 +860,12 @@ private fun GuideEndCell(text: String, width: Dp, modifier: Modifier) {
     }
 }
 
-/** `.c.none`: a row without a guide is one cell across the strip, focusable as the row (Q7). */
+/**
+ * `.c.none`: a row without a guide is one cell across the strip, focusable as the row (Q7); `.c.wait` while
+ * the guides are still read and matched ([loading], Spec 115 D5): "Loading the guide" on a fainter edge.
+ */
 @Composable
-private fun GuideNoneCell(focused: Boolean, width: Dp) {
+private fun GuideNoneCell(focused: Boolean, width: Dp, loading: Boolean) {
     val marquee = NuvioTheme.marquee
     val live = marquee.liveTv
     val shape = RoundedCornerShape(live.guideCellRadius)
@@ -877,13 +875,13 @@ private fun GuideNoneCell(focused: Boolean, width: Dp) {
             .fillMaxHeight()
             .then(
                 if (focused) Modifier.background(NuvioPrimitives.white, shape)
-                else Modifier.border(1.dp, live.guideNoneEdge, shape)
+                else Modifier.border(1.dp, if (loading) live.guideWaitEdge else live.guideNoneEdge, shape)
             )
             .padding(horizontal = live.guideCellPaddingHorizontal),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
-            text = stringResource(R.string.live_tv_no_guide),
+            text = stringResource(if (loading) R.string.live_tv_guide_loading else R.string.live_tv_no_guide),
             style = NuvioTheme.textStyles.caption,
             color = if (focused) NuvioPrimitives.black.copy(alpha = 0.7f) else marquee.onImage3,
             maxLines = 1

@@ -82,6 +82,41 @@ class UpdateReleaseTest {
     }
 
     @Test
+    fun `GitHub's rate limit is its own outcome, with the reset time it gives`() {
+        val now = 1_763_340_000_000L
+        fun h(vararg kv: String) = okhttp3.Headers.headersOf(*kv)
+        assertEquals(
+            CheckOutcome.RateLimited(1_763_350_000_000L),
+            rateLimitOutcome(403, h("x-ratelimit-remaining", "0", "x-ratelimit-reset", "1763350000"), now)
+        )
+        assertEquals(CheckOutcome.RateLimited(now + 60_000L), rateLimitOutcome(429, h("retry-after", "60"), now))
+        // The primary limit's reset wins; a secondary limit (requests left) uses retry-after; neither readable = no time.
+        assertEquals(
+            CheckOutcome.RateLimited(1_763_350_000_000L),
+            rateLimitOutcome(429, h("retry-after", "60", "x-ratelimit-remaining", "0", "x-ratelimit-reset", "1763350000"), now)
+        )
+        assertEquals(
+            CheckOutcome.RateLimited(now + 60_000L),
+            rateLimitOutcome(403, h("retry-after", "60", "x-ratelimit-remaining", "40", "x-ratelimit-reset", "1763350000"), now)
+        )
+        assertEquals(CheckOutcome.RateLimited(null), rateLimitOutcome(429, h("retry-after", "99999999999999999"), now))
+        assertEquals(CheckOutcome.RateLimited(null), rateLimitOutcome(403, h("x-ratelimit-remaining", "0"), now))
+        assertEquals(CheckOutcome.RateLimited(null), rateLimitOutcome(429, h("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT"), now))
+        // Not the rate limit: another status, or a 403 with requests left (a plain refusal).
+        assertNull(rateLimitOutcome(403, h("x-ratelimit-remaining", "12"), now))
+        assertNull(rateLimitOutcome(403, h(), now))
+        assertNull(rateLimitOutcome(500, h("x-ratelimit-remaining", "0"), now))
+    }
+
+    @Test
+    fun `a failed answer's note carries the status and GitHub's rate-limit headers`() {
+        val limited = okhttp3.Headers.headersOf("x-ratelimit-remaining", "0", "x-ratelimit-reset", "1763350000", "etag", "x")
+        assertEquals("http 403 x-ratelimit-remaining=0 x-ratelimit-reset=1763350000", gitHubAnswerNote(403, limited))
+        assertEquals("http 429 retry-after=60", gitHubAnswerNote(429, okhttp3.Headers.headersOf("retry-after", "60")))
+        assertEquals("http 500", gitHubAnswerNote(500, okhttp3.Headers.headersOf()))
+    }
+
+    @Test
     fun `auto check at most once a day, and when the clock went back`() {
         val day = AUTO_CHECK_INTERVAL_MS
         assertTrue(autoCheckDue(nowMs = 10 * day, lastAttemptMs = 0L))

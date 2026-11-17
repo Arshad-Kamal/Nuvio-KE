@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.welcome
 
 import androidx.datastore.preferences.core.Preferences
 import com.nuvio.tv.MainDispatcherRule
+import com.nuvio.tv.core.update.AUTO_CHECK_INTERVAL_MS
 import com.nuvio.tv.core.update.ChangelogRepository
 import com.nuvio.tv.core.update.SeenBuild
 import com.nuvio.tv.core.update.UpdateStore
@@ -31,17 +32,20 @@ class WhatsNewTest {
     private val store = UpdateStore(TestPreferencesDataStore())
     private var calls = 0
     private var answer: Response<List<GitHubReleaseDto>> = Response.success(emptyList())
+    private var offline = false
+    private var now = 100L * AUTO_CHECK_INTERVAL_MS
 
     private val api = object : GitHubReleaseApi {
         override suspend fun latestRelease(owner: String, repo: String) = error("not used")
         override suspend fun releases(owner: String, repo: String, perPage: Int): Response<List<GitHubReleaseDto>> {
             calls++
+            if (offline) throw IOException("no network")
             return answer
         }
     }
 
     private fun viewModel(updatedSinceInstall: Boolean = true, testReleases: Boolean = false) =
-        WhatsNewViewModel(store, ChangelogRepository(api, "o", "r") { testReleases }, installed, { updatedSinceInstall })
+        WhatsNewViewModel(store, ChangelogRepository(api, "o", "r") { testReleases }, installed, { updatedSinceInstall }, { now })
 
     private fun release(code: Int, body: String) = GitHubReleaseDto(
         name = "Nuvio KE $code",
@@ -134,13 +138,46 @@ class WhatsNewTest {
     }
 
     @Test
-    fun `a failed lookup records nothing, so the next start tries again`() = runTest(main.dispatcher) {
+    fun `a failed answer records no build and waits a day before the next lookup`() = runTest(main.dispatcher) {
+        // Spec 128 D7 (d): a rate-limited GitHub is asked again only after a day, as the update check.
         store.setSeenBuild(SeenBuild(1392, "0.9.0-ke52"))
-        answer = Response.error(500, "".toResponseBody())
+        answer = Response.error(
+            "".toResponseBody(),
+            okhttp3.Response.Builder().code(403).message("rate limit").protocol(okhttp3.Protocol.HTTP_1_1)
+                .header("x-ratelimit-remaining", "0").request(okhttp3.Request.Builder().url("https://api.github.com/").build())
+                .build()
+        )
+        viewModel().also { it.start() }
+        advanceUntilIdle()
+        assertEquals(1, calls)
+        assertEquals(now, store.whatsNewAttemptMs())
+        assertEquals(1392, store.seenBuild()?.versionCode)
+
+        now += AUTO_CHECK_INTERVAL_MS - 1
+        viewModel().also { it.start() }
+        advanceUntilIdle()
+        assertEquals(1, calls)
+
+        now += 1
+        answer = Response.success(listOf(release(1411, whatsNewBody)))
         val vm = viewModel()
         vm.start()
         advanceUntilIdle()
-        assertNull(vm.card.value)
+        assertEquals(2, calls)
+        assertEquals("Live TV", vm.card.value?.rows?.first()?.label)
+        assertEquals(1411, store.seenBuild()?.versionCode)
+    }
+
+    @Test
+    fun `no answer at all records nothing, so the next start tries again`() = runTest(main.dispatcher) {
+        store.setSeenBuild(SeenBuild(1392, "0.9.0-ke52"))
+        offline = true
+        viewModel().also { it.start() }
+        advanceUntilIdle()
+        viewModel().also { it.start() }
+        advanceUntilIdle()
+        assertEquals(2, calls)
+        assertEquals(0L, store.whatsNewAttemptMs())
         assertEquals(1392, store.seenBuild()?.versionCode)
     }
 

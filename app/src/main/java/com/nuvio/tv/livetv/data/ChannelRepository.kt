@@ -31,6 +31,11 @@ internal data class ChannelCache(val version: Int = 1, val channels: List<Channe
  * Bound (data/local AGENTS.md): each source is capped by its parser (M3U 100k entries) and a
  * channel a source stops listing is kept, hidden as "Source lost", for [LOST_RETENTION_MS], then
  * pruned. Both files decode on [io], never on main.
+ *
+ * Held publishing (Spec 115 D4): a background refresh saves with `publish = false` (on disk at
+ * once, [channels] unchanged) and calls [publishLatest] when it ends, so a multi-source refresh
+ * makes every screen re-derive once instead of once per source. Any other write publishes at once,
+ * held results included.
  */
 @Singleton
 class ChannelRepository internal constructor(
@@ -50,6 +55,9 @@ class ChannelRepository internal constructor(
     private val mutex = Mutex()
     private var loaded = false
 
+    /** What the cache holds; [channels] trails it after an unpublished save. Guarded by [mutex]. */
+    private var current: List<Channel> = emptyList()
+
     private val _channels = MutableStateFlow<List<Channel>>(emptyList())
 
     /** All cached channels, lost ones included (they carry [Channel.lostAtMs]); see [visible]. */
@@ -63,32 +71,54 @@ class ChannelRepository internal constructor(
     /** Reads both files once; later calls return at once. */
     suspend fun load() = withContext(io) { mutex.withLock { ensureLoaded() } }
 
+    /** Every cached channel as the cache holds it, held refresh results included (loads first). */
+    suspend fun latest(): List<Channel> = withContext(io) { mutex.withLock { ensureLoaded(); current } }
+
+    /** Publishes what the cache holds (after unpublished [replaceSource] saves); a no-op when nothing is held. */
+    suspend fun publishLatest() = withContext(io) { mutex.withLock { publish(current) } }
+
+    /**
+     * Publishes [list] and re-shares the instance [channels] holds: StateFlow ignores an equal value,
+     * so an unchanged refresh would otherwise keep two equal lists alive (red team 2d1a1994).
+     */
+    private fun publish(list: List<Channel>) {
+        _channels.value = list
+        current = _channels.value
+    }
+
     // Every mutation writes first and publishes after, so memory never runs ahead of disk; a
     // failed write (IOException, e.g. disk full) reaches the caller with both left as they were.
 
     /**
      * Replaces [sourceId]'s channels with a fresh listing and persists the cache; overrides of
-     * channels pruned by this merge go too (bound on the overrides file).
+     * channels pruned by this merge go too (bound on the overrides file). [publish] false keeps
+     * [channels] as it was until [publishLatest] or the next published write.
      */
-    suspend fun replaceSource(sourceId: String, fresh: List<Channel>) = withContext(io) {
+    suspend fun replaceSource(sourceId: String, fresh: List<Channel>, publish: Boolean = true) = withContext(io) {
         mutex.withLock {
             ensureLoaded()
-            val before = _channels.value
-            val merged = mergeSource(before, sourceId, fresh, nowMs())
-            cacheFile.write(ChannelCache(channels = merged))
-            _channels.value = merged
+            val before = current
+            // An unchanged listing keeps the list already held (no second copy while it is held).
+            val merged = mergeSource(before, sourceId, fresh, nowMs()).let { if (it == before) before else it }
+            // Unchanged: the cache already holds it (every save writes before it publishes).
+            if (merged !== before) cacheFile.write(ChannelCache(channels = merged))
+            current = merged
+            if (publish) publish(merged)
             val mergedKeys = merged.mapTo(HashSet()) { it.key }
             dropOverrides(before.filter { it.sourceId == sourceId && it.key !in mergedKeys })
         }
     }
 
-    /** Drops a removed source's channels and their overrides; other sources' overrides stay. */
+    /**
+     * Drops a removed source's channels and their overrides; other sources' overrides stay.
+     * Publishes at once (with any unpublished refresh results), so a removed source never lingers.
+     */
     suspend fun removeSource(sourceId: String) = withContext(io) {
         mutex.withLock {
             ensureLoaded()
-            val (gone, kept) = _channels.value.partition { it.sourceId == sourceId }
+            val (gone, kept) = current.partition { it.sourceId == sourceId }
             cacheFile.write(ChannelCache(channels = kept))
-            _channels.value = kept
+            publish(kept)
             dropOverrides(gone)
         }
     }
@@ -125,7 +155,8 @@ class ChannelRepository internal constructor(
 
     private fun ensureLoaded() {
         if (loaded) return
-        _channels.value = cacheFile.read()?.channels.orEmpty()
+        current = cacheFile.read()?.channels.orEmpty()
+        _channels.value = current
         _overrides.value = overridesFile.read().orEmpty()
         loaded = true
     }

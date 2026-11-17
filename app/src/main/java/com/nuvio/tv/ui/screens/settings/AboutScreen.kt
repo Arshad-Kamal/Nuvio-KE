@@ -394,18 +394,23 @@ private fun AboutUpdates(
 }
 
 /** Which line the first Updates row shows, in this precedence (the line's text: [updateStatusLine]). */
-internal enum class UpdateStatus { RELEASE, CHECKING, FAILED_AFTER_OK, FAILED, UP_TO_DATE, NEVER_CHECKED }
+internal enum class UpdateStatus {
+    RELEASE, CHECKING, RATE_LIMITED_AFTER_OK, RATE_LIMITED, FAILED_AFTER_OK, FAILED, UP_TO_DATE, NEVER_CHECKED
+}
 
 internal fun updateStatus(state: UpdateState): UpdateStatus = when {
     state.available != null -> UpdateStatus.RELEASE
     state.checking -> UpdateStatus.CHECKING
+    // Spec 128 D7 (a): GitHub's rate limit says so; no answer at all keeps "Couldn't reach GitHub".
+    state.lastCheckFailed && state.rateLimited && state.lastOkCheckMs > 0L -> UpdateStatus.RATE_LIMITED_AFTER_OK
+    state.lastCheckFailed && state.rateLimited -> UpdateStatus.RATE_LIMITED
     state.lastCheckFailed && state.lastOkCheckMs > 0L -> UpdateStatus.FAILED_AFTER_OK
     state.lastCheckFailed -> UpdateStatus.FAILED
     state.lastOkCheckMs > 0L -> UpdateStatus.UP_TO_DATE
     else -> UpdateStatus.NEVER_CHECKED
 }
 
-/** A failure line is red. */
+/** A failure line is red; the rate-limited lines stay the row's grey (Spec 128 D7 (a) mockup, approved as drawn). */
 internal val UpdateStatus.isFailure: Boolean
     get() = this == UpdateStatus.FAILED || this == UpdateStatus.FAILED_AFTER_OK
 
@@ -423,11 +428,27 @@ private fun updateStatusLine(status: UpdateStatus, state: UpdateState): String =
         ).joinToString(" \u00b7 ")
     }.orEmpty()
     UpdateStatus.CHECKING -> stringResource(R.string.update_checking)
+    UpdateStatus.RATE_LIMITED -> rateLimitedLine(state.retryAtMs)
+    UpdateStatus.RATE_LIMITED_AFTER_OK -> stringResource(
+        R.string.update_rate_limited_last, rateLimitedLine(state.retryAtMs), checkedWhen(state.lastOkCheckMs)
+    )
     UpdateStatus.FAILED_AFTER_OK -> stringResource(R.string.update_check_failed_last, checkedWhen(state.lastOkCheckMs))
     UpdateStatus.FAILED -> stringResource(R.string.update_check_failed)
     UpdateStatus.UP_TO_DATE -> stringResource(R.string.update_up_to_date, checkedWhen(state.lastOkCheckMs))
     UpdateStatus.NEVER_CHECKED -> stringResource(R.string.update_never_checked)
 }
+
+/**
+ * "Rate limited by GitHub · try again after 22:14" (the TV's clock format), or "… · try again later" with no time or
+ * once that time has passed (the line lasts until the next check, which may be a day away).
+ */
+@Composable
+private fun rateLimitedLine(retryAtMs: Long): String =
+    if (retryAtMs > System.currentTimeMillis()) {
+        stringResource(R.string.update_rate_limited, DateFormat.getTimeFormat(LocalContext.current).format(Date(retryAtMs)))
+    } else {
+        stringResource(R.string.update_rate_limited_later)
+    }
 
 internal enum class CheckedDay { TODAY, YESTERDAY, OTHER }
 

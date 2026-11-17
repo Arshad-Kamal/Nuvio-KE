@@ -22,6 +22,7 @@ import com.nuvio.tv.livetv.player.StreamHealth
 import com.nuvio.tv.livetv.player.StreamHealthRecord
 import com.nuvio.tv.livetv.player.StreamHealthStore
 import com.nuvio.tv.livetv.source.IptvMetadataRepository
+import com.nuvio.tv.livetv.source.LiveSource
 import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.SourceKind
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -81,7 +82,8 @@ data class LiveTvUiState(
  * The side panel's guide facts for one channel (D16, L7d), read when the panel opens: [current] is the
  * guide in use (null = none), [pickedNone] the user chose No guide, [currentNow] the current
  * guide's programme now, [guides] how many guides are cached, [candidates] Choose guide's list,
- * [sourceNames] each guide source's name by id.
+ * [sourceNames] each guide source's name by id. [loading]: the guides are not read and matched yet
+ * (Spec 115 D5): the rest is empty and the panel says so.
  */
 data class LiveGuidePanel(
     val current: EpgRef?,
@@ -89,7 +91,8 @@ data class LiveGuidePanel(
     val currentNow: String?,
     val guides: Int,
     val candidates: List<GuideCandidate>,
-    val sourceNames: Map<String, String>
+    val sourceNames: Map<String, String>,
+    val loading: Boolean = false
 )
 
 /**
@@ -138,7 +141,11 @@ class LiveTvViewModel internal constructor(
         screensaver, player, Dispatchers.Default
     )
 
+    // The channel side of the stores is read: rows may show (Spec 115 I2).
     private val loaded = MutableStateFlow(false)
+
+    // The cached guides are read: matching may start. Until then rows show without now/next (D5).
+    private val guidesRead = MutableStateFlow(false)
 
     // The filter shown; null until the opening filter is chosen from the saved one (Q1, L8-D3).
     private val filter = MutableStateFlow<LiveTvFilter?>(null)
@@ -164,14 +171,20 @@ class LiveTvViewModel internal constructor(
         .map { list -> list.map { it.id } to GuideShift.headerShifts(list.associate { it.id to it.playlistAttrs }) }
         .distinctUntilChanged()
     private val guideCountries = sourceManager.sources.map(LiveTvModel::guideCountries).distinctUntilChanged()
-    private val hasChannelSources = sourceManager.sources
-        .map { list -> list.any { it.kind != SourceKind.XMLTV } }
+    private data class SourceKinds(val hasChannels: Boolean, val hasGuides: Boolean)
+
+    // A playlist or `tv` addon exists (else the empty state); a guide source exists (else no loading line, D5).
+    private val sourceKinds = sourceManager.sources
+        .map { list -> SourceKinds(list.any { it.kind != SourceKind.XMLTV }, hasGuideSource(list)) }
         .distinctUntilChanged()
 
+    private fun hasGuideSource(sources: List<LiveSource>): Boolean = sources.any { it.kind == SourceKind.XMLTV }
+
     /**
-     * Null until the stores have loaded and the first lineup is derived from them, so the screen
-     * never shows an empty or guide-less list on open. Keyed on source ids and header shifts only: a
-     * source's status writes during refresh do not rerun enrichment. Shared: rows and matching both read it.
+     * Null until the channel stores have loaded and the first lineup is derived from them, so the
+     * screen never shows an empty list on open; the guides may still be reading ([refs]). Keyed on
+     * source ids and header shifts only: a source's status writes during refresh do not rerun
+     * enrichment. Shared: rows and matching both read it.
      */
     private val lineup: StateFlow<Lineup?> = combine(
         loaded,
@@ -216,15 +229,27 @@ class LiveTvViewModel internal constructor(
     private fun userLists(lineup: Lineup, user: LiveTvUserState, recents: List<String>? = null): UserLists =
         LiveTvModel.userLists(lineup, user.favorites, recents ?: user.recentKeys)
 
-    /** Null until the first lineup is matched against the guides. */
+    /**
+     * Null until the cached guides are read and the first lineup is matched against them (Spec 115 I2):
+     * rows show without now/next meanwhile. [guidesRead] never turns back and `stateIn` keeps its value
+     * through a WhileSubscribed restart, so later changes keep the last refs until rematched: the loading
+     * line shows for the first read only, never during a refresh or on the screen's return (D5).
+     */
     private val refs: StateFlow<Map<String, EpgRef>?> = combine(
         lineup.filterNotNull(),
         guideCountries,
         guideRepository.guides,
-        channelRepository.overrides
-    ) { l, countries, guides, overrides -> LiveTvModel.guideRefs(l.channels, countries, guides, overrides) }
+        channelRepository.overrides,
+        guidesRead
+    ) { l, countries, guides, overrides, read ->
+        if (read) LiveTvModel.guideRefs(l.channels, countries, guides, overrides) else null
+    }
         .flowOn(derive)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+
+    /** Whether rows still wait for their first guide match: no [refs] yet and a guide source exists (D5). */
+    private fun awaitingFirstMatch(refs: Map<String, EpgRef>?, hasGuideSource: Boolean): Boolean =
+        refs == null && hasGuideSource
 
     /**
      * Wall clock at each minute boundary: now/next and progress move with it. One ticker for rows
@@ -282,29 +307,32 @@ class LiveTvViewModel internal constructor(
     }
 
     val uiState: StateFlow<LiveTvUiState> = combine(
-        hasChannelSources,
+        sourceKinds,
         listed,
         refs,
         selection,
         guidesAtMinute
-    ) { hasChannelSources, listed, refs, (filter, browse, view, pickers), (guides, nowMs) ->
-        if (listed == null || refs == null || filter == null) {
+    ) { kinds, listed, refs, (filter, browse, view, pickers), (guides, nowMs) ->
+        if (listed == null || filter == null) {
             LiveTvUiState(loading = true, filter = filter ?: LiveTvFilter.initial, browse = browse, view = view)
         } else {
             val (lineup, lists) = listed
             val channels = LiveTvModel.filtered(lineup, filter, lists)
+            val matched = refs.orEmpty()
             LiveTvUiState(
                 loading = false,
-                hasChannelSources = hasChannelSources,
+                hasChannelSources = kinds.hasChannels,
                 filter = filter,
                 counts = LiveTvModel.counts(lists),
                 browse = browse,
                 pickers = pickers,
                 categoryLabels = lineup.categoryLabels,
-                rows = LiveTvModel.rows(channels, lineup.numbers, refs, guides, nowMs, lists.favoriteKeys),
+                rows = LiveTvModel.rows(
+                    channels, lineup.numbers, matched, guides, nowMs, lists.favoriteKeys, awaitingFirstMatch(refs, kinds.hasGuides)
+                ),
                 nowMs = nowMs,
                 view = view,
-                guide = guideRows(view, channels, refs, guides, nowMs)
+                guide = guideRows(view, channels, matched, guides, nowMs)
             )
         }
     }.flowOn(derive)
@@ -314,12 +342,16 @@ class LiveTvViewModel internal constructor(
     val info: StateFlow<LiveRow?> = combine(
         lineup,
         refs,
+        sourceKinds,
         _focusedKey,
         guidesAtMinute
-    ) { lineup, refs, key, (guides, nowMs) ->
+    ) { lineup, refs, kinds, key, (guides, nowMs) ->
         val channel = key?.let { lineup?.channel(it) }
-        if (lineup == null || refs == null || channel == null) null
-        else LiveTvModel.rows(listOf(channel), lineup.numbers, refs, guides, nowMs).single()
+        if (lineup == null || channel == null) null
+        else LiveTvModel.rows(
+            listOf(channel), lineup.numbers, refs.orEmpty(), guides, nowMs,
+            guideLoading = awaitingFirstMatch(refs, kinds.hasGuides)
+        ).single()
     }.flowOn(derive)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
@@ -362,8 +394,10 @@ class LiveTvViewModel internal constructor(
     init {
         viewModelScope.launch {
             hiddenStore.load()
-            sourceManager.load()
+            sourceManager.loadChannels()
             loaded.value = true
+            sourceManager.loadGuides()
+            guidesRead.value = true
             sourceManager.refreshStale()
         }
         // Zapping reads the cooling records before any tune here has loaded them.
@@ -539,14 +573,30 @@ class LiveTvViewModel internal constructor(
     /** Health records by stream (the side panel's "worked at" / "failed at"). */
     val streamHealth: StateFlow<Map<String, StreamHealthRecord>> get() = health.records
 
-    /** The side panel's guide facts for channel [key]; null when the lineup no longer holds it (lost ones included). */
+    /** Suspends until the first guide match exists (D5): a panel opened while it loads reads [guidePanel] again then. */
+    suspend fun awaitGuideMatch() {
+        refs.first { it != null }
+    }
+
+    /**
+     * The side panel's guide facts for channel [key]; null when the lineup no longer holds it (lost ones
+     * included); [LiveGuidePanel.loading] before the first guide match (then [awaitGuideMatch]).
+     */
     suspend fun guidePanel(key: String): LiveGuidePanel? = withContext(derive) {
         val channel = lineup.value?.channel(key) ?: return@withContext null
-        val guides = guideRepository.guides.value
         val sources = sourceManager.sources.value
+        // One read: the check and the current guide see the same matches.
+        val matched = refs.value
+        if (awaitingFirstMatch(matched, hasGuideSource(sources))) {
+            return@withContext LiveGuidePanel(
+                current = null, pickedNone = false, currentNow = null, guides = 0,
+                candidates = emptyList(), sourceNames = emptyMap(), loading = true
+            )
+        }
+        val guides = guideRepository.guides.value
         val epgSources = LiveTvModel.epgSources(LiveTvModel.guideCountries(sources), guides)
         // A ref to a guide no longer cached reads as no guide (LiveTvModel.rows).
-        val current = refs.value?.get(key)?.takeIf { it.epgSourceId in guides }
+        val current = matched?.get(key)?.takeIf { it.epgSourceId in guides }
         val nowMs = System.currentTimeMillis()
         LiveGuidePanel(
             current = current,

@@ -96,7 +96,7 @@ class UpdateStore internal constructor(private val dataStore: DataStore<Preferen
                     else prefs[KNOWN_RELEASE] = localStoreJson.encodeToString(KnownRelease.serializer(), offer)
                 }
                 CheckOutcome.NoRelease -> prefs.remove(KNOWN_RELEASE)
-                CheckOutcome.Failed, CheckOutcome.Unreached -> Unit
+                CheckOutcome.Failed, is CheckOutcome.RateLimited, CheckOutcome.Unreached -> Unit
             }
         }.toRecord()
     }
@@ -127,6 +127,17 @@ class UpdateStore internal constructor(private val dataStore: DataStore<Preferen
             prefs[SEEN_VERSION_CODE] = build.versionCode
             prefs[SEEN_VERSION_NAME] = build.versionName
         }
+    }
+
+    /**
+     * Spec 128 D7 (d): when What's new's lookup last got an unusable GitHub answer (0 = never; a usable one records the
+     * build instead), so its lookup runs at most once a day. Throws the DataStore read's IOException.
+     */
+    suspend fun whatsNewAttemptMs(): Long = dataStore.data.first()[WHATS_NEW_ATTEMPT_MS] ?: 0L
+
+    /** Throws the DataStore write's IOException. */
+    suspend fun setWhatsNewAttempt(nowMs: Long) {
+        dataStore.edit { it[WHATS_NEW_ATTEMPT_MS] = nowMs }
     }
 
     /** Spec 81 T1: the tip record (TipLinkRepository is its only reader and writer). Throws the DataStore read's IOException. */
@@ -169,6 +180,7 @@ class UpdateStore internal constructor(private val dataStore: DataStore<Preferen
         val SEEN_VERSION_NAME = stringPreferencesKey("seen_version_name")
         val TIP_LINKS = stringPreferencesKey("tip_links")
         val TIP_ATTEMPT_MS = longPreferencesKey("tip_attempt_ms")
+        val WHATS_NEW_ATTEMPT_MS = longPreferencesKey("whats_new_attempt_ms")
 
         /**
          * Stored links that do not decode, or no longer pass [validTipLink] (a rule tightened since),

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -73,7 +74,8 @@ sealed interface DownloadState {
 
 /**
  * What About, the rail dot and the top-bar pill show (S8). [lastCheckFailed] = the latest check
- * this run, automatic or not, got no usable answer (no popup either way); [available] = the known
+ * this run, automatic or not, got no usable answer (no popup either way), [rateLimited] when that was
+ * GitHub's rate limit (Spec 128 D7 (a); [retryAtMs] its reset, 0 = not given); [available] = the known
  * release while it is newer than this build, so installing it clears it.
  */
 data class UpdateState(
@@ -81,6 +83,8 @@ data class UpdateState(
     val autoCheck: Boolean = true,
     val checking: Boolean = false,
     val lastCheckFailed: Boolean = false,
+    val rateLimited: Boolean = false,
+    val retryAtMs: Long = 0L,
     val lastOkCheckMs: Long = 0L,
     val available: KnownRelease? = null,
     val download: DownloadState = DownloadState.Idle,
@@ -137,6 +141,8 @@ class UpdateController internal constructor(
         val record: UpdateRecord = UpdateRecord(),
         val checking: Boolean = false,
         val failed: Boolean = false,
+        /** The latest check's rate limit (Spec 128 D7 (a)); null = not rate limited. */
+        val rateLimit: CheckOutcome.RateLimited? = null,
         val download: DownloadState = DownloadState.Idle
     )
 
@@ -364,7 +370,7 @@ class UpdateController internal constructor(
         val offer = when (val outcome = awaitCheck()) {
             is CheckOutcome.Answered -> outcome.offer?.takeIf { it.offered(snapshot.value.record) } ?: return DownloadState.Idle
             CheckOutcome.NoRelease -> return DownloadState.Idle
-            CheckOutcome.Failed, CheckOutcome.Unreached, null -> return DownloadState.Failed
+            CheckOutcome.Failed, is CheckOutcome.RateLimited, CheckOutcome.Unreached, null -> return DownloadState.Failed
         }
         val total = offer.sizeBytes
         snapshot.update { it.copy(download = DownloadState.Running(0L, total)) }
@@ -432,7 +438,9 @@ class UpdateController internal constructor(
         try {
             outcome = fetchAndRecord()
         } finally {
-            snapshot.update { it.copy(checking = false, failed = outcome !is CheckOutcome.Answered) }
+            snapshot.update {
+                it.copy(checking = false, failed = outcome !is CheckOutcome.Answered, rateLimit = outcome as? CheckOutcome.RateLimited)
+            }
         }
         Log.i(TAG, "check: ${outcome.javaClass.simpleName}")
         return outcome
@@ -453,16 +461,28 @@ class UpdateController internal constructor(
         }
     }
 
-    /** Spec 89 D5: Get test releases on reads the release list (pre-releases included), off the latest release. */
+    /**
+     * Spec 89 D5: Get test releases on reads the release list (pre-releases included), off the latest release.
+     * Spec 128 D7: GitHub's rate limit is its own outcome; any failed answer's status and rate-limit headers are logged.
+     */
     private suspend fun fetch(): CheckOutcome = try {
+        val response: Response<*>
+        val answered: CheckOutcome
         if (snapshot.value.record.testReleases) {
             // The changelog's page size: a test release is among the newest, and it is the same one request.
-            val response = api.releases(feed.owner, feed.repo, CHANGELOG_SIZE)
-            listCheckOutcome(response.code(), response.body(), feed.supportedAbis)
+            val list = api.releases(feed.owner, feed.repo, CHANGELOG_SIZE)
+            response = list
+            answered = listCheckOutcome(list.code(), list.body(), feed.supportedAbis)
         } else {
-            val response = api.latestRelease(feed.owner, feed.repo)
-            checkOutcome(response.code(), response.body(), feed.supportedAbis)
+            val latest = api.latestRelease(feed.owner, feed.repo)
+            response = latest
+            answered = checkOutcome(latest.code(), latest.body(), feed.supportedAbis)
         }
+        val outcome = rateLimitOutcome(response.code(), response.headers(), nowMs()) ?: answered
+        if (outcome == CheckOutcome.Failed || outcome is CheckOutcome.RateLimited) {
+            Log.w(TAG, "check failed: ${gitHubAnswerNote(response.code(), response.headers())}")
+        }
+        outcome
     } catch (e: CancellationException) {
         throw e
     } catch (_: IOException) {
@@ -494,6 +514,8 @@ class UpdateController internal constructor(
         autoCheck = snapshot.record.autoCheck,
         checking = snapshot.checking,
         lastCheckFailed = snapshot.failed,
+        rateLimited = snapshot.rateLimit != null,
+        retryAtMs = snapshot.rateLimit?.retryAtMs ?: 0L,
         lastOkCheckMs = snapshot.record.lastOkCheckMs,
         available = snapshot.record.knownRelease?.takeIf { it.offered(snapshot.record) },
         download = snapshot.download,

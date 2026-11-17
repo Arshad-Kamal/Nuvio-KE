@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -184,5 +185,50 @@ class ChannelRepositoryTest {
         second.load()
         assertEquals(1, second.channels.value.size)
         assertTrue(File(tmp.root, "channels.json.tmp").exists().not())
+    }
+
+    // Spec 115 D4: held publishing.
+
+    @Test
+    fun `an unpublished save is on disk and in latest at once, published by publishLatest`() = runTest {
+        val r = repo()
+        r.replaceSource("a", listOf(ch("a", "x")))
+        r.replaceSource("a", listOf(ch("a", "y")), publish = false)
+        r.replaceSource("b", listOf(ch("b", "z")), publish = false)
+        assertEquals(listOf("a#id:x"), r.channels.value.map { it.key })
+        assertEquals(listOf("a#id:y", "a#id:x", "b#id:z"), r.latest().map { it.key })
+        assertEquals(listOf("a#id:y", "a#id:x", "b#id:z"), repo().apply { load() }.channels.value.map { it.key })
+        r.publishLatest()
+        assertEquals(listOf("a#id:y", "a#id:x", "b#id:z"), r.channels.value.map { it.key })
+    }
+
+    @Test
+    fun `a published write after unpublished ones publishes them all (a user action never waits)`() = runTest {
+        val r = repo()
+        r.replaceSource("a", listOf(ch("a", "x")), publish = false)
+        r.replaceSource("b", listOf(ch("b", "y")))
+        assertEquals(listOf("a#id:x", "b#id:y"), r.channels.value.map { it.key })
+    }
+
+    @Test
+    fun `removing a source publishes at once, unpublished results included`() = runTest {
+        val r = repo()
+        r.replaceSource("a", listOf(ch("a", "x")))
+        r.replaceSource("b", listOf(ch("b", "y")), publish = false)
+        r.removeSource("a")
+        assertEquals(listOf("b#id:y"), r.channels.value.map { it.key })
+    }
+
+    @Test
+    fun `an unchanged refresh keeps one list instance, published or held`() = runTest {
+        val r = repo()
+        r.replaceSource("a", listOf(ch("a", "x")))
+        r.replaceSource("a", listOf(ch("a", "x")))
+        assertSame(r.latest(), r.channels.value)
+        r.replaceSource("a", listOf(ch("a", "x")), publish = false)
+        assertSame(r.latest(), r.channels.value)
+        r.replaceSource("b", listOf(ch("b", "y")), publish = false)
+        r.publishLatest()
+        assertSame(r.latest(), r.channels.value)
     }
 }

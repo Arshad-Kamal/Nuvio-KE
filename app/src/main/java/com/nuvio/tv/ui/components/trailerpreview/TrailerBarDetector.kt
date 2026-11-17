@@ -102,7 +102,7 @@ class TrailerShapeDecider(private val startPositionMs: Long) {
     fun isDue(positionMs: Long): Boolean = shape == null && positionMs >= nextDueMs
 
     /**
-     * One sample taken at [positionMs]: its visible [aspect] (null = invalid), [costMs] its copy + scan, of a frame
+     * One sample taken at [positionMs]: its visible [aspect] (null = invalid), [costMs] its main-thread cost, of a frame
      * whose own aspect is [frameAspect]. Returns the shape once decided.
      */
     fun onSample(positionMs: Long, aspect: Float?, costMs: Float, frameAspect: Float): TrailerShape? {
@@ -130,7 +130,8 @@ class TrailerShapeDecider(private val startPositionMs: Long) {
         private const val AGREE_TOLERANCE = 0.03f
         private const val AGREE_COUNT = 4
         private const val SAMPLE_CAP = 10
-        // Copy + getPixels + scan; the 3rd sample over it stops sampling (Shield acceptance: p95 copy < 4 ms).
+        // Main-thread getPixels + scan (the copy runs off the main thread, Spec 128 D5); the 3rd sample over it stops
+        // sampling.
         private const val SAMPLE_BUDGET_MS = 8f
         private const val SLOW_SAMPLE_LIMIT = 3
     }

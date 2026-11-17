@@ -62,10 +62,20 @@ internal fun LiveTvOptionsPanel(
     val live = NuvioTheme.marquee.liveTv
     val key = row.channel.key
     var page by remember(key) { mutableStateOf(PanelPage.OPTIONS) }
-    val guide by produceState<LiveGuidePanel?>(null, key) { value = viewModel.guidePanel(key) }
+    // A panel opened while the guides load reads again once they are matched (Spec 115 D5) and fills in.
+    val guide by produceState<LiveGuidePanel?>(null, key) {
+        value = viewModel.guidePanel(key)
+        if (value?.loading == true) {
+            viewModel.awaitGuideMatch()
+            value = viewModel.guidePanel(key)
+        }
+    }
     // Each page's first row takes focus when the page opens (the favorite toggle is the options' first);
-    // Back from the guide page returns to Choose guide instead.
-    val firstRow = remember(key, page) { FocusRequester() }
+    // Back from the guide page returns to Choose guide instead. The guide page's list arriving after a
+    // loading line is a new first row, which takes focus (keyed on the guide page only: the options
+    // page keeps the focus the user moved).
+    val guidePageLoading = page == PanelPage.GUIDE && guide?.loading == true
+    val firstRow = remember(key, page, guidePageLoading) { FocusRequester() }
     val guideRow = remember(key, page) { FocusRequester() }
     var backFromGuide by remember(key) { mutableStateOf(false) }
     // In its own window, as the other top-bar tabs' panels: the veil dims the bar too.
@@ -174,11 +184,15 @@ private fun OptionsPage(
     PanelNote(stringResource(R.string.live_tv_panel_note))
 }
 
-/** The Choose guide row's line: the guide in use ("source · now title"), else how many guides there are to search. */
+/**
+ * The Choose guide row's line: "Loading the guide" before the first match (Spec 115 D5), the guide in use
+ * ("source · now title"), else how many guides there are to search.
+ */
 @Composable
 private fun guideSummary(guide: LiveGuidePanel): String {
     val current = guide.current
     return when {
+        guide.loading -> stringResource(R.string.live_tv_guide_loading)
         current != null -> listOfNotNull(
             guide.sourceNames[current.epgSourceId],
             guide.currentNow?.let { stringResource(R.string.live_tv_guide_now, it) }
@@ -220,6 +234,12 @@ private fun ColumnScope.GuidePage(
     onPick: (EpgRef?) -> Unit
 ) {
     PanelEyebrow(text = stringResource(R.string.live_tv_choose_guide_title, row.channel.shownName))
+    if (guide?.loading == true) {
+        // Nothing to pick until the guides are matched (D5); not focusable, Back leaves as usual.
+        LiveTvGuideLoadingLine(modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp))
+        PanelNote(stringResource(R.string.live_tv_choose_guide_note))
+        return
+    }
     val candidates = guide?.candidates.orEmpty()
     val current = guide?.current
     Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
