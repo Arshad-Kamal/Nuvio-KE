@@ -239,4 +239,29 @@ class SubtitleCharsetDetectorTest {
         val repaired = SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(mojibake, "pol")
         assertEquals(nfd(polish), nfd(repaired))
     }
+
+    // Spec 135 (issue #2): correct UTF-8 Vietnamese has letters windows-1252 cannot produce; the
+    // double-encoding repair must leave it alone (it used to drop every such letter). The last line's
+    // ì ò ã map to combining marks in windows-1258, which is what let the broken candidate win.
+    private val vietnameseSrt = (1..20).joinToString("") {
+        "$it\n00:00:0$it,000 --> 00:00:0$it,900\n" +
+            "Nếu trong thời gian ngắn mà để chúng moi khoản bồi thường khổng lồ như vậy...\n" +
+            "Cô đưa một chai nước cho con bé rồi.\n" +
+            "Còn nhìn thấy đã có những gì?\n\n"
+    }
+
+    @Test
+    fun correctVietnameseUtf8IsKeptForEveryHint() {
+        for (hint in listOf("vie", "vi", "eng", null)) {
+            val bytes = vietnameseSrt.toByteArray(Charsets.UTF_8)
+            assertEquals("hint=$hint", vietnameseSrt, SubtitleCharsetDetector.decode(bytes, languageHint = hint))
+            val bom = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + bytes
+            assertEquals("bom hint=$hint", vietnameseSrt, SubtitleCharsetDetector.decode(bom, languageHint = hint))
+            assertEquals(
+                "repair hint=$hint",
+                vietnameseSrt,
+                SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(vietnameseSrt, hint)
+            )
+        }
+    }
 }

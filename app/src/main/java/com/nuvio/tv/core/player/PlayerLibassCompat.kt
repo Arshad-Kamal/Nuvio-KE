@@ -46,10 +46,10 @@ private const val TAG = "PlayerLibassCompat"
  * the default family by name, glyph coverage checked, before fontconfig's fallback, so these
  * fonts fill that gap; scripts they lack still reach fontconfig. Recipe and evidence: Spec 98 D5, D7.
  */
-internal val LIBASS_FALLBACK_FONTS: List<Pair<String, Int>> = listOf(
-    "libass_fallback_regular.ttf" to R.raw.libass_fallback_regular,
-    "libass_fallback_bold.ttf" to R.raw.libass_fallback_bold
-)
+internal val LIBASS_FALLBACK_REGULAR: Pair<String, Int> =
+    "libass_fallback_regular.ttf" to R.raw.libass_fallback_regular
+internal val LIBASS_FALLBACK_BOLD: Pair<String, Int> = "libass_fallback_bold.ttf" to R.raw.libass_fallback_bold
+internal val LIBASS_FALLBACK_FONTS: List<Pair<String, Int>> = listOf(LIBASS_FALLBACK_REGULAR, LIBASS_FALLBACK_BOLD)
 
 @OptIn(UnstableApi::class)
 internal fun ExoPlayer.Builder.buildWithAssSupportCompat(

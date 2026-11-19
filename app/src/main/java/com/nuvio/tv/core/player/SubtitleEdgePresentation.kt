@@ -3,7 +3,6 @@
 package com.nuvio.tv.core.player
 
 import android.graphics.Color
-import android.graphics.Typeface
 import android.util.TypedValue
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
@@ -45,8 +44,9 @@ internal fun exoSubtitleLook(style: SubtitleStyleSettings, ownSsaStyle: Boolean)
     )
 
 /**
- * Applies the user's subtitle look to an ExoPlayer [SubtitleView]: size, weight, colours, edge
- * and the bottom offset (a fraction of the view's height plus an extra padding once laid out).
+ * Applies the user's subtitle look to an ExoPlayer [SubtitleView]: size, weight (typeface from
+ * [SubtitleTypefaces], Spec 135), colours, edge and the bottom offset (a fraction of the view's
+ * height plus an extra padding once laid out).
  * [textScale] scales the user's fixed size (the Settings preview draws a smaller frame). One home
  * for the player and the Settings preview (Spec 31 PB6).
  */
@@ -70,7 +70,7 @@ internal fun SubtitleView.applySubtitleLook(
             Color.TRANSPARENT,
             look.edgeType,
             look.edgeColor,
-            if (style.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            SubtitleTypefaces.forWeight(context, style.bold)
         )
     )
     setApplyEmbeddedStyles(true)

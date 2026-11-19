@@ -83,6 +83,11 @@ object SubtitleCharsetDetector {
 
     fun repairDoubleEncodedUtf8IfNeeded(text: String, languageHint: String? = null): String {
         if (text.isEmpty()) return text
+        // Spec 135 (issue #2): double-encoded text is a windows-1252 reading of UTF-8 bytes, so a
+        // character windows-1252 cannot produce (Vietnamese ộ ơ đ ư ...) means the text is already
+        // right. Re-encoding it would drop each such letter (Android writes 0x1A for it, a box on
+        // screen). Same guard as Spec 134 D2.
+        if (!couldBeWindows1252Decoded(text)) return text
 
         val normalized = languageHint?.trim()?.lowercase()?.substringBefore('-')?.substringBefore('_')
 
@@ -136,6 +141,15 @@ object SubtitleCharsetDetector {
         }
 
         return text
+    }
+
+    /**
+     * Every character is one a misread of the bytes could have produced: windows-1252's own
+     * characters, U+FFFD for its five undefined bytes, C1 controls when the reader was Latin-1.
+     */
+    private fun couldBeWindows1252Decoded(text: String): Boolean {
+        val encoder = CHARSET_WIN1252.newEncoder()
+        return text.all { c -> c <= '\u00FF' || c == '\uFFFD' || encoder.canEncode(c) }
     }
 
     private fun resolveCharsetFromLanguageHint(
