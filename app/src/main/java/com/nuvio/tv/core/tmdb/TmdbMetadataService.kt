@@ -608,7 +608,10 @@ class TmdbMetadataService(
                             tmdbRating = rec.voteAverage?.toFloat(),
                             genres = emptyList(),
                             landscapePoster = backdrop,
-                            rawPosterUrl = fallbackPoster
+                            rawPosterUrl = fallbackPoster,
+                            // Spec 117 S8: the list hints the content filter judges before any tag lookup.
+                            tmdbGenreIds = rec.genreIds.orEmpty(),
+                            tmdbAdult = rec.adult == true
                         )
                     }
                 }.awaitAll().filterNotNull()
@@ -678,7 +681,9 @@ class TmdbMetadataService(
                             tmdbRating = part.voteAverage?.toFloat(),
                             genres = emptyList(),
                             landscapePoster = backdrop,
-                            rawPosterUrl = fallbackPoster
+                            rawPosterUrl = fallbackPoster,
+                            tmdbGenreIds = part.genreIds.orEmpty(),
+                            tmdbAdult = part.adult == true
                         )
                     }
                 }.awaitAll().filterNotNull()
@@ -956,7 +961,9 @@ class TmdbMetadataService(
             releaseInfo = releaseInfo,
             imdbRating = null,
             tmdbRating = result.voteAverage?.toFloat(),
-            genres = emptyList()
+            genres = emptyList(),
+            tmdbGenreIds = result.genreIds.orEmpty(),
+            tmdbAdult = result.adult == true
         )
     }
 
@@ -1181,7 +1188,9 @@ class TmdbMetadataService(
                 releaseInfo = date?.take(4),
                 imdbRating = null,
                 tmdbRating = credit.voteAverage?.toFloat(),
-                genres = emptyList()
+                genres = emptyList(),
+                tmdbGenreIds = credit.genreIds.orEmpty(),
+                tmdbAdult = credit.adult == true
             ),
             roles = sameTitle.mapNotNull { it.role?.trim()?.takeIf(String::isNotEmpty) }.distinct(),
             episodeCount = sameTitle.mapNotNull { it.episodeCount }.maxOrNull(),
@@ -1208,7 +1217,9 @@ private class RawPersonCredit(
     val department: String,
     /** Cast character or crew job. */
     val role: String?,
-    val episodeCount: Int?
+    val episodeCount: Int?,
+    val genreIds: List<Int>?,
+    val adult: Boolean?
 ) {
     val isTitleCredit: Boolean
         get() = mediaType == TmdbEntityMediaType.MOVIE.value || mediaType == TmdbEntityMediaType.TV.value
@@ -1218,7 +1229,7 @@ private fun TmdbPersonCreditCast.toRawPersonCredit() = RawPersonCredit(
     id = id, title = title, name = name, mediaType = mediaType, posterPath = posterPath?.takeIf { it.isNotBlank() },
     backdropPath = backdropPath, releaseDate = releaseDate, firstAirDate = firstAirDate,
     voteAverage = voteAverage, overview = overview, department = ACTING_DEPARTMENT,
-    role = character, episodeCount = episodeCount
+    role = character, episodeCount = episodeCount, genreIds = genreIds, adult = adult
 )
 
 private fun TmdbPersonCreditCrew.toRawPersonCredit() = RawPersonCredit(
@@ -1226,7 +1237,7 @@ private fun TmdbPersonCreditCrew.toRawPersonCredit() = RawPersonCredit(
     backdropPath = backdropPath, releaseDate = releaseDate, firstAirDate = firstAirDate,
     voteAverage = voteAverage, overview = overview,
     department = department?.trim()?.takeIf { it.isNotEmpty() } ?: CREW_DEPARTMENT_FALLBACK,
-    role = job, episodeCount = episodeCount
+    role = job, episodeCount = episodeCount, genreIds = genreIds, adult = adult
 )
 
 /** TMDB's catch-all crew department, used when a crew credit names none. */

@@ -72,3 +72,7 @@ docs/subagents/
 /tools/*
 # Wi-Fi nudge tool source is tracked (only copy; its build dirs stay ignored above)
 !/tools/wifi-nudge/
+
+# Spec 116 report Worker: npm and wrangler output (report-worker/ is published by the public sync)
+report-worker/node_modules/
+report-worker/.wrangler/

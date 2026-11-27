@@ -68,6 +68,58 @@ class LibraryHistoryTest {
     }
 
     @Test
+    fun `a watched-only title takes its mark's backdrop, a progress backdrop wins over it`() {
+        val result = libraryHistory(
+            progress = listOf(progress("p", at = 100L)),
+            watched = listOf(
+                watched("p", at = 200L).copy(backdrop = "mark-backdrop-p"),
+                watched("w", at = 150L).copy(poster = "mark-poster-w", backdrop = "mark-backdrop-w"),
+                watched("n", at = 120L).copy(poster = "mark-poster-n")
+            )
+        ).associateBy { it.id }
+        assertEquals("backdrop-p", result.getValue("p").backdrop)
+        assertEquals("mark-backdrop-w", result.getValue("w").backdrop)
+        assertEquals("mark-poster-w", result.getValue("w").poster)
+        // Not hydrated yet: no backdrop, so the card keeps the poster fallback.
+        assertNull(result.getValue("n").backdrop)
+        assertEquals("mark-poster-n", result.getValue("n").poster)
+    }
+
+    @Test
+    fun `a progress entry without real landscape art yields to the mark's backdrop`() {
+        val result = libraryHistory(
+            progress = listOf(
+                progress("none", at = 100L).copy(backdrop = null),
+                progress("same", at = 100L).copy(backdrop = "poster-same", poster = "poster-same"),
+                progress("alone", at = 100L).copy(backdrop = "poster-alone", poster = "poster-alone")
+            ),
+            watched = listOf(
+                watched("none", at = 50L).copy(backdrop = "mark-backdrop-none"),
+                watched("same", at = 50L).copy(backdrop = "mark-backdrop-same")
+            )
+        ).associateBy { it.id }
+        assertEquals("mark-backdrop-none", result.getValue("none").backdrop)
+        assertEquals("mark-backdrop-same", result.getValue("same").backdrop)
+        // No mark backdrop: the progress value stays (the card shows the poster, as before).
+        assertEquals("poster-alone", result.getValue("alone").backdrop)
+    }
+
+    @Test
+    fun `art comes from any of the title's marks when the newest has none`() {
+        val result = libraryHistory(
+            progress = emptyList(),
+            watched = listOf(
+                // A tracker's newer mark carries no art; the older local mark was hydrated.
+                watched("t", at = 300L, season = 1, episode = 4),
+                watched("t", at = 100L, season = 1, episode = 1).copy(poster = "mark-poster-t", backdrop = "mark-backdrop-t")
+            )
+        ).single()
+        assertEquals("mark-poster-t", result.poster)
+        assertEquals("mark-backdrop-t", result.backdrop)
+        assertEquals(1 to 4, result.season to result.episode)
+    }
+
+    @Test
     fun `unfinished latest play keeps its bar, a finished one does not`() {
         val result = libraryHistory(
             progress = listOf(progress("half", at = 200L, position = 35L), progress("done", at = 100L, position = 95L)),

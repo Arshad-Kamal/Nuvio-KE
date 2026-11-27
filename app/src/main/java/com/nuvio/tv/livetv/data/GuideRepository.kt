@@ -25,7 +25,7 @@ internal data class GuideCache(val version: Int = 1, val snapshot: EpgSnapshot)
  * `filesDir/livetv/epg-<id>.json`, so a cold start has now/next and the day schedule without
  * downloading or re-parsing the XMLTV file. A snapshot holds one window, today and tomorrow
  * (Spec 67 G1c, every guide channel: D2); the owner re-fetches after local midnight and before
- * the window runs out (`LiveSourceManager.isStale`).
+ * the window runs out (`LiveSourceManager.isStale`). Held snapshots share equal values ([LiveCompact], Spec 143).
  */
 @Singleton
 class GuideRepository internal constructor(private val dir: File, private val io: CoroutineDispatcher) {
@@ -42,7 +42,7 @@ class GuideRepository internal constructor(private val dir: File, private val io
         mutex.withLock {
             val missing = sourceIds.filter { it !in _guides.value }
             if (missing.isEmpty()) return@withLock
-            val read = missing.mapNotNull { id -> fileOf(id)?.read()?.let { id to it.snapshot } }
+            val read = missing.mapNotNull { id -> fileOf(id)?.read()?.let { id to LiveCompact.guide(it.snapshot) } }
             if (read.isNotEmpty()) _guides.value = _guides.value + read
         }
     }
@@ -52,7 +52,7 @@ class GuideRepository internal constructor(private val dir: File, private val io
         mutex.withLock {
             val file = fileOf(sourceId) ?: throw IOException("Unusable guide id")
             file.write(GuideCache(snapshot = snapshot))
-            _guides.value = _guides.value + (sourceId to snapshot)
+            _guides.value = _guides.value + (sourceId to LiveCompact.guide(snapshot))
         }
     }
 
@@ -61,6 +61,11 @@ class GuideRepository internal constructor(private val dir: File, private val io
             File(dir, "epg-$sourceId.json").takeIf { SAFE_ID.matches(sourceId) }?.delete()
             _guides.value = _guides.value - sourceId
         }
+    }
+
+    /** Spec 146: lets every held snapshot go; [load] reads them from disk again. */
+    internal suspend fun unload() = withContext(io) {
+        mutex.withLock { _guides.value = emptyMap() }
     }
 
     // Ids are app-made (UUIDs, preset constants); the check keeps a tampered list inside dir.

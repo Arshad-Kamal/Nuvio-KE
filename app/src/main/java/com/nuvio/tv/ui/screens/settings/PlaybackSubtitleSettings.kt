@@ -33,8 +33,9 @@ internal const val GROUP_SUBTITLES = "playback_subtitles"
 private const val NO_PREFERRED_LANGUAGE = "none"
 
 /**
- * Subtitles chip (stage playback-subs): languages, forced and addon subtitles, then Style (size,
- * offset, bold, text and background colour, text edge), then HDR and Dolby Vision (Spec 62 H2,
+ * Subtitles chip (stage playback-subs): languages, forced and addon subtitles, Auto sync subtitles
+ * (Spec 108 D4, sandbox spec-108-autosync stages 1-2; dims until Addon subtitles is on), then Style (size,
+ * offset, bold, font (Spec 132 S4), text and background colour, text edge), then HDR and Dolby Vision (Spec 62 H2,
  * sandbox spec-62-h2-hdr-subtitles stages 1-2: the switch, HDR text colour, HDR brightness, Dim
  * player controls; the three dim until the switch is on); Outline colour, libass and the language
  * filters in the Advanced options group. Outline colour dims unless the edge is Outline.
@@ -45,9 +46,11 @@ internal fun LazyListScope.subtitleItems(
     onOpenPicker: (SubtitlePicker) -> Unit,
     onSetUseForcedSubtitles: (Boolean) -> Unit,
     onSetAddonSubtitlesEnabled: (Boolean) -> Unit,
+    onSetSubtitleAutoSyncEnabled: (Boolean) -> Unit,
     onSetSize: (Int) -> Unit,
     onSetVerticalOffset: (Int) -> Unit,
     onSetBold: (Boolean) -> Unit,
+    fontsViewModel: SubtitleFontsViewModel,
     onSetEdgeStyle: (SubtitleEdgeStyle) -> Unit,
     onSetHdrStyleEnabled: (Boolean) -> Unit,
     onSetHdrBrightness: (Int) -> Unit,
@@ -98,6 +101,16 @@ internal fun LazyListScope.subtitleItems(
             onCheckedChange = onSetAddonSubtitlesEnabled
         )
     }
+    item(key = "subs_auto_sync") {
+        val reason = R.string.autosync_setting_needs_addon_subtitles.takeUnless { settings.addonSubtitlesEnabled }
+        SettingsSwitchRow(
+            title = stringResource(R.string.autosync_setting_title),
+            subtitle = dimmedSubtitle(reason, stringResource(R.string.autosync_setting_description)),
+            checked = settings.subtitleAutoSyncEnabled,
+            onCheckedChange = onSetSubtitleAutoSyncEnabled,
+            enabled = reason == null
+        )
+    }
     item(key = "subs_style_section") {
         SettingsSectionLabel(text = stringResource(R.string.sub_style_section))
     }
@@ -129,6 +142,9 @@ internal fun LazyListScope.subtitleItems(
             checked = style.bold,
             onCheckedChange = onSetBold
         )
+    }
+    item(key = "subs_font") {
+        SubtitleFontRow(style = style, fontsViewModel = fontsViewModel)
     }
     item(key = "subs_text_colour") {
         SubtitleColorRow(

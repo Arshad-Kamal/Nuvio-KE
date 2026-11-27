@@ -13,12 +13,13 @@ class PlaybackFailureActionsTest {
     private val linkCauses = setOf(
         FailureCause.LINK_EXPIRED, FailureCause.BLOCKED, FailureCause.REMOVED, FailureCause.OTHER_HTTP,
         FailureCause.WEB_PAGE, FailureCause.TINY_FILE, FailureCause.TEXT, FailureCause.LOGIN,
-        FailureCause.PLACEHOLDER, FailureCause.NO_URL, FailureCause.TOO_SLOW, FailureCause.CORRUPT,
-        FailureCause.FROZEN, FailureCause.TORRENT, FailureCause.WRONG_FILE
+        FailureCause.NO_URL, FailureCause.CORRUPT, FailureCause.FROZEN, FailureCause.TORRENT,
+        FailureCause.WRONG_FILE
     )
+    // Spec 131 D2: a placeholder (not cached yet) and too slow may play on a retry, so they offer Retry.
     private val passingCauses = setOf(
         FailureCause.NO_CONNECTION, FailureCause.SERVER_DOWN, FailureCause.RATE_LIMITED, FailureCause.NO_DATA,
-        FailureCause.ENGINE, FailureCause.UNKNOWN
+        FailureCause.ENGINE, FailureCause.UNKNOWN, FailureCause.PLACEHOLDER, FailureCause.TOO_SLOW
     )
     private val deviceCauses = setOf(
         FailureCause.VIDEO_UNSUPPORTED, FailureCause.UNREADABLE, FailureCause.DECODER_STUCK, FailureCause.AUDIO_FAILED

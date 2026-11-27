@@ -645,7 +645,7 @@
     <string name="settings_p2p_title">P2Pストリーミング</string>
     <string name="settings_p2p_subtitle">ピアツーピア（トレント）ストリームを許可</string>
     <string name="settings_p2p_hide_stats_title">トレント統計を非表示</string>
-    <string name="settings_p2p_hide_stats_subtitle">読み込み中と再生中にバッファ、シード、ピア、ダウンロード速度を非表示</string>
+    <string name="settings_p2p_hide_stats_subtitle">再生中にバッファ、シード、ピア、ダウンロード速度を非表示</string>
     <string name="stream_filter_all">すべて</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

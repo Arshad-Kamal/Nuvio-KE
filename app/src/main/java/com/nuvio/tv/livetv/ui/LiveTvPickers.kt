@@ -1,6 +1,7 @@
 package com.nuvio.tv.livetv.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -30,13 +31,20 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.nuvio.tv.ui.theme.NuvioMarqueeLiveTvTokens
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.ui.components.PanelRule
+import com.nuvio.tv.ui.components.PlayerPanelRow
 import com.nuvio.tv.ui.components.marquee.MarqueeAnchoredPanel
 import com.nuvio.tv.ui.components.marquee.MarqueePickerOption
 import com.nuvio.tv.ui.components.marquee.MarqueePickerOptionList
@@ -63,7 +71,8 @@ private class PillAnchor {
  * only while it is open; a tick on [selectedValue]). OK on an option closes it and calls
  * [onSelect]; Back closes unchanged. Focus returns to the pill. Callers put `focusRequester` in
  * [modifier]. [showLabel] false draws the value only ([label] still names it to accessibility; the
- * View picker, Spec 67 D7); [alignEnd] lines the panel up with the pill's end.
+ * View picker, Spec 67 D7); [alignEnd] lines the panel up with the pill's end. [footer] draws under the
+ * options in the same panel (the View picker's Preview on focus row); OK there leaves the panel open.
  */
 @Composable
 internal fun LiveTvPicker(
@@ -78,7 +87,8 @@ internal fun LiveTvPicker(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     showLabel: Boolean = true,
-    alignEnd: Boolean = false
+    alignEnd: Boolean = false,
+    footer: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     val pillRequester = remember { FocusRequester() }
     var openAt by remember { mutableStateOf<Rect?>(null) }
@@ -113,8 +123,31 @@ internal fun LiveTvPicker(
                     onSelect(picked)
                 }
             )
+            footer?.invoke(this)
         }
     }
+}
+
+/**
+ * Spec 111 stage 16 (D10): the View picker's last row, under a rule. OK flips Preview on focus in place
+ * ([on]: the profile's setting) and the panel stays open; the line under it says what each state does.
+ */
+@Composable
+internal fun ColumnScope.LiveTvPreviewOnFocusRow(on: Boolean, onToggle: () -> Unit) {
+    Spacer(modifier = Modifier.height(8.dp))
+    PanelRule(below = 6.dp)
+    PlayerPanelRow(
+        title = stringResource(R.string.live_tv_preview_on_focus),
+        selected = false,
+        onClick = onToggle,
+        titleEnd = stringResource(if (on) R.string.live_tv_on else R.string.live_tv_off)
+    )
+    Text(
+        text = stringResource(R.string.live_tv_preview_on_focus_detail),
+        style = NuvioTheme.textStyles.caption,
+        color = NuvioTheme.marquee.onImage3,
+        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 2.dp)
+    )
 }
 
 /**
@@ -172,13 +205,16 @@ private fun LiveTvPickerPill(
                 Text(text = label, style = NuvioTheme.textStyles.caption, color = secondary, maxLines = 1)
                 Spacer(modifier = Modifier.width(live.pickerInnerGap))
             }
-            // Category values can be playlist groups of any length.
+            // Category values can be playlist groups of any length; a pill held narrower by the row (D12)
+            // cuts its value, never its chevron.
             Text(
                 text = value,
                 style = NuvioTheme.textStyles.cardLabel,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = live.pickerValueMaxWidth)
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .widthIn(max = live.pickerValueMaxWidth)
             )
             Spacer(modifier = Modifier.width(live.pickerInnerGap))
             Icon(
@@ -220,4 +256,76 @@ internal fun liveTvPickerOptions(
         )
     }
     return out
+}
+
+/**
+ * Spec 111 D12 (sandbox `s111-live-search` v2 stage 17): the pill row's one width model. What [pickers] pickers
+ * have of [available] once the pills that never shrink ([fixed]: search, Favorites, Recents, View, Sources) and
+ * every [gap] between all items are taken. The captions stay when the captioned pickers' sum fits in it (decided
+ * before layout, so a row that does not fit never shows a frame with captions); else it is what
+ * [liveTvPickerShares] splits.
+ */
+internal fun liveTvPickerSpace(available: Dp, fixed: List<Dp>, pickers: Int, gap: Dp): Dp =
+    available - fixed.fold(0.dp) { a, w -> a + w } - gap * (fixed.size + pickers - 1).coerceAtLeast(0)
+
+/**
+ * D12: the widths the three caption-less pickers get from [remaining] (water-fill: one cap, short pickers keep
+ * their [naturals], only the longer ones cut down to the cap). Never below [floor] (padding + chevron, so the
+ * chevron always shows). All [naturals] when they fit.
+ */
+internal fun liveTvPickerShares(remaining: Dp, naturals: List<Dp>, floor: Dp): List<Dp> {
+    if (naturals.fold(0.dp) { a, w -> a + w } <= remaining) return naturals
+    var left = remaining
+    var cap = Dp.Infinity // a loop that never cuts (float order vs the sum above) leaves every picker whole
+    val sorted = naturals.sorted()
+    for ((i, w) in sorted.withIndex()) {
+        val n = sorted.size - i
+        if (w * n <= left) left -= w else { cap = left / n; break }
+    }
+    return naturals.map { minOf(it, maxOf(cap, floor)) }
+}
+
+/**
+ * A picker pill's width as [LiveTvPickerPill] lays it out, from its text widths: [caption] null = no
+ * caption (the View picker); the [value] at most `pickerValueMaxWidth`.
+ */
+internal fun liveTvPickerWidth(caption: Dp?, value: Dp, live: NuvioMarqueeLiveTvTokens): Dp =
+    live.pillPaddingHorizontal + (caption?.let { it + live.pickerInnerGap } ?: 0.dp) +
+        minOf(value, live.pickerValueMaxWidth) + live.pickerInnerGap + live.pillIconSize + live.pickerPaddingEnd
+
+/** A [LiveTvPill]'s width from its text widths: a [label], an optional [count], an optional icon ([icon]). */
+internal fun liveTvPillWidth(label: Dp, count: Dp?, icon: Boolean, live: NuvioMarqueeLiveTvTokens): Dp =
+    live.pillPaddingHorizontal * 2 + label + (count?.let { live.pillCountGap + it } ?: 0.dp) +
+        (if (icon) live.pillIconSize + live.pillIconGap else 0.dp)
+
+/**
+ * Measures one line of [text] in [style] (dp, plus 1 dp: rounding errs towards dropping captions, never
+ * towards a row that overflows with them), for the D12 fit. The cache holds the row's dozen texts.
+ */
+@Composable
+internal fun rememberTextWidth(): (String, TextStyle) -> Dp {
+    val measurer = rememberTextMeasurer(cacheSize = TEXT_WIDTH_CACHE)
+    val density = LocalDensity.current
+    return remember(measurer, density) {
+        { text, style -> with(density) { measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp() } + 1.dp }
+    }
+}
+
+private const val TEXT_WIDTH_CACHE = 16
+
+/**
+ * Spec 111 D7: Back from a row goes to the selected filter while a row (list or grid) holds focus, except
+ * while searching (Back closes search), in full screen, or with the schedule column or options panel open.
+ */
+internal fun liveTvBackToFilters(rowFocused: Boolean, searching: Boolean, fullScreen: Boolean, overlayOpen: Boolean): Boolean =
+    rowFocused && !searching && !fullScreen && !overlayOpen
+
+/** What the guide band's Back hint names (Spec 67 Q5, Spec 111 stage 7, D7, D16); null = no Back hint. */
+internal enum class LiveTvGuideBack { NOW, CLOSE_SEARCH, FILTERS }
+
+internal fun liveTvGuideBack(atNow: Boolean, gridFocused: Boolean, searching: Boolean): LiveTvGuideBack? = when {
+    !atNow && gridFocused -> LiveTvGuideBack.NOW
+    searching -> LiveTvGuideBack.CLOSE_SEARCH
+    gridFocused -> LiveTvGuideBack.FILTERS
+    else -> null
 }

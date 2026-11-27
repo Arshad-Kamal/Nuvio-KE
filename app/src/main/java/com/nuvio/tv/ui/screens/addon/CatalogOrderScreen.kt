@@ -28,6 +28,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
@@ -37,6 +39,8 @@ import com.nuvio.tv.ui.screens.collection.CollectionRowAction
 import com.nuvio.tv.ui.screens.collection.ServePendingFocus
 import com.nuvio.tv.ui.screens.collection.rememberCollectionFocusTargets
 import com.nuvio.tv.ui.screens.home.MarqueeBreadcrumb
+import com.nuvio.tv.ui.screens.settings.trackers.TrackerLogo
+import com.nuvio.tv.ui.screens.settings.trackers.TrackerLogoSize
 import com.nuvio.tv.ui.theme.NuvioPrimitives
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -46,14 +50,22 @@ private const val FOLLOW_TARGET = "#follow"
 /** Longest custom catalog title the rename panel takes. */
 private const val CATALOG_TITLE_MAX = 40
 
+/** MDBList's name (a brand, untranslated), its tag at an MDBList row's end (Spec 105 mockup v3 D2 `.s105tag`). */
+private const val MDBLIST_TAG = "MDBLIST"
+
+/** D2's extra space after the glyph and before the list icon (`.s104g` / `.s105tag` margins), on top of the row gap. */
+private val MDBLIST_GLYPH_END = 12.dp
+private val MDBLIST_TAG_END = 14.dp
+
 /**
  * Spec 31, Home catalog order route (sandbox u11-settings-marquee v6, stage `catalog-order`; Q9):
  * breadcrumb, header, the Follow addons order switch row, then "Rows · N": one row per Home row
  * ("Name - Type", the addon or "Collection · N folders", renamed / hidden notes; hidden rows dim).
- * OK on a row opens Move up / down (dimmed at the ends and, in follow mode, on addon catalogs:
- * focusable no-ops, so focus stays on the moved row), Rename (addon catalogs only; Home shows
- * custom titles on those alone) and Hide / Show on Home. Moves save at once; the moved row is
- * brought into view.
+ * MDBList rows (Spec 105 S5b2, mockup v3 D2) lead with the MDBList glyph, show the name alone and
+ * carry an MDBLIST tag. OK on a row opens Move up / down (dimmed at the ends and, in follow mode, on
+ * addon catalogs: focusable no-ops, so focus stays on the moved row), Rename (addon catalogs and
+ * MDBList rows; Home shows custom titles on those alone) and Hide / Show on Home. Moves save at
+ * once; the moved row is brought into view.
  */
 @Composable
 fun CatalogOrderScreen(
@@ -166,7 +178,10 @@ fun CatalogOrderScreen(
             current = item.catalogName,
             originalName = item.originalName,
             resetLabel = stringResource(R.string.catalog_order_rename_reset),
-            note = stringResource(R.string.catalog_order_rename_note),
+            // D34: an MDBList row's name stays on this TV (never in the synced payload).
+            note = stringResource(
+                if (item.isMdbList) R.string.catalog_order_rename_note_mdblist else R.string.catalog_order_rename_note
+            ),
             maxLength = CATALOG_TITLE_MAX,
             onSave = { title ->
                 viewModel.renameCatalog(item.key, title)
@@ -177,7 +192,7 @@ fun CatalogOrderScreen(
     }
 }
 
-/** Stage 15 row: "Name - Type" over its source line, the list icon at the end. */
+/** Stage 15 row: "Name - Type" over its source line, the list icon at the end; an MDBList row per D2. */
 @Composable
 private fun CatalogOrderRow(
     item: CatalogOrderItem,
@@ -192,9 +207,21 @@ private fun CatalogOrderRow(
         dimmedAtRest = item.isDisabled,
         actions = actions
     ) { focusWithin ->
+        if (item.isMdbList) {
+            TrackerLogo(
+                logoRes = R.drawable.ic_tracker_mdblist,
+                name = MDBLIST_TAG,
+                size = TrackerLogoSize.LIST,
+                modifier = Modifier.padding(end = MDBLIST_GLYPH_END)
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.catalog_order_row_title, item.catalogName, item.typeLabel.toDisplayTypeLabel()),
+                text = if (item.isMdbList) {
+                    item.catalogName
+                } else {
+                    stringResource(R.string.catalog_order_row_title, item.catalogName, item.typeLabel.toDisplayTypeLabel())
+                },
                 style = NuvioTheme.textStyles.button,
                 color = NuvioPrimitives.white,
                 maxLines = 1,
@@ -208,22 +235,37 @@ private fun CatalogOrderRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        if (item.isMdbList) {
+            Text(
+                text = MDBLIST_TAG,
+                style = NuvioTheme.textStyles.eyebrow.copy(letterSpacing = 0.6.sp),
+                color = marquee.onImage3,
+                modifier = Modifier.padding(end = MDBLIST_TAG_END)
+            )
+        }
         MarqueeFormRowIcon(Icons.AutoMirrored.Filled.List)
     }
 }
 
 /**
  * "Cinemeta · renamed from "Top"", "Collection · 3 folders", "Kitsu · hidden on Home"; while
- * focused in follow mode an addon catalog adds why its moves are dimmed.
+ * focused in follow mode an addon catalog adds why its moves are dimmed. An MDBList row (D2,
+ * D30-D32): "Your list · 41 titles", hidden "Dynamic list · hidden on Home" (no count).
  */
 @Composable
 private fun catalogOrderSourceLine(item: CatalogOrderItem, showPinReason: Boolean): String {
-    val source = item.folderCount?.let { count ->
-        stringResource(
+    val mdbList = item.mdbList
+    val source = when {
+        item.folderCount != null -> stringResource(
             R.string.catalog_order_collection,
-            pluralStringResource(R.plurals.collections_row_folders, count, count)
+            pluralStringResource(R.plurals.collections_row_folders, item.folderCount, item.folderCount)
         )
-    } ?: item.addonName
+        mdbList != null -> listOfNotNull(
+            stringResource(mdbList.kind.label),
+            mdbList.itemCount?.takeUnless { item.isDisabled }?.let { pluralStringResource(R.plurals.detail_mdblist_titles, it, it) }
+        ).joinToString(" \u00B7 ")
+        else -> item.addonName
+    }
     return listOfNotNull(
         source,
         if (item.isRenamed) stringResource(R.string.catalog_order_renamed_from, item.originalName) else null,
@@ -237,3 +279,12 @@ private fun String.toDisplayTypeLabel(): String {
         if (ch.isLowerCase()) ch.titlecase() else ch.toString()
     }
 }
+
+private val MdbListRowKind.label: Int
+    get() = when (this) {
+        MdbListRowKind.WATCHLIST -> R.string.catalog_order_mdblist_watchlist
+        MdbListRowKind.OWN -> R.string.catalog_order_mdblist_own
+        MdbListRowKind.DYNAMIC -> R.string.catalog_order_mdblist_dynamic
+        MdbListRowKind.LIKED -> R.string.catalog_order_mdblist_liked
+        MdbListRowKind.IMPORTED -> R.string.catalog_order_mdblist_imported
+    }

@@ -12,6 +12,12 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 sealed class ContinueWatchingItem {
+    /**
+     * Spec 122 V3: while previewing a profile's content filters, the packs that would hide this title
+     * (pack order); written only by Home's Continue Watching filter gate (Spec 117 P7).
+     */
+    abstract val filterHits: List<String>
+
     @Immutable
     data class InProgress(
         val progress: WatchProgress,
@@ -20,11 +26,12 @@ sealed class ContinueWatchingItem {
         val episodeImdbRating: Float? = null,
         val genres: List<String> = emptyList(),
         val releaseInfo: String? = null,
-        val contentLanguage: String? = null
+        val contentLanguage: String? = null,
+        override val filterHits: List<String> = emptyList()
     ) : ContinueWatchingItem()
 
     @Immutable
-    data class NextUp(val info: NextUpInfo) : ContinueWatchingItem()
+    data class NextUp(val info: NextUpInfo, override val filterHits: List<String> = emptyList()) : ContinueWatchingItem()
 }
 
 @Immutable

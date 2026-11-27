@@ -77,8 +77,9 @@ private val localOnlyLayoutProfileSettingsKeys = setOf(
 // Per-device player keys: never pushed, and preserved across a pull. Every `migration_*` key in
 // player_settings is local by prefix (shouldExcludePreferenceFromProfileSettingsSync): a migration
 // flag records what this device's store ran, and a pull that dropped it would re-run that
-// migration over the user's values. The live keys here (all but the retired ones and
-// last_playback_diagnostics_json) are stored device-wide since Spec 33 D1 (DEVICE_PLAYER_KEYS);
+// migration over the user's values. The live keys here (all but the retired ones and the two
+// per-profile ones, last_playback_diagnostics_json and subtitle_font_id / _name) are stored device-wide
+// since Spec 33 D1 (DEVICE_PLAYER_KEYS);
 // the copies left in profile files stay listed so older clients' blobs never carry them.
 private val localOnlyPlayerProfileSettingsKeys = setOf(
     "player_preference",
@@ -134,6 +135,9 @@ private val localOnlyPlayerProfileSettingsKeys = setOf(
     "parallel_chunk_size_kb",
     "enable_http2",
     "last_playback_diagnostics_json",
+    // Spec 132: per profile, but names a font file on this TV; another TV never has that file.
+    "subtitle_font_id",
+    "subtitle_font_name",
     "enable_buffer_logs",
     "resize_mode",
     "min_buffer_ms",
@@ -165,8 +169,9 @@ private val credentialProfileSettingsKeys = mapOf(
         "premiumize_api_key",
         "real_debrid_api_key"
     ),
-    // "mdblist_settings": legacy feature passthrough (MDBList integration removed, no
-    // in-app reader); kept in profileSettingsSyncedFeatures so the pushed blob stays byte-identical.
+    // "mdblist_settings": legacy feature passthrough (the pre-cut MDBList integration's store; no
+    // in-app reader; Spec 104 trackers keep sign-ins in the never-synced "tracking_accounts" store);
+    // kept in profileSettingsSyncedFeatures so the pushed blob stays byte-identical.
     // This exclusion keeps a stored API key from ever being pushed.
     "mdblist_settings" to setOf("mdblist_api_key"),
     "animeskip_settings" to setOf("animeskip_client_id")
@@ -191,9 +196,9 @@ internal val profileSettingsSyncedFeatures = listOf(
     "tmdb_settings",
     // Legacy passthrough (see credentialProfileSettingsKeys): keeps the blob byte-identical.
     "mdblist_settings",
-    // Legacy feature name: the tracking integrations are gone, but this store is
-    // still read and written by ContinueWatchingSettingsDataStore (dismissed
-    // Next-Up keys). Keys of removed features stay on disk and in the blob, so
+    // Legacy feature name, read and written by ContinueWatchingSettingsDataStore:
+    // dismissed Next-Up keys and the Spec 104 tracker source choices (which sync by
+    // D10). Keys of the pre-cut tracking features stay on disk and in the blob, so
     // the pushed blob stays byte-identical.
     "trakt_settings",
     // Legacy passthrough (see credentialProfileSettingsKeys): keeps the blob byte-identical.

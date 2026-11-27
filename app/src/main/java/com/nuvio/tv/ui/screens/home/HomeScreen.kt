@@ -82,8 +82,8 @@ fun HomeScreen(
     var hasShownInitialHomeContent by rememberSaveable { mutableStateOf(false) }
     // Once we've shown stable home content, never go back to loading gate.
     var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }
-    // Track that catalog loading has started at least once (isLoading went true→false).
-    var catalogLoadingStarted by rememberSaveable { mutableStateOf(false) }
+    // Latched once the gate effect has seen installed addons (installedAddonsCount > 0).
+    var addonsSeen by rememberSaveable { mutableStateOf(false) }
 
     // Notify ViewModel of locale changes after activity recreation
     LaunchedEffect(Unit) {
@@ -114,29 +114,24 @@ fun HomeScreen(
     val onContinueWatchingStartFromBeginningStable = remember(onContinueWatchingStartFromBeginning) { onContinueWatchingStartFromBeginning }
     val onContinueWatchingPlayManuallyStable = remember(onContinueWatchingPlayManually) { onContinueWatchingPlayManually }
     val onNavigateToFolderDetailStable = remember(onNavigateToFolderDetail) { onNavigateToFolderDetail }
-    LaunchedEffect(
-        uiState.isLoading,
-        hasCatalogContent,
-        hasCollectionContent,
-        hasHeroContent,
-        initialCwResolved,
-        modernPresentationReady
-    ) {
-        // Track that addons are known (even if isLoading flipped too fast to catch).
-        if (uiState.installedAddonsCount > 0) {
-            catalogLoadingStarted = true
+    val hasInstalledAddons = uiState.installedAddonsCount > 0
+    // Spec 145: computed in composition, so the effect below is keyed on the result itself.
+    val homeGateIsReady = homeGateReady(
+        addonsSeen = addonsSeen || hasInstalledAddons,
+        isLoading = uiState.isLoading,
+        initialCwResolved = initialCwResolved,
+        modernPresentationReady = modernPresentationReady,
+        hasCatalogContent = hasCatalogContent,
+        homeCatalogsExpected = uiState.homeCatalogsExpected,
+        collectionsLoaded = uiState.collectionsLoaded
+    )
+    LaunchedEffect(homeGateIsReady, hasInstalledAddons) {
+        // Latch: a later load with no addons does not re-arm the gate.
+        if (hasInstalledAddons) {
+            addonsSeen = true
         }
-        // Wait until catalog loading has completed with content AND the CW
-        // pipeline has completed its first emission.
-        if (!homeStableGateReleased &&
-            catalogLoadingStarted &&
-            !uiState.isLoading &&
-            initialCwResolved &&
-            modernPresentationReady &&
-            // When addons are installed, require at least one catalog row.
-            (hasCatalogContent || uiState.installedAddonsCount == 0)
-        ) {
-            Log.d("HomeGate", "RELEASE: catalogs=$hasCatalogContent cwResolved=$initialCwResolved cwItems=${uiState.continueWatchingItems.size} addons=${uiState.installedAddonsCount}")
+        if (!homeStableGateReleased && homeGateIsReady) {
+            Log.d("HomeGate", "RELEASE: catalogs=$hasCatalogContent catalogsExpected=${uiState.homeCatalogsExpected} collections=${uiState.collectionsLoaded} cwResolved=$initialCwResolved cwItems=${uiState.continueWatchingItems.size} addons=${uiState.installedAddonsCount}")
             homeStableGateReleased = true
         }
     }
@@ -148,7 +143,7 @@ fun HomeScreen(
         // no addons at all.
         delay(HOME_STABLE_GATE_TIMEOUT_MS)
         if (!homeStableGateReleased) {
-            Log.d("HomeGate", "RELEASE timeout: isLoading=${uiState.isLoading} cwResolved=$initialCwResolved catalogs=$hasCatalogContent cwItems=${uiState.continueWatchingItems.size}")
+            Log.d("HomeGate", "RELEASE timeout: isLoading=${uiState.isLoading} cwResolved=$initialCwResolved catalogs=$hasCatalogContent catalogsExpected=${uiState.homeCatalogsExpected} collections=${uiState.collectionsLoaded} addonsSeen=$addonsSeen cwItems=${uiState.continueWatchingItems.size}")
             homeStableGateReleased = true
         }
     }

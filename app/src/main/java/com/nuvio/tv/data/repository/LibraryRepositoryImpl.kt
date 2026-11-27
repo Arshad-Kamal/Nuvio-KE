@@ -5,11 +5,16 @@ import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.sync.LibrarySyncService
+import com.nuvio.tv.core.tracking.TrackingLibraryProvider
+import com.nuvio.tv.core.tracking.TrackingSourceController
+import com.nuvio.tv.core.tracking.routeTo
+import com.nuvio.tv.core.tracking.trackerCallFailure
 import com.nuvio.tv.data.local.LibraryPreferences
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.model.LibraryEntry
 import com.nuvio.tv.domain.model.LibraryEntryInput
 import com.nuvio.tv.domain.model.SavedLibraryItem
+import com.nuvio.tv.domain.model.toSavedLibraryItem
 import com.nuvio.tv.domain.repository.LibraryRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -51,6 +57,8 @@ class LibraryRepositoryImpl @Inject constructor(
     private val authManager: AuthManager,
     private val metaRepository: MetaRepository,
     private val profileManager: ProfileManager,
+    // Spec 104 S2c: with a tracker as the Library source, reads and writes go to it; the local library is left as is.
+    private val trackingSources: TrackingSourceController,
 ) : LibraryRepository {
 
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -73,28 +81,11 @@ class LibraryRepositoryImpl @Inject constructor(
         }
     }
 
-    override val isSyncing: Flow<Boolean> = _isSyncingFromRemote
+    override val isSyncing: Flow<Boolean> =
+        trackingSources.activeLibraryProvider.routeTo(_isSyncingFromRemote, TrackingLibraryProvider::isRefreshing)
 
-    override val libraryItems: Flow<List<LibraryEntry>> = libraryPreferences.libraryItems
-        .map { items ->
-            items.map { saved ->
-                LibraryEntry(
-                    id = saved.id,
-                    type = saved.type,
-                    name = saved.name,
-                    poster = saved.poster,
-                    posterShape = saved.posterShape,
-                    background = saved.background,
-                    logo = saved.logo,
-                    description = saved.description,
-                    releaseInfo = saved.releaseInfo,
-                    imdbRating = saved.imdbRating,
-                    genres = saved.genres,
-                    addonBaseUrl = saved.addonBaseUrl,
-                    listedAt = saved.addedAt
-                )
-            }
-        }
+    private val localLibraryItems: Flow<List<LibraryEntry>> = libraryPreferences.libraryItems
+        .map { items -> items.map(SavedLibraryItem::toLibraryEntry) }
         .onEach { items ->
             // Logo hydration: backfill clear-logo art for local entries missing it.
             // See planLogoHydrationBatch for the mark-then-batch policy; add() is the
@@ -106,12 +97,19 @@ class LibraryRepositoryImpl @Inject constructor(
         }
         .distinctUntilChanged()
 
+    override val libraryItems: Flow<List<LibraryEntry>> =
+        trackingSources.activeLibraryProvider.routeTo(localLibraryItems, TrackingLibraryProvider::items)
+
     override fun isInLibrary(itemId: String, itemType: String): Flow<Boolean> =
-        libraryPreferences.isInLibrary(itemId = itemId, itemType = itemType)
-            .distinctUntilChanged()
+        trackingSources.activeLibraryProvider.routeTo(libraryPreferences.isInLibrary(itemId = itemId, itemType = itemType)) {
+            it.isInLibrary(itemId, itemType)
+        }.distinctUntilChanged()
 
     override suspend fun toggleDefault(item: LibraryEntryInput) {
         val profileId = profileManager.activeProfileId.value
+        trackingSources.activeLibraryProvider.first()?.let { provider ->
+            return writeToTracker(provider, profileId, item) { !provider.isInLibrary(item.itemId, item.itemType).first() }
+        }
         val isInLocal = libraryPreferences.containsItem(
             itemId = item.itemId,
             itemType = item.itemType,
@@ -122,6 +120,9 @@ class LibraryRepositoryImpl @Inject constructor(
 
     override suspend fun setInLibrary(item: LibraryEntryInput, inLibrary: Boolean) {
         val profileId = profileManager.activeProfileId.value
+        trackingSources.activeLibraryProvider.first()?.let { provider ->
+            return writeToTracker(provider, profileId, item) { inLibrary }
+        }
         val isInLocal = libraryPreferences.containsItem(
             itemId = item.itemId,
             itemType = item.itemType,
@@ -129,6 +130,22 @@ class LibraryRepositoryImpl @Inject constructor(
         )
         if (isInLocal == inLibrary) return
         writeMembership(item, profileId, inLibrary)
+    }
+
+    /**
+     * A tracker that fails (offline, rate limited) leaves the title as it was. The failure is logged by tracker and error
+     * class only and rethrown, so the callers' error paths (Detail's toast and picker error) run as for a local failure.
+     */
+    private suspend fun writeToTracker(
+        provider: TrackingLibraryProvider,
+        profileId: Int,
+        item: LibraryEntryInput,
+        wanted: suspend () -> Boolean
+    ) {
+        trackerCallFailure { provider.setInLibrary(profileId, item, wanted()) }?.let { error ->
+            Log.w("LibraryRepo", "${provider.providerId.storageId} library write failed: ${error.javaClass.simpleName}")
+            throw error
+        }
     }
 
     /** Shared add/remove + sync trigger, so toggle and set-to-state write identical payloads. */
@@ -148,22 +165,6 @@ class LibraryRepositoryImpl @Inject constructor(
         triggerRemoteSync(profileId)
     }
 
-    private fun LibraryEntryInput.toSavedLibraryItem(): SavedLibraryItem {
-        return SavedLibraryItem(
-            id = itemId,
-            type = itemType,
-            name = title,
-            poster = poster,
-            posterShape = posterShape,
-            background = background,
-            description = description,
-            releaseInfo = releaseInfo,
-            imdbRating = imdbRating,
-            genres = genres,
-            addonBaseUrl = addonBaseUrl,
-            logo = logo
-        )
-    }
 
     private suspend fun hydrateLibraryLogos(batch: List<LibraryEntry>) {
         batch.forEach { entry ->

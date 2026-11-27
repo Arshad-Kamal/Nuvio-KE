@@ -33,7 +33,8 @@ internal class ExpiringUrlBlacklist(
     operator fun contains(url: String?): Boolean {
         val at = url?.let { addedAtMs[it] } ?: return false
         if (nowMs() - at > ttlMs) {
-            addedAtMs.remove(url)
+            // Only the expired entry: a fresh add() on another thread meanwhile stays.
+            addedAtMs.remove(url, at)
             return false
         }
         return true
@@ -48,7 +49,7 @@ internal class ExpiringUrlBlacklist(
         }
     }
 
-    /** Test affordance: resets the blacklist between cases. */
+    /** Forgets every entry (tests; Spec 114 rating posters after a verified save). */
     fun clear() = addedAtMs.clear()
 }
 

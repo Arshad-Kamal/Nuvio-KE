@@ -45,7 +45,9 @@ internal data class PlayerNavigationArgs(
     /** The playing stream's own subtitles (Stremio `stream.subtitles`), labelled with [addonName]. */
     val streamSubtitles: List<Subtitle> = emptyList(),
     /** Spec 80 D20: a changelog release video (Screen.Player.createRoute's releaseVideo). */
-    val releaseVideo: Boolean = false
+    val releaseVideo: Boolean = false,
+    /** Spec 131 D4: the user pressed this stream's row on the Stream screen (Screen.Player's handPicked). */
+    val handPicked: Boolean = false
 ) {
     val torrentTrackers: List<String>
         get() {
@@ -109,7 +111,8 @@ internal data class PlayerNavigationArgs(
                     addonName = addonName,
                     addonLogo = addonLogo
                 ),
-                releaseVideo = savedStateHandle.get<String>("releaseVideo")?.toBooleanStrictOrNull() == true
+                releaseVideo = savedStateHandle.get<String>("releaseVideo")?.toBooleanStrictOrNull() == true,
+                handPicked = savedStateHandle.get<String>("handPicked")?.toBooleanStrictOrNull() == true
             )
         }
     }

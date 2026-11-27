@@ -43,7 +43,8 @@ class CatalogRepositoryCacheTiersTest {
             healthStore = mockk(relaxed = true),
             wireJson = wireJson,
             activeRatingCap = testRatingCap(),
-            ratingFilter = CatalogRatingFilter(mockk())
+            ratingFilter = CatalogRatingFilter(mockk()),
+            contentFilter = noContentFilter()
         )
     }
 

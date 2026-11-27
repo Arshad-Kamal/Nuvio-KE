@@ -153,6 +153,8 @@ class DeviceWelcomeTest {
         safeLimitMb = 250,
         warningLimitMb = 325,
         tierMaxChunkMb = 16,
+        // No target ceiling: these rows read the settings passed in (the capped Shield pin is DeviceConfigFitTest's).
+        tierMaxTargetMb = Int.MAX_VALUE,
         display = display4k,
         policy = policy
     )
@@ -375,6 +377,19 @@ class DeviceWelcomeTest {
         assertEquals(store.playerSettings.first(), result.settings)
         // Applied, so the next start is NONE.
         assertNull(DeviceSetupCoordinator.firstLaunch(shield, store))
+    }
+
+    @Test
+    fun `first launch on the 2 GB Shield stores the tier's 100 MB target and the welcome says so`() = runTest {
+        // Spec 147 D4 end to end: formula, Shield overlay and fit gate under the 100 MB ceiling, then the
+        // store (uncapped on this host, so the read is exactly what was written) and the welcome row.
+        val store = playerSettingsOver(TestPreferencesDataStore())
+        val result = DeviceSetupCoordinator.firstLaunch(shield.copy(tierMaxTargetMb = 100), store, nowMs = 1L)!!
+        assertEquals(100, store.playerSettings.first().bufferSettings.targetBufferSizeMb)
+        assertEquals(
+            WelcomeRow("welcome_row_buffer_memory", "welcome_value_buffer_memory(100|12)"),
+            welcomeSummary(shield, result.settings, "11", avr, text).rows.first()
+        )
     }
 
     @Test

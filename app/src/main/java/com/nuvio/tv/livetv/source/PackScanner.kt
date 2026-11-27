@@ -35,7 +35,8 @@ import javax.inject.Singleton
  * streams after it keep the monitor's state; at most [PER_HOST] requests per host at once, each
  * request counted against its own host ([HostSlots], D15 Q3). Runs in its own app-lifetime scope,
  * so it goes on behind any screen and stops with the process (results to the last apply kept).
- * Waits before each probe while [playing] (Spec 56); a probe already running finishes. Every [APPLY_EVERY] new
+ * Waits before each probe while [playing] (Spec 56); a probe already running finishes, and its result waits
+ * for playback to end before it is applied (Spec 146: an apply reads the channel list). Every [APPLY_EVERY] new
  * results or [APPLY_INTERVAL_MS], and at the end or on [cancel], hands its results, the keys it
  * returned to the monitor's state and its record to [applyResults] ([LiveSourceManager.applyScan]:
  * stored, the pack listed anew); a cancelled scan keeps what it checked. Stops when
@@ -148,9 +149,12 @@ class PackScanner internal constructor(
                         idle.value = !paused
                     }
                 }
-                val applier = launch { applyLoop(results, cleared) { scan.cancel() } }
+                val applier = launch { applyLoop(results, cleared, idle) { scan.cancel() } }
                 val next = AtomicInteger()
                 List(workers) { launch { work(chosen, next, before, results, cleared, hosts) } }.joinAll()
+                // The last apply reads the channel list back into memory: not beside playback (Spec 146 D2).
+                // A cancelled scan (Stop, the pack removed) still applies at once.
+                idle.first { it }
                 pauses.cancel()
                 applier.cancel()
             }
@@ -194,8 +198,18 @@ class PackScanner internal constructor(
         }
     }
 
-    /** Applies every [APPLY_EVERY] new results or each [APPLY_INTERVAL_MS] with new ones; [stop] when the pack is gone. */
-    private suspend fun applyLoop(results: Map<String, PackScanResult>, cleared: Set<String>, stop: () -> Unit) {
+    /**
+     * Applies every [APPLY_EVERY] new results or each [APPLY_INTERVAL_MS] with new ones; [stop] when the pack is gone.
+     * Holds off while [idle] is false (something plays): an apply reads the channel list back into memory,
+     * which a stream start has just let go (Spec 146 D2); the probes that finish meanwhile wait for the next
+     * apply, or the scan's last one.
+     */
+    private suspend fun applyLoop(
+        results: Map<String, PackScanResult>,
+        cleared: Set<String>,
+        idle: StateFlow<Boolean>,
+        stop: () -> Unit
+    ) {
         var applied = 0
         var waitedMs = 0L
         while (true) {
@@ -203,6 +217,7 @@ class PackScanner internal constructor(
             waitedMs += APPLY_POLL_MS
             val size = results.size
             if (size == applied) waitedMs = 0 // nothing new (paused): no write
+            if (!idle.value) continue
             if (size - applied < APPLY_EVERY && waitedMs < APPLY_INTERVAL_MS) continue
             val record = (_state.value as? State.Running)?.record ?: return
             applied = size

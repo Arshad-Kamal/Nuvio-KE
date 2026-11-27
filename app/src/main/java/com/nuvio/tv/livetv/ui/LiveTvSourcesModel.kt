@@ -8,6 +8,7 @@ import com.nuvio.tv.livetv.source.LiveSource
 import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.PackSummary
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.source.XtreamAdapter
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.time.Instant
 import java.time.ZoneId
@@ -24,6 +25,10 @@ sealed interface SourceHealth {
     /** Added, not fetched yet. */
     data object Waiting : SourceHealth
     data object Refreshing : SourceHealth
+    /** An Xtream account that ends within [LiveTvSourcesModel.EXPIRY_WARN_DAYS] (Spec 109 D4 Q3); [days] 0 = today. */
+    data class ExpiresIn(val days: Int) : SourceHealth
+    /** An Xtream account the server called expired, or whose end date has passed (Spec 109 stage 9). */
+    data object Expired : SourceHealth
 }
 
 /**
@@ -36,7 +41,9 @@ data class SourceRow(
     val listed: Int?,
     val matched: Int?,
     val health: SourceHealth,
-    val preview: List<String> = emptyList()
+    val preview: List<String> = emptyList(),
+    /** An Xtream account whose end date had passed when the row was derived (its line reads "expired <date>"). */
+    val ended: Boolean = false
 )
 
 /**
@@ -102,7 +109,9 @@ object LiveTvSourcesModel {
         sources: List<LiveSource>,
         channels: List<Channel>,
         guides: Map<String, EpgSnapshot>,
-        refreshing: Set<String>
+        refreshing: Set<String>,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault()
     ): List<SourceRow> {
         val lost = channels.filter { it.lostAtMs != null }.groupingBy { it.sourceId }.eachCount()
         return sources.map { source ->
@@ -113,7 +122,14 @@ object LiveTvSourcesModel {
                 matched = if (guide) source.channelCount else null,
                 // Spec 73 D15 (Q5): the pack's lost channels are the ones its scans hid (or its daily
                 // list dropped), expected churn its row line reports; they keep their Source lost tag.
-                health = health(source, if (source.kind == SourceKind.PACK) 0 else lost[source.id] ?: 0, source.id in refreshing),
+                health = health(
+                    source,
+                    if (source.kind == SourceKind.PACK) 0 else lost[source.id] ?: 0,
+                    source.id in refreshing,
+                    nowMs,
+                    zone
+                ),
+                ended = ended(source, nowMs),
                 preview = if (source.id == LiveSourceManager.PRESET_ID) {
                     channels.filter { it.sourceId == source.id && it.lostAtMs == null }.map { it.name }
                 } else {
@@ -195,21 +211,48 @@ object LiveTvSourcesModel {
         return "$label ${LiveTvModel.countryName(country)}"
     }
 
-    internal fun health(source: LiveSource, lost: Int, refreshing: Boolean): SourceHealth = when {
-        refreshing -> SourceHealth.Refreshing
-        source.lastError == LiveSourceManager.GUIDE_INCOMPLETE -> SourceHealth.Partial
-        source.lastError != null -> SourceHealth.Failed
-        source.lastRefreshMs == null -> SourceHealth.Waiting
-        lost > 0 -> SourceHealth.Lost(lost)
-        else -> SourceHealth.Ok
+    /** Spec 109 D11 precedence: Refreshing > Expired > Failed/Partial > Waiting > Expires in n days > Lost > OK. */
+    internal fun health(
+        source: LiveSource,
+        lost: Int,
+        refreshing: Boolean,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): SourceHealth {
+        val endsMs = source.account?.expiresAtMs
+        val days = endsMs?.let { daysUntil(it, nowMs, zone) }
+        return when {
+            refreshing -> SourceHealth.Refreshing
+            source.lastError == XtreamAdapter.EXPIRED || ended(source, nowMs) -> SourceHealth.Expired
+            source.lastError == LiveSourceManager.GUIDE_INCOMPLETE -> SourceHealth.Partial
+            source.lastError != null -> SourceHealth.Failed
+            source.lastRefreshMs == null -> SourceHealth.Waiting
+            // Not ended, so 0 (later today) or more.
+            days != null && days <= EXPIRY_WARN_DAYS -> SourceHealth.ExpiresIn(days.toInt())
+            lost > 0 -> SourceHealth.Lost(lost)
+            else -> SourceHealth.Ok
+        }
     }
+
+    private fun ended(source: LiveSource, nowMs: Long): Boolean =
+        source.account?.expiresAtMs?.let { it <= nowMs } == true
+
+    /** Calendar days from [nowMs]'s date to [endMs]'s in [zone] (0 = the same day). */
+    private fun daysUntil(endMs: Long, nowMs: Long, zone: ZoneId): Long = ChronoUnit.DAYS.between(
+        Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate(),
+        Instant.ofEpochMilli(endMs).atZone(zone).toLocalDate()
+    )
+
+    /** Spec 109 D4 Q3: the near-expiry warning starts 7 days before the account ends. */
+    const val EXPIRY_WARN_DAYS = 7
 
     /**
      * [sources] with the fields a refresh rewrites per source blanked (last refresh, error, channel
-     * count, playlist attributes): the input of [hidden] and the suggestions, which read none of them.
+     * count, playlist attributes, Xtream account): the input of [hidden] and the suggestions, which
+     * read none of them.
      */
     fun withoutStatus(sources: List<LiveSource>): List<LiveSource> =
-        sources.map { it.copy(lastRefreshMs = null, lastError = null, channelCount = 0, playlistAttrs = null) }
+        sources.map { it.copy(lastRefreshMs = null, lastError = null, channelCount = 0, playlistAttrs = null, account = null) }
 
     /** Hidden channels that still exist, by name; keys of vanished channels are left out. */
     fun hidden(keys: Set<String>, channels: List<Channel>, sources: List<LiveSource>): List<HiddenRow> {

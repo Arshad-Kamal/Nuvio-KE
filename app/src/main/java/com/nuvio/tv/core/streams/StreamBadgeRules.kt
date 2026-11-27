@@ -136,14 +136,18 @@ sealed interface StreamBadgeImportResult {
     data class Error(val message: String) : StreamBadgeImportResult
 }
 
+/**
+ * Parses an owner-imported Fusion badge pack. No pattern-length or filter-count cap (Spec 130 D1):
+ * real packs exceed any small cap (FR Badges: 1,564-char patterns; Master packs: 396 filters), and a
+ * cap bounds size, not backtracking. On the phone import path the fetched body's bound is
+ * StreamBadgeConfigServer.MAX_IMPORT_PAYLOAD_BYTES.
+ */
 internal object StreamBadgeRulesParser {
     /**
-     * Size caps on owner-imported packs, whose regexes run against every stream row. The
-     * length cap bounds pattern size, not backtracking; matching cannot be interrupted once
-     * started (see StreamBadgePresentation), so these are not a ReDoS guard.
+     * Names are display labels; truncated, never rejected, so a hostile pack cannot put a huge label
+     * on every stream row. Real packs' longest name was 29 characters (Spec 130 survey, 93 packs).
      */
-    const val MAX_BADGE_PATTERN_LENGTH = 200
-    const val MAX_BADGE_FILTERS_PER_IMPORT = 300
+    const val MAX_BADGE_NAME_LENGTH = 64
 
     @OptIn(ExperimentalSerializationApi::class)
     private val json = Json {
@@ -161,15 +165,10 @@ internal object StreamBadgeRulesParser {
         }
 
         val filters = decoded.filters.mapNotNull { filter ->
-            val name = filter.name.orEmpty().trim()
+            val name = filter.name.orEmpty().trim().take(MAX_BADGE_NAME_LENGTH)
             val pattern = filter.pattern.orEmpty().trim()
             if (name.isBlank() || pattern.isBlank()) {
                 return@mapNotNull null
-            }
-            if (pattern.length > MAX_BADGE_PATTERN_LENGTH || name.length > MAX_BADGE_PATTERN_LENGTH) {
-                throw IllegalArgumentException(
-                    "Badge pattern/name exceeds $MAX_BADGE_PATTERN_LENGTH characters: ${name.take(40)}"
-                )
             }
 
             StreamBadgeFilter(
@@ -188,11 +187,6 @@ internal object StreamBadgeRulesParser {
 
         if (filters.isEmpty()) {
             throw IllegalArgumentException("Badge import did not contain any usable filters.")
-        }
-        if (filters.size > MAX_BADGE_FILTERS_PER_IMPORT) {
-            throw IllegalArgumentException(
-                "Badge import exceeds $MAX_BADGE_FILTERS_PER_IMPORT filters (${filters.size})."
-            )
         }
 
         val groups = decoded.groups.map { group ->
@@ -213,34 +207,44 @@ internal object StreamBadgeRulesParser {
 }
 
 internal object StreamBadgeMatcher {
-    fun compile(rules: StreamBadgeRules): List<CompiledStreamBadgeFilter> {
+    fun compile(rules: StreamBadgeRules): List<CompiledStreamBadgeFilter> = checkNotNull(compileWhile(rules) { true })
+
+    /**
+     * [compile], checking [keepGoing] before each pattern; null once it answers false. ICU compiles
+     * one pattern uninterruptibly, so a stop lands within one pattern (Spec 130 round 2 warm).
+     */
+    fun compileWhile(rules: StreamBadgeRules, keepGoing: () -> Boolean): List<CompiledStreamBadgeFilter>? {
         if (!rules.hasImport) return emptyList()
-        return rules.normalized().imports.filter { it.isActive }.flatMap { import ->
-            import.filters.mapNotNull { filter ->
-                if (!filter.isEnabled || filter.name.isBlank() || filter.pattern.isBlank()) {
-                    return@mapNotNull null
-                }
-                val pattern = runCatching {
-                    Pattern.compile(filter.pattern)
-                }.getOrNull() ?: return@mapNotNull null
-                CompiledStreamBadgeFilter(
-                    name = filter.name,
-                    badge = StreamBadge(
-                        name = filter.name,
-                        imageURL = filter.imageURL,
-                        tagColor = filter.tagColor,
-                        tagStyle = filter.tagStyle,
-                        textColor = filter.textColor,
-                        borderColor = filter.borderColor
-                    ),
-                    pattern = pattern,
-                    // Extract a short literal hint from the pattern for fast pre-screening.
-                    // If the candidate doesn't contain this literal (case-insensitive),
-                    // we skip the expensive regex entirely.
-                    literalHint = extractLiteralHint(filter.pattern)
-                )
+        val compiled = mutableListOf<CompiledStreamBadgeFilter>()
+        for (import in rules.normalized().imports) {
+            if (!import.isActive) continue
+            for (filter in import.filters) {
+                if (!keepGoing()) return null
+                compileFilter(filter)?.let(compiled::add)
             }
         }
+        return compiled
+    }
+
+    private fun compileFilter(filter: StreamBadgeFilter): CompiledStreamBadgeFilter? {
+        if (!filter.isEnabled || filter.name.isBlank() || filter.pattern.isBlank()) return null
+        val pattern = runCatching { Pattern.compile(filter.pattern) }.getOrNull() ?: return null
+        return CompiledStreamBadgeFilter(
+            name = filter.name,
+            badge = StreamBadge(
+                name = filter.name,
+                imageURL = filter.imageURL,
+                tagColor = filter.tagColor,
+                tagStyle = filter.tagStyle,
+                textColor = filter.textColor,
+                borderColor = filter.borderColor
+            ),
+            pattern = pattern,
+            // Extract a short literal hint from the pattern for fast pre-screening.
+            // If the candidate doesn't contain this literal (case-insensitive),
+            // we skip the expensive regex entirely.
+            literalHint = extractLiteralHint(filter.pattern)
+        )
     }
 
     private fun extractLiteralHint(pattern: String): String? {

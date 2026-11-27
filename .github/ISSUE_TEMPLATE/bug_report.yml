@@ -31,6 +31,15 @@ body:
       required: true
 
   - type: input
+    id: report_code
+    attributes:
+      label: Report code
+      description: Settings › About › Send a report shows it. The report stays private; only the maintainer can read it.
+      placeholder: "KE-7F3QM2"
+    validations:
+      required: false
+
+  - type: input
     id: device
     attributes:
       label: Box and Android version
@@ -90,8 +99,8 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs (needed for crashes)
-      description: Run `adb logcat -d > nuvio-log.txt` right after it happens and attach the file, or paste the part around the error.
+      label: Logs (only if you can't send a report)
+      description: Settings › About › Send a report sends the app's log privately, with the links and keys it finds removed; put its code above instead. If you can't, run `adb logcat -d > nuvio-log.txt` right after it happens and paste the part around the error. This issue is public, so remove addon and debrid links, keys, tokens and emails first.
       render: shell
     validations:
       required: false

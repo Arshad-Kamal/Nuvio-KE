@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.tmdb
 
+import com.nuvio.tv.data.repository.noContentFilter
 import androidx.lifecycle.SavedStateHandle
 import com.nuvio.tv.MainDispatcherRule
 import com.nuvio.tv.core.tmdb.TmdbApiKeyProvider
@@ -96,6 +97,7 @@ class TmdbEntityBrowseViewModelNavArgsTest {
             every { fullyWatchedSeriesIds } returns MutableStateFlow(emptySet())
         },
         posterOptions = mockk(relaxed = true),
+        contentFilter = noContentFilter(),
         savedStateHandle = SavedStateHandle(args)
     )
 }

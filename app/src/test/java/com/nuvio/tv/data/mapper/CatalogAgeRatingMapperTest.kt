@@ -3,13 +3,17 @@ package com.nuvio.tv.data.mapper
 import com.nuvio.tv.core.di.NetworkModule
 import com.nuvio.tv.data.remote.dto.CatalogResponseDto
 import com.nuvio.tv.data.remote.dto.CatalogAppExtrasDto
+import com.nuvio.tv.data.remote.dto.MetaDto
 import com.nuvio.tv.data.remote.dto.MetaPreviewDto
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Spec 64 K1a: a catalog item's app_extras.certification becomes MetaPreview.ageRating. */
+/**
+ * Spec 64 K1a: a catalog item's app_extras.certification becomes MetaPreview.ageRating; Spec 102: its
+ * certifications map becomes nonUsRatings when the US code is unknown (catalog, disk cache and meta).
+ */
 class CatalogAgeRatingMapperTest {
 
     private val json = NetworkModule.provideWireJson()
@@ -83,5 +87,86 @@ class CatalogAgeRatingMapperTest {
 
         assertEquals(false, encoded.contains("app_extras"))
         assertNull(json.decodeFromString<MetaPreviewDto>(encoded).toDomainOrNull("movie")!!.ageRating)
+    }
+
+    @Test
+    fun `certifications are kept only without a known US code`() {
+        val items = decode(
+            """
+            {"metas":[
+              {"id":"tt1","type":"movie","name":"US known","app_extras":{"certification":"PG","certifications":{"GB":"U"}}},
+              {"id":"tt2","type":"movie","name":"NR","app_extras":{"certification":"NR","certifications":{"GB":"15","DE":"16"}}},
+              {"id":"tt3","type":"movie","name":"No US","app_extras":{"certifications":{"KR":"19","US":"R"}}},
+              {"id":"tt4","type":"movie","name":"Empty","app_extras":{"certifications":{}}}
+            ]}
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(emptyMap(), mapOf("GB" to "15", "DE" to "16"), mapOf("KR" to "19", "US" to "R"), emptyMap()),
+            items.map { it.nonUsRatings }
+        )
+    }
+
+    @Test
+    fun `one bad certifications entry drops the whole map, a null entry only itself`() {
+        val long = "x".repeat(33)
+        val many = (1..81).joinToString(",") { """"C$it":"12"""" }
+        val longKey = "K".repeat(33)
+        val items = decode(
+            """
+            {"metas":[
+              {"id":"tt1","type":"movie","name":"Number","app_extras":{"certifications":{"GB":"PG","DE":18}}},
+              {"id":"tt2","type":"movie","name":"Array","app_extras":{"certifications":{"GB":"PG","DE":["18"]}}},
+              {"id":"tt3","type":"movie","name":"Long","app_extras":{"certifications":{"GB":"PG","DE":"$long"}}},
+              {"id":"tt4","type":"movie","name":"Many","app_extras":{"certifications":{$many}}},
+              {"id":"tt5","type":"movie","name":"Not an object","app_extras":{"certifications":"PG"}},
+              {"id":"tt6","type":"movie","name":"Null entry","app_extras":{"certifications":{"GB":"PG","DE":null}}},
+              {"id":"tt7","type":"movie","name":"Long key","app_extras":{"certifications":{"GB":"PG","$longKey":"12"}}}
+            ]}
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), mapOf("GB" to "PG"), emptyMap()),
+            items.map { it.nonUsRatings }
+        )
+        assertEquals(7, items.size)
+    }
+
+    @Test
+    fun `certifications at the limits are kept`() {
+        val code = "x".repeat(32)
+        val eighty = (1..80).joinToString(",") { """"C$it":"$code"""" }
+        val item = decode("""{"metas":[{"id":"tt1","type":"movie","name":"M","app_extras":{"certifications":{$eighty}}}]}""").single()
+
+        assertEquals(80, item.nonUsRatings.size)
+    }
+
+    @Test
+    fun `the disk-cache round-trip keeps the certifications map`() {
+        val fromAddon = json.decodeFromString<CatalogResponseDto>(
+            """{"metas":[{"id":"tt1","type":"series","name":"Show","app_extras":{
+              "certifications":{"GB":"15","DE":"16","KR":"15"},"cast":[{"name":"Actor A"}]}}]}"""
+        )
+        val encoded = json.encodeToString(fromAddon)
+
+        assertEquals(
+            mapOf("GB" to "15", "DE" to "16", "KR" to "15"),
+            json.decodeFromString<CatalogResponseDto>(encoded).metas.single()!!.toDomainOrNull("series")!!.nonUsRatings
+        )
+        assertEquals(false, encoded.contains("cast"))
+    }
+
+    @Test
+    fun `a meta maps certifications under the same rules`() {
+        fun meta(extras: String) = json.decodeFromString<MetaDto>(
+            """{"id":"tt1","type":"movie","name":"M","app_extras":$extras}"""
+        ).toDomain()
+
+        assertEquals(mapOf("GB" to "15"), meta("""{"certification":"NR","certifications":{"GB":"15"}}""").nonUsRatings)
+        assertEquals(emptyMap<String, String>(), meta("""{"certification":"R","certifications":{"GB":"15"}}""").nonUsRatings)
+        assertEquals(emptyMap<String, String>(), meta("""{"certifications":{"GB":"15","DE":16}}""").nonUsRatings)
+        assertEquals(emptyMap<String, String>(), meta("""{"certifications":["GB"]}""").nonUsRatings)
     }
 }

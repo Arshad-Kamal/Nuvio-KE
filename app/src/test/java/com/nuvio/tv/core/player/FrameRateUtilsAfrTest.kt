@@ -943,6 +943,24 @@ class FrameRateUtilsAfrTest {
     }
 
     @Test
+    fun `a rejected placeholder's detection is forgotten for its filename only (Spec 131)`() {
+        val clip = FrameRateUtils.FrameRateDetection(raw = 30f, snapped = 30f, videoWidth = 1280, videoHeight = 720)
+        val url = "https://debrid.example/resolve/abc"
+        val headers = mapOf("Authorization" to "Bearer t")
+        AfrFpsCache.cacheFrameRate(url, headers, clip, "Film.2160p.mkv")
+        AfrFpsCache.cacheFrameRate(url, headers, clip, "Other.1080p.mkv")
+
+        AfrFpsCache.removeFrameRate(url, headers, "Film.2160p.mkv")
+
+        assertNull(AfrFpsCache.getCachedFrameRate(url, headers, "Film.2160p.mkv"))
+        assertNotNull(AfrFpsCache.getCachedFrameRate(url, headers, "Other.1080p.mkv"))
+        // Removing an absent entry is a no-op.
+        AfrFpsCache.removeFrameRate(url, headers, "Film.2160p.mkv")
+        assertNull(AfrFpsCache.getCachedFrameRate(url, headers, "Film.2160p.mkv"))
+        assertNotNull(AfrFpsCache.getCachedFrameRate(url, headers, "Other.1080p.mkv"))
+    }
+
+    @Test
     fun `walkMp4BoxesForMdatEnd resolves offset for 32-bit mdat size`() {
         val temp = java.io.File.createTempFile("test_mdat32_", ".tmp")
         try {

@@ -586,7 +586,7 @@
   <string name="settings_p2p_title">Ροή P2P</string>
   <string name="settings_p2p_subtitle">Να επιτρέπονται ροές peer-to-peer (torrent)</string>
   <string name="settings_p2p_hide_stats_title">Απόκρυψη στατιστικών torrent</string>
-  <string name="settings_p2p_hide_stats_subtitle">Απόκρυψη buffer, seeds, peers και ταχύτητας λήψης κατά τη φόρτωση και την αναπαραγωγή</string>
+  <string name="settings_p2p_hide_stats_subtitle">Απόκρυψη buffer, seeds, peers και ταχύτητας λήψης κατά την αναπαραγωγή</string>
   <string name="stream_filter_all">Όλα</string>
   <!-- PlayerScreen -->
   <string name="player_no_external_player">Δεν βρέθηκε εξωτερικό πρόγραμμα αναπαραγωγής</string>

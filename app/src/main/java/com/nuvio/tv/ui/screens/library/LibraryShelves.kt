@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.library
 
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.domain.model.LibraryEntry
+import com.nuvio.tv.core.tracking.TrackingListStatus
 import com.nuvio.tv.ui.screens.home.isSeriesType
 import com.nuvio.tv.ui.screens.home.isWatchedTitle
 import java.util.Locale
@@ -19,7 +20,7 @@ data class LibraryTypeTab(val key: String, val count: Int) {
     }
 }
 
-enum class LibraryShelfKind { RECENTLY_ADDED, NOT_WATCHED, MOVIES, SERIES, GENRE, WATCHED }
+enum class LibraryShelfKind { RECENTLY_ADDED, NOT_WATCHED, MOVIES, SERIES, GENRE, WATCHED, TRACKER_LIST }
 
 /** One shelf: [key] is unique per tab and shelf (row focus and scroll state key on it). */
 @Immutable
@@ -28,7 +29,9 @@ data class LibraryShelf(
     val kind: LibraryShelfKind,
     /** The genre as the library spells it (first occurrence), for [LibraryShelfKind.GENRE]. */
     val genre: String?,
-    val entries: List<LibraryEntry>
+    val entries: List<LibraryEntry>,
+    /** The list, for [LibraryShelfKind.TRACKER_LIST]. */
+    val trackerList: TrackingListStatus? = null
 )
 
 /** Genre shelves need this many titles; at most [MAX_GENRE_SHELVES] of them, biggest first. */
@@ -116,7 +119,8 @@ internal fun entriesOfType(entries: List<LibraryEntry>, typeKey: String): List<L
     if (typeKey == LibraryTypeTab.ALL_KEY) entries else entries.filter { it.typeKey() == typeKey }
 
 /**
- * The shelves of tab [typeKey] (Q1): Recently added (added since [recentSinceMs]) · Not watched
+ * The shelves of tab [typeKey]. A library whose titles name their tracker list (Simkl, Spec 106 G1) gets one shelf per
+ * list instead, in [TrackingListStatus] order. Otherwise (Q1): Recently added (added since [recentSinceMs]) · Not watched
  * yet · Movies · Series · one per genre with [MIN_GENRE_SHELF_SIZE]+ titles (most titles first,
  * up to [MAX_GENRE_SHELVES]) · Watched. Type tabs drop the Movies and Series shelves; empty
  * shelves are left out. Every shelf lists newest added first.
@@ -128,6 +132,7 @@ internal fun libraryShelves(
     recentSinceMs: Long
 ): List<LibraryShelf> {
     val tabEntries = entriesOfType(entries, typeKey).sortedWith(LibraryAddedNewestFirst)
+    if (entries.any { it.trackerList != null }) return trackerListShelves(tabEntries, typeKey)
     val (watched, notWatched) = tabEntries.partition(isWatched)
     val isAll = typeKey == LibraryTypeTab.ALL_KEY
 
@@ -159,4 +164,15 @@ internal fun libraryShelves(
         addAll(genreShelves)
         add(shelf(LibraryShelfKind.WATCHED, watched))
     }.filter { it.entries.isNotEmpty() }
+}
+
+/**
+ * One shelf per tracker list of [tabEntries] (already newest added first), in [TrackingListStatus] order, empty lists
+ * left out. A tracker source names every title's list, so a title without one is not shown here.
+ */
+private fun trackerListShelves(tabEntries: List<LibraryEntry>, typeKey: String): List<LibraryShelf> {
+    val byList = tabEntries.groupBy { it.trackerList }
+    return TrackingListStatus.entries.mapNotNull { list ->
+        byList[list]?.let { LibraryShelf("$typeKey:list:${list.name.lowercase(Locale.ROOT)}", LibraryShelfKind.TRACKER_LIST, null, it, list) }
+    }
 }

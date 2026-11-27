@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -43,12 +44,14 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.PlayerEvent
 import com.nuvio.tv.core.player.PlayerSubtitleUtils
 import com.nuvio.tv.core.player.TrackInfo
+import com.nuvio.tv.core.player.addonSubtitleKey
 import com.nuvio.tv.data.local.SUBTITLE_LANGUAGE_FORCED
 import com.nuvio.tv.data.local.SubtitleEdgeStyle
 import com.nuvio.tv.data.local.SubtitleStyleSettings
@@ -117,7 +120,9 @@ internal fun SubtitleSelectionOverlay(
     onEvent: (PlayerEvent) -> Unit,
     modifier: Modifier = Modifier,
     /** Spec 97 X6 H3: addon subtitles show no source name ("Built in" stays). */
-    hideSourceNames: Boolean = false
+    hideSourceNames: Boolean = false,
+    /** Spec 108: addonSubtitleKey AutoSync retimed (PlayerUiState.autoSyncedSubtitleKey); its selected row gets the chip. */
+    autoSyncedSubtitleKey: String? = null
 ) {
     val noneLabel = stringResource(R.string.subtitle_none)
     val unknownLabel = stringResource(R.string.subtitle_language_unknown)
@@ -126,6 +131,7 @@ internal fun SubtitleSelectionOverlay(
     val defaultLabel = stringResource(R.string.subtitle_track_default)
     val sdhLabel = stringResource(R.string.subtitle_track_sdh)
     val matchesFileLabel = stringResource(R.string.subtitle_matches_file)
+    val autoSyncedChip: @Composable (Boolean) -> Unit = { focused -> AutoSyncedChip(focused) }
 
     // Session snapshots: the open panel works from the state at open time, like the
     // three-rail predecessor, so mid-session addon arrivals don't reshuffle focus.
@@ -297,6 +303,12 @@ internal fun SubtitleSelectionOverlay(
                         markColor = accent,
                         markLeading = true,
                         selected = item.id == currentSelectedOptionId,
+                        // Null guard: an internal row's null key must not match a null autoSyncedSubtitleKey.
+                        subtitleTrailing = if (
+                            item.id == currentSelectedOptionId &&
+                            autoSyncedSubtitleKey != null &&
+                            item.addonSubtitle?.let(::addonSubtitleKey) == autoSyncedSubtitleKey
+                        ) autoSyncedChip else null,
                         onClick = {
                             when (item.kind) {
                                 SubtitleOptionKind.INTERNAL -> item.internalTrackIndex?.let { trackIndex ->
@@ -314,6 +326,37 @@ internal fun SubtitleSelectionOverlay(
                 }
             }
         }
+    }
+}
+
+/**
+ * Spec 108 D4 (sandbox spec-108-autosync stage 3): "Auto synced", sync icon + label in a glass pill;
+ * black on black 8 % on the [focused] white row.
+ */
+@Composable
+private fun AutoSyncedChip(focused: Boolean) {
+    val content = if (focused) Color.Black.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(percent = 50))
+            .background(if (focused) Color.Black.copy(alpha = 0.08f) else NuvioTheme.marquee.glassFill)
+            .padding(start = 6.dp, end = 8.dp, top = 1.dp, bottom = 1.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Sync,
+            contentDescription = null,
+            tint = content,
+            modifier = Modifier.size(12.dp)
+        )
+        Text(
+            text = stringResource(R.string.autosync_label_synced),
+            // 14 sp line + 1 dp padding = the 16 sp subtitle line, so the row keeps its height when the chip lands.
+            style = NuvioTheme.textStyles.caption.copy(fontSize = 11.sp, lineHeight = 14.sp),
+            color = content,
+            maxLines = 1
+        )
     }
 }
 

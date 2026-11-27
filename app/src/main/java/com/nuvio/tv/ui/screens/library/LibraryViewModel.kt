@@ -3,6 +3,8 @@ package com.nuvio.tv.ui.screens.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.auth.AuthManager
+import com.nuvio.tv.core.tracking.TrackingProviderDescriptor
+import com.nuvio.tv.core.tracking.TrackingSourceController
 import com.nuvio.tv.core.util.extractReleaseYear
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.LibraryPreferences
@@ -88,6 +90,8 @@ data class LibraryUiState(
     val watchedMovieIds: Set<String> = emptySet(),
     val watchedSeriesIds: Set<String> = emptySet(),
     val isNuvioAccount: Boolean = false,
+    /** The tracker the Library reads from (its name and mark on the tab row, Spec 104 C4); null for Nuvio or this TV. */
+    val libraryTracker: TrackingProviderDescriptor? = null,
     /** The Card shape setting: Landscape = true overrides every card, else each card its addon's shape (Spec 41 D1/D2). */
     val landscapePostersEnabled: Boolean = false,
     /** The first sync is running and the library is still empty. */
@@ -128,6 +132,7 @@ class LibraryViewModel @Inject constructor(
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     private val continueWatchingSettings: com.nuvio.tv.data.local.ContinueWatchingSettingsDataStore,
     private val watchCountDataStore: com.nuvio.tv.data.local.WatchCountDataStore,
+    private val trackingSourceController: TrackingSourceController,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController
 ) : ViewModel() {
 
@@ -152,6 +157,11 @@ class LibraryViewModel @Inject constructor(
                 .collect { enabled -> _uiState.update { it.copy(landscapePostersEnabled = enabled) } }
         }
         observeLibraryData()
+        viewModelScope.launch {
+            trackingSourceController.activeLibraryTracker.collect { tracker ->
+                _uiState.update { it.copy(libraryTracker = tracker) }
+            }
+        }
         viewModelScope.launch {
             watchProgressRepository.observeWatchedMovieIds()
                 .collect { ids ->
@@ -240,10 +250,13 @@ class LibraryViewModel @Inject constructor(
      * hidden until both are written: it must not come back for a frame at its watched-mark time.
      */
     fun removeFromHistory(contentId: String) {
+        // The row's type lets a film's removal reach the connected trackers (Spec 104); a series' never does. Read
+        // before hiding the row: on Main.immediate the History pipeline drops it from uiState inside the update below.
+        val contentType = _uiState.value.history.firstOrNull { it.id == contentId }?.type
         removingFromHistory.update { it + contentId }
         viewModelScope.launch {
             try {
-                watchProgressRepository.removeFromHistory(contentId, season = null, episode = null)
+                watchProgressRepository.removeFromHistory(contentId, season = null, episode = null, contentType = contentType)
             } finally {
                 removingFromHistory.update { it - contentId }
             }

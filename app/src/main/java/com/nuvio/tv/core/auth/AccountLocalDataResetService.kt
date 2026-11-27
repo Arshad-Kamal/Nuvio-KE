@@ -2,6 +2,7 @@ package com.nuvio.tv.core.auth
 
 import android.content.Context
 import android.util.Log
+import com.nuvio.tv.core.backup.RestoreDirs
 import com.nuvio.tv.core.network.tls.AddonCertPinKeeper
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.MyPhotosStore
@@ -63,6 +64,8 @@ class AccountLocalDataResetService @Inject constructor(
 
     // Leftovers of cut features (plugin_code*, cs_extensions) are swept by
     // LegacyFeatureDataCleanup at app start, not here.
+    // Spec 101 D23: pre-restore copies, a staged restore and temp exports hold the account's
+    // data and unsealed keys, so the whole backup work folder goes (manual backups in Downloads stay).
     private fun isAccountFile(file: File): Boolean =
-        file.name == ContinueWatchingEnrichmentCache.CACHE_DIR_NAME
+        file.name == ContinueWatchingEnrichmentCache.CACHE_DIR_NAME || file.name == RestoreDirs.DIR_NAME
 }

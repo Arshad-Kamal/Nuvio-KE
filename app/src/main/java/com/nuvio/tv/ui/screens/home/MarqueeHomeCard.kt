@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,7 +54,16 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.request.transformations
 import coil3.size.Scale
+import com.nuvio.tv.core.posters.PosterContentIds
+import com.nuvio.tv.core.posters.PosterContentType
+import com.nuvio.tv.core.posters.RatingPosterFailureMemory
+import com.nuvio.tv.core.posters.RatingPosterFallback
+import com.nuvio.tv.core.posters.RatingPosterResolver
+import com.nuvio.tv.core.posters.RatingPosterState
+import com.nuvio.tv.core.posters.RatingPosters
+import com.nuvio.tv.core.posters.ratingPosterFailures
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
+import com.nuvio.tv.domain.model.ContinueWatchingItem
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.isPlaceholder
@@ -61,10 +71,12 @@ import com.nuvio.tv.ui.components.MonochromePosterPlaceholder
 import com.nuvio.tv.ui.components.WatchedMarker
 import com.nuvio.tv.ui.components.brokenImageUrls
 import com.nuvio.tv.ui.components.catalogPosterImageCacheKey
+import com.nuvio.tv.ui.components.marquee.MarqueeCardBandFoot
 import com.nuvio.tv.ui.components.marquee.MarqueeCard
 import com.nuvio.tv.ui.components.marquee.MarqueeCardCaption
 import com.nuvio.tv.ui.components.marquee.MarqueeCardChip
 import com.nuvio.tv.ui.components.marquee.MarqueeCardProgress
+import com.nuvio.tv.ui.components.marquee.MarqueeCardProgressBar
 import com.nuvio.tv.ui.components.marquee.MarqueeCardTitle
 import com.nuvio.tv.ui.components.continueWatchingImageCacheKey
 import com.nuvio.tv.ui.components.continueWatchingImageModel
@@ -77,6 +89,7 @@ import com.nuvio.tv.ui.components.trailerpreview.TrailerPreviewAnchor
 import com.nuvio.tv.ui.components.trailerpreview.TrailerPreviewCandidate
 import com.nuvio.tv.ui.components.trailerpreview.TrailerPreviewStage
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.math.roundToInt
 import com.nuvio.tv.ui.theme.NuvioMarqueeHomeTokens
 import com.nuvio.tv.ui.theme.NuvioPrimitives
@@ -219,8 +232,17 @@ internal data class MarqueeImageSpec(
     val width: Dp,
     val height: Dp,
     val blur: Boolean,
-    val continueWatching: Boolean
+    val continueWatching: Boolean,
+    /** Spec 114: when [url] is a rating poster, the addon's own art, loaded if it fails (P0-3). */
+    val fallback: MarqueeImageSpec? = null,
+    /** The rating poster's template ([com.nuvio.tv.core.posters.RatingPosterTemplate.fingerprint]); set with [fallback]. */
+    val templateFingerprint: String? = null,
+    /** Spec 114 P0-4: the rating-poster setting is still loading; the card shows its backing, nothing loads. */
+    val pending: Boolean = false
 ) {
+    /** The addon's own art: what a failed load means is broken (a rating poster already fell back to it, P0-3). */
+    val addonUrl: String get() = fallback?.url ?: url
+
     fun cacheKey(widthPx: Int, heightPx: Int): String =
         if (continueWatching) continueWatchingImageCacheKey(url, widthPx, heightPx, blur)
         else catalogPosterImageCacheKey(url, widthPx, heightPx)
@@ -234,6 +256,20 @@ internal data class MarqueeImageSpec(
             .size(width = widthPx, height = heightPx)
             .scale(Scale.FILL)
             .apply { if (blur) transformations(BlurTransformation()) }
+            .apply {
+                if (fallback != null && templateFingerprint != null) {
+                    extras[RatingPosterFallback.KEY] = RatingPosterFallback(
+                        url = fallback.url,
+                        memoryCacheKey = fallback.cacheKey(widthPx, heightPx),
+                        fingerprint = templateFingerprint
+                    )
+                }
+            }
+
+    // A rating poster's URL holds the user's key (Spec 114 P0-6): name the host only.
+    override fun toString(): String =
+        "MarqueeImageSpec(host=${url.toHttpUrlOrNull()?.host}, ${width}x$height, blur=$blur, " +
+            "continueWatching=$continueWatching, fallback=${fallback != null}, pending=$pending)"
 }
 
 internal fun ModernCarouselItem.marqueeImageRequestSpec(
@@ -241,7 +277,9 @@ internal fun ModernCarouselItem.marqueeImageRequestSpec(
     continueWatchingPoster: Boolean,
     useEpisodeThumbnails: Boolean,
     blurUnwatchedEpisodes: Boolean,
-    home: NuvioMarqueeHomeTokens
+    home: NuvioMarqueeHomeTokens,
+    ratingPosters: RatingPosterState,
+    failures: RatingPosterFailureMemory = ratingPosterFailures
 ): MarqueeImageSpec? {
     val size = marqueeCardSize(landscapeRow, continueWatchingPoster, home)
     val cw = payload as? ModernPayload.ContinueWatching
@@ -250,11 +288,56 @@ internal fun ModernCarouselItem.marqueeImageRequestSpec(
         val usesThumbs = continueWatchingUsesEpisodeThumbnails(cwStyle, useEpisodeThumbnails)
         val url = continueWatchingImageModel(cw.item, usesThumbs, continueWatchingPoster) ?: return null
         val blur = continueWatchingShouldBlur(cw.item, blurUnwatchedEpisodes, usesThumbs, continueWatchingPoster)
-        return MarqueeImageSpec(url, size.width, size.height, blur, continueWatching = true)
+        val spec = MarqueeImageSpec(url, size.width, size.height, blur, continueWatching = true)
+        // Spec 114 P0-2: a poster-style card whose pick is the entry's own poster.
+        val (poster, contentId, contentType) = when (val entry = cw.item) {
+            is ContinueWatchingItem.InProgress -> Triple(entry.progress.poster, entry.progress.contentId, entry.progress.contentType)
+            is ContinueWatchingItem.NextUp -> Triple(entry.info.poster, entry.info.contentId, entry.info.contentType)
+        }
+        if (!continueWatchingPoster || blur || url != poster?.trim()) return spec
+        return spec.withRatingPoster(ratingPosters, failures, contentId, null, contentType)
     }
     if (isPlaceholderCard()) return null
     val url = marqueeImageUrl(landscapeRow)?.takeUnless { it.isPlaceholder() } ?: return null
-    return MarqueeImageSpec(url, size.width, size.height, blur = false, continueWatching = false)
+    val spec = MarqueeImageSpec(url, size.width, size.height, blur = false, continueWatching = false)
+    // Spec 114 P0-2: a catalog card showing its item's own portrait poster; landscape art, folders keep theirs.
+    val meta = metaPreview
+    if (payload !is ModernPayload.Catalog || meta == null || landscapeRow || cardShape() != PosterShape.POSTER ||
+        url != meta.poster
+    ) return spec
+    return spec.withRatingPoster(ratingPosters, failures, meta.id, meta.imdbId, meta.apiType)
+}
+
+/**
+ * Spec 114 P0-2..P0-4: [this] (the addon's art) as a rating poster with this spec as its fallback, when the
+ * setting is on, the title is a movie or series with a usable id, and neither the URL nor the template's key
+ * is known bad. While the setting loads, a card that could qualify waits ([MarqueeImageSpec.pending]).
+ */
+private fun MarqueeImageSpec.withRatingPoster(
+    state: RatingPosterState,
+    failures: RatingPosterFailureMemory,
+    metaId: String,
+    imdbId: String?,
+    type: String?
+): MarqueeImageSpec {
+    if (state == RatingPosterState.Off) return this
+    val contentType = when {
+        type.equals("movie", ignoreCase = true) -> PosterContentType.MOVIE
+        isSeriesType(type) -> PosterContentType.SERIES
+        else -> return this
+    }
+    val ids = PosterContentIds.from(metaId, imdbId)
+    return when (state) {
+        RatingPosterState.Off -> this
+        RatingPosterState.Loading -> if (ids.hasAnyId) copy(pending = true) else this
+        is RatingPosterState.On -> {
+            val template = state.template
+            if (failures.isKeyRejected(template.fingerprint)) return this
+            val ratingUrl = RatingPosterResolver.resolve(template, ids, contentType) ?: return this
+            if (ratingUrl in failures) return this
+            copy(url = ratingUrl, fallback = this, templateFingerprint = template.fingerprint)
+        }
+    }
 }
 
 /** Enqueues [spec] unless its exact cache entry is already warm (prefetchers only). */
@@ -264,6 +347,7 @@ internal fun enqueueMarqueeImage(
     density: androidx.compose.ui.unit.Density,
     spec: MarqueeImageSpec
 ) {
+    if (spec.pending) return
     val widthPx = with(density) { spec.width.roundToPx() }
     val heightPx = with(density) { spec.height.roundToPx() }
     if (widthPx <= 0 || heightPx <= 0) return
@@ -336,13 +420,16 @@ internal fun MarqueeRowItem(
     // Bumped when CW art fails: the URL is blacklisted and the spec re-resolves to the next
     // candidate in continueWatchingImageModel's chain (as the deleted ContinueWatchingCard did).
     var continueWatchingArtFailures by remember(item.key) { mutableIntStateOf(0) }
-    val spec = remember(item, landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, continueWatchingArtFailures) {
-        item.marqueeImageRequestSpec(landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home)
+    // Spec 114 P0-4: a change re-keys the spec at once ("cards use it from now on").
+    val ratingPosters by RatingPosters.state.collectAsState()
+    val spec = remember(item, landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, continueWatchingArtFailures, ratingPosters) {
+        item.marqueeImageRequestSpec(landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home, ratingPosters)
     }
     val folderCoverFallback = rememberFolderCoverFallback(if (folder != null) spec?.url else null)
-    val showImage = spec != null && !(folder != null && folderCoverFallback.failed)
+    val pendingArt = spec?.pending == true
+    val showImage = spec != null && !pendingArt && !(folder != null && folderCoverFallback.failed)
     val imageModel = remember(context, spec, density) {
-        spec?.let {
+        spec?.takeUnless { it.pending }?.let {
             val widthPx = with(density) { it.width.roundToPx() }.coerceAtLeast(1)
             val heightPx = with(density) { it.height.roundToPx() }.coerceAtLeast(1)
             it.request(context, widthPx, heightPx).crossfade(false).build()
@@ -492,6 +579,8 @@ internal fun MarqueeRowItem(
         ) {
             when {
                 isPlaceholder -> Unit
+                // The card's backing (containerColor) until the rating-poster setting is read.
+                pendingArt -> Unit
                 showImage -> {
                     AsyncImage(
                         model = imageModel,
@@ -504,7 +593,7 @@ internal fun MarqueeRowItem(
                         onError = when {
                             folder != null -> { _ -> folderCoverFallback.onCoverError(spec.url) }
                             isContinueWatching -> { _ ->
-                                brokenImageUrls.add(spec.url)
+                                brokenImageUrls.add(spec.addonUrl)
                                 continueWatchingArtFailures++
                             }
                             else -> null
@@ -524,7 +613,19 @@ internal fun MarqueeRowItem(
                 FocusGifOverlay(url = folder.focusGifUrl, spec = spec)
             }
 
-            if (cardTitle != null) MarqueeCardTitle(cardTitle)
+            // Continue Watching and Library's History set a progress on unfinished titles.
+            val progressFraction = item.progressFraction?.takeIf { it > 0f }
+            val progressFill = if (isFocused) accent() else NuvioTheme.colors.TextPrimary
+            val progressInset = if (isLandscapeCard) 12.dp else 10.dp
+            // Spec 122 D1: a previewed filter hit's band, with the title (landscape cards) and the
+            // progress bar stacked above it, never over it (117/S6).
+            val bandProgress: (@Composable () -> Unit)? =
+                if (item.filterHits.isEmpty() || progressFraction == null) null
+                else { { MarqueeCardProgressBar(progressFraction, progressFill, progressInset, bottom = 6.dp) } }
+            when {
+                cardTitle != null -> MarqueeCardTitle(cardTitle, item.filterHits, bandProgress)
+                item.filterHits.isNotEmpty() -> MarqueeCardBandFoot(item.filterHits, bandProgress)
+            }
 
             item.cornerLabel?.takeIf { it.isNotBlank() }?.let { MarqueeCardChip(it) }
 
@@ -538,13 +639,8 @@ internal fun MarqueeRowItem(
                 )
             }
 
-            // Continue Watching and Library's History set a progress on unfinished titles.
-            item.progressFraction?.takeIf { it > 0f }?.let { fraction ->
-                MarqueeCardProgress(
-                    fraction = fraction,
-                    fill = if (isFocused) accent() else NuvioTheme.colors.TextPrimary,
-                    inset = if (isLandscapeCard) 12.dp else 10.dp
-                )
+            if (bandProgress == null) {
+                progressFraction?.let { MarqueeCardProgress(fraction = it, fill = progressFill, inset = progressInset) }
             }
 
             if (isWatched) {

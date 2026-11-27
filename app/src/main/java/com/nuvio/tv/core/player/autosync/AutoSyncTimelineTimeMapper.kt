@@ -1,0 +1,103 @@
+package com.nuvio.tv.core.player.autosync
+
+import kotlin.math.abs
+import kotlin.math.roundToLong
+
+/**
+ * Maps original subtitle times onto a retimed AutoSync timeline: the nearest retimed cue boundary
+ * when one is close enough, otherwise the timeline's whole-film transform.
+ */
+internal class AutoSyncTimelineTimeMapper(private val timeline: AutoSyncTimelineRetimeResult) {
+    private val startBoundaries = timeline.cues
+        .map { TimingBoundary(it.originalStartTimeMs, it.startTimeMs) }
+        .sortedBy { it.originalMs }
+    private val endBoundaries = timeline.cues
+        .map { TimingBoundary(it.originalEndTimeMs, it.endTimeMs) }
+        .sortedBy { it.originalMs }
+
+    var boundaryMapped = 0
+        private set
+    var affineFallback = 0
+        private set
+
+    fun mapStartMs(originalMs: Long): Long = mapTime(originalMs, startBoundaries)
+
+    fun mapEndMs(originalMs: Long): Long = mapTime(originalMs, endBoundaries)
+
+    /**
+     * Start and end of one event. An event that is not a timeline cue moves as a whole by the shift
+     * of the nearest cue start, so it keeps its length.
+     */
+    fun mapEventMs(originalStartMs: Long, originalEndMs: Long): Pair<Long, Long> {
+        val nearestStart = nearestBoundary(startBoundaries, originalStartMs)
+        if (nearestStart?.originalMs == originalStartMs &&
+            nearestBoundary(endBoundaries, originalEndMs)?.originalMs == originalEndMs
+        ) {
+            return mapStartMs(originalStartMs) to mapEndMs(originalEndMs)
+        }
+        val startMs = if (nearestStart == null) {
+            mapStartMs(originalStartMs)
+        } else {
+            boundaryMapped++
+            (originalStartMs + nearestStart.retimedMs - nearestStart.originalMs).coerceAtLeast(0L)
+        }
+        return startMs to startMs + (originalEndMs - originalStartMs)
+    }
+
+    private fun nearestBoundary(boundaries: List<TimingBoundary>, originalMs: Long): TimingBoundary? {
+        var low = 0
+        var high = boundaries.size
+        while (low < high) {
+            val mid = (low + high) ushr 1
+            if (boundaries[mid].originalMs < originalMs) low = mid + 1 else high = mid
+        }
+        return listOfNotNull(boundaries.getOrNull(low - 1), boundaries.getOrNull(low))
+            .minByOrNull { abs(it.originalMs - originalMs) }
+            ?.takeIf { abs(it.originalMs - originalMs) <= BOUNDARY_TOLERANCE_MS }
+    }
+
+    private fun mapTime(originalMs: Long, boundaries: List<TimingBoundary>): Long {
+        if (boundaries.isNotEmpty()) {
+            var low = 0
+            var high = boundaries.size
+            while (low < high) {
+                val mid = (low + high) ushr 1
+                if (boundaries[mid].originalMs < originalMs) low = mid + 1 else high = mid
+            }
+
+            val first = (low - 2).coerceAtLeast(0)
+            val last = (low + 2).coerceAtMost(boundaries.lastIndex)
+            var best: TimingBoundary? = null
+            var bestError = Long.MAX_VALUE
+            if (first <= last) {
+                for (index in first..last) {
+                    val candidate = boundaries[index]
+                    val error = abs(candidate.originalMs - originalMs)
+                    if (error < bestError) {
+                        best = candidate
+                        bestError = error
+                    }
+                }
+            }
+            if (best != null && bestError <= BOUNDARY_TOLERANCE_MS) {
+                boundaryMapped++
+                return best.retimedMs.coerceAtLeast(0L)
+            }
+        }
+
+        affineFallback++
+        return (
+            originalMs.toDouble() * timeline.alignmentScale +
+                timeline.alignmentInterceptMs
+            ).roundToLong().coerceAtLeast(0L)
+    }
+
+    private data class TimingBoundary(
+        val originalMs: Long,
+        val retimedMs: Long,
+    )
+
+    private companion object {
+        const val BOUNDARY_TOLERANCE_MS = 500L
+    }
+}

@@ -2,8 +2,13 @@ package com.nuvio.tv.ui.screens.profile
 
 import com.nuvio.tv.core.util.StartupLatencyTrace
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.core.contentfilter.ActiveContentFilter
+import com.nuvio.tv.core.contentfilter.OwnTagSearch
+import com.nuvio.tv.core.contentfilter.OwnTagSearchResult
+import com.nuvio.tv.core.tmdb.TmdbKeyState
 import com.nuvio.tv.core.profile.DpadCombo
 import com.nuvio.tv.core.profile.DpadDirection
 import com.nuvio.tv.core.profile.PinLockouts
@@ -11,16 +16,20 @@ import com.nuvio.tv.core.profile.PinVerifyOutcome
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.sync.ProfileSyncService
 import com.nuvio.tv.core.sync.SetProfilePinResult
+import com.nuvio.tv.data.local.ContentFilterRead
 import com.nuvio.tv.data.local.DpadUnlockState
 import com.nuvio.tv.data.local.MyPhoto
 import com.nuvio.tv.data.local.MyPhotosStore
 import com.nuvio.tv.data.local.ProfileLockStateDataStore
 import com.nuvio.tv.data.local.ProfileLookStore
+import com.nuvio.tv.data.local.ProfileContentFilterStore
 import com.nuvio.tv.data.local.ProfileRatingCapStore
 import com.nuvio.tv.data.remote.supabase.AvatarCatalogItem
 import com.nuvio.tv.data.remote.supabase.AvatarRepository
 import com.nuvio.tv.data.remote.supabase.ProfileBackgroundCatalogItem
 import com.nuvio.tv.data.remote.supabase.ProfileBackgroundRepository
+import com.nuvio.tv.domain.contentfilter.ContentFilterSettings
+import com.nuvio.tv.domain.contentfilter.FilterPack
 import com.nuvio.tv.domain.model.ContentRatingCap
 import com.nuvio.tv.domain.model.ProfileLookEntry
 import com.nuvio.tv.domain.model.ProfileLookPick
@@ -29,6 +38,7 @@ import com.nuvio.tv.livetv.data.LiveTvUserStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -56,6 +67,9 @@ class ProfileSelectionViewModel @Inject constructor(
     private val profileLookStore: ProfileLookStore,
     private val myPhotosStore: MyPhotosStore,
     private val ratingCapStore: ProfileRatingCapStore,
+    private val contentFilterStore: ProfileContentFilterStore,
+    activeContentFilter: ActiveContentFilter,
+    private val ownTagSearch: OwnTagSearch,
     photoUploadStarter: PhotoUploadStarter
 ) : ViewModel() {
     val activeProfileId: StateFlow<Int> = profileManager.activeProfileId
@@ -80,14 +94,7 @@ class ProfileSelectionViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Profile id -> its Live TV switch (Spec 34 D17); a profile missing from the map reads as on. */
-    val liveTvEnabledById: StateFlow<Map<Int, Boolean>> = profileManager.profiles
-        .flatMapLatest { list ->
-            if (list.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(list.map { p -> liveTvUserStore.enabledFor(p.id).map { p.id to it } }) { it.toMap() }
-            }
-        }
+    val liveTvEnabledById: StateFlow<Map<Int, Boolean>> = perProfile(liveTvUserStore::enabledFor)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /**
@@ -95,16 +102,8 @@ class ProfileSelectionViewModel @Inject constructor(
      * Null until the entries have loaded: an editor opened before then would save over a look it
      * never saw, so Edit waits for it.
      */
-    val lookEntriesById: StateFlow<Map<Int, ProfileLookEntry>?> = profileManager.profiles
-        .flatMapLatest { list ->
-            if (list.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(list.map { p -> profileLookStore.entryFor(p.id).map { p.id to it } }) { pairs ->
-                    pairs.mapNotNull { (id, entry) -> entry?.let { id to it } }.toMap()
-                }
-            }
-        }
+    val lookEntriesById: StateFlow<Map<Int, ProfileLookEntry>?> = perProfile(profileLookStore::entryFor)
+        .map { entries -> entries.mapNotNull { (id, entry) -> entry?.let { id to it } }.toMap() }
         .stateIn<Map<Int, ProfileLookEntry>?>(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
@@ -113,15 +112,44 @@ class ProfileSelectionViewModel @Inject constructor(
      * wrong cap would show it) and, outside primary-managed Manage profiles, Add stays hidden (D10,
      * [showAddProfile]).
      */
-    val ratingCapById: StateFlow<Map<Int, ContentRatingCap?>?> = profileManager.profiles
-        .flatMapLatest { list ->
-            if (list.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(list.map { p -> ratingCapStore.capFor(p.id).map { p.id to it } }) { it.toMap() }
+    val ratingCapById: StateFlow<Map<Int, ContentRatingCap?>?> = perProfile(ratingCapStore::capFor)
+        .stateIn<Map<Int, ContentRatingCap?>?>(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * Profile id -> its stored content filters (Spec 117 P9; [ContentFilterRead.Unreadable] when the
+     * file cannot be read). Null until loaded, and a profile is missing until its own read lands: Edit
+     * waits for it (an editor opened on empty filters would save over the stored ones).
+     */
+    val contentFiltersById: StateFlow<Map<Int, ContentFilterRead>?> = perProfile(contentFilterStore::settingsFor)
+        .stateIn<Map<Int, ContentFilterRead>?>(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val _builtInPacks = MutableStateFlow<List<FilterPack>?>(null)
+
+    /**
+     * The built-in content filter packs (file order), for the editor's row and page; null until read
+     * (Edit waits for it), empty when the pack file failed (the editor then shows its read-failure state).
+     */
+    val builtInPacks: StateFlow<List<FilterPack>?> = _builtInPacks.asStateFlow()
+
+    /** The TMDB key state (null until read): an own pack's Find a tag shows only while it has a key (P9). */
+    val tmdbKeyState: StateFlow<TmdbKeyState?> = ownTagSearch.keyState
+
+    /** Find a tag (Spec 117 M1 stage 4c): TMDB keywords named like [query]. */
+    suspend fun searchTags(query: String): OwnTagSearchResult = ownTagSearch.search(query)
+
+    init {
+        viewModelScope.launch {
+            // PackFileTest covers the shipped file; should it still fail, the editor says so rather than crash.
+            _builtInPacks.value = try {
+                activeContentFilter.builtInPacks()
+            } catch (e: Exception) {
+                // IOException: asset unreadable; IllegalArgumentException (incl. SerializationException): malformed.
+                if (e !is IOException && e !is IllegalArgumentException) throw e
+                Log.w(TAG, "Content filter packs unreadable: ${e.javaClass.simpleName}")
+                emptyList()
             }
         }
-        .stateIn<Map<Int, ContentRatingCap?>?>(viewModelScope, SharingStarted.Eagerly, null)
+    }
 
     /** My photos, newest first (Spec 44); null until read, and Edit waits for it as for [lookEntriesById]. */
     val myPhotos: StateFlow<List<MyPhoto>?> = myPhotosStore.photos
@@ -136,6 +164,14 @@ class ProfileSelectionViewModel @Inject constructor(
         photos = myPhotosStore.photos,
         addPhoto = myPhotosStore::add
     )
+
+    /**
+     * The primary's "Preview filters of" pick (Spec 122 D3; null = Off), written at once and only that
+     * field ([ProfileContentFilterStore.setPreview]); [onResult] false when it was not saved.
+     */
+    fun setFilterPreview(profileId: Int?, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult(contentFilterStore.setPreview(profileId)) }
+    }
 
     /** Removes My photo [id] (hold panel, D5); [onResult] false when the file could not be deleted. */
     fun removePhoto(id: String, onResult: (Boolean) -> Unit) {
@@ -186,6 +222,8 @@ class ProfileSelectionViewModel @Inject constructor(
      * write calls [onLookNotSaved]. The rating cap (Spec 64) is likewise always written for the new
      * id before [onResult] ([ratingCap] null clears a reused id's stale cap); a failed write calls
      * [onRatingCapNotSaved], and the profile keeps whatever the file held (none for a fresh id).
+     * The content filters (Spec 117 P9) likewise: [contentFilters] always written for the new id
+     * (empty clears a reused id's stale file), before [onResult]; a failure calls [onContentFiltersNotSaved].
      */
     fun createProfile(
         name: String,
@@ -197,6 +235,8 @@ class ProfileSelectionViewModel @Inject constructor(
         onLookNotSaved: () -> Unit = {},
         ratingCap: ContentRatingCap? = null,
         onRatingCapNotSaved: () -> Unit = {},
+        contentFilters: ContentFilterSettings = ContentFilterSettings(),
+        onContentFiltersNotSaved: () -> Unit = {},
         onResult: (Boolean) -> Unit = {}
     ) {
         // NonCancellable: the first saved non-primary makes MainActivity show Who's watching in place
@@ -211,9 +251,11 @@ class ProfileSelectionViewModel @Inject constructor(
                 val lookSaved = created == null ||
                     profileLookStore.write(created.id, ProfileLookEntry.of(created, localAvatar, null))
                 val capSaved = created == null || ratingCapStore.write(created.id, ratingCap)
+                val filtersSaved = created == null || contentFilterStore.write(created.id, contentFilters)
                 onResult(created != null)
                 if (!lookSaved) onLookNotSaved()
                 if (!capSaved) onRatingCapNotSaved()
+                if (!filtersSaved) onContentFiltersNotSaved()
                 if (created != null && !liveTvUserStore.setEnabled(created.id, liveTvEnabled)) onLiveTvNotSaved()
                 if (created != null) {
                     profileSyncService.pushToRemote()
@@ -230,7 +272,10 @@ class ProfileSelectionViewModel @Inject constructor(
      * [localAvatar] / [localBackground] over [profile]'s synced key, or a clear when both are null;
      * a failed write calls [onLookNotSaved]. [ratingCap] non-null (the editor passes it on every
      * save where the limit is editable, [ratingCapEditFor]) writes its cap after a successful save,
-     * also before [onResult]; a failed write calls [onRatingCapNotSaved].
+     * also before [onResult]; a failed write calls [onRatingCapNotSaved]. [contentFilters] non-null
+     * (the editor passes them only when changed and editable, [contentFilterEditFor]) are written
+     * likewise, keeping the stored preview choice ([ProfileContentFilterStore.writeEdited]); a failed
+     * write calls [onContentFiltersNotSaved].
      */
     fun updateProfile(
         profile: UserProfile,
@@ -241,6 +286,8 @@ class ProfileSelectionViewModel @Inject constructor(
         onLookNotSaved: () -> Unit = {},
         ratingCap: RatingCapEdit? = null,
         onRatingCapNotSaved: () -> Unit = {},
+        contentFilters: ContentFilterSettings? = null,
+        onContentFiltersNotSaved: () -> Unit = {},
         onResult: (Boolean) -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -248,9 +295,11 @@ class ProfileSelectionViewModel @Inject constructor(
             val lookSaved = !success ||
                 profileLookStore.write(profile.id, ProfileLookEntry.of(profile, localAvatar, localBackground))
             val capSaved = !success || ratingCap == null || ratingCapStore.write(profile.id, ratingCap.cap)
+            val filtersSaved = !success || contentFilters == null || contentFilterStore.writeEdited(profile.id, contentFilters)
             onResult(success)
             if (!lookSaved) onLookNotSaved()
             if (!capSaved) onRatingCapNotSaved()
+            if (!filtersSaved) onContentFiltersNotSaved()
             if (success && liveTvEnabled != null && !liveTvUserStore.setEnabled(profile.id, liveTvEnabled)) {
                 onLiveTvNotSaved()
             }
@@ -348,5 +397,23 @@ class ProfileSelectionViewModel @Inject constructor(
                 DpadCombo.verify(sequence, state.salt.orEmpty(), state.comboHash.orEmpty())
             onComplete(matched)
         }
+    }
+
+    /**
+     * Profile id -> [read]'s latest value, for every listed profile. Emits once each profile's read has
+     * emitted; after a list change the previous map stays until then, so a new profile is missing
+     * from it until its own value loads (the editor gates rely on that).
+     */
+    private fun <T> perProfile(read: (Int) -> Flow<T>): Flow<Map<Int, T>> = profileManager.profiles
+        .flatMapLatest { list ->
+            if (list.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(list.map { p -> read(p.id).map { p.id to it } }) { it.toMap() }
+            }
+        }
+
+    private companion object {
+        const val TAG = "ProfileSelectionVM"
     }
 }

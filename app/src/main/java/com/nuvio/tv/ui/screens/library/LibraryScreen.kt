@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -54,6 +55,7 @@ import com.nuvio.tv.ui.components.marquee.MarqueeTab
 import com.nuvio.tv.ui.components.marquee.titleTypeEyebrow
 import com.nuvio.tv.ui.components.posteroptions.PosterOptionsHost
 import com.nuvio.tv.ui.components.trailerpreview.LocalTrailerPreviewEnabled
+import com.nuvio.tv.core.tracking.TrackingProviderDescriptor
 import com.nuvio.tv.ui.screens.detail.formatDayMonth
 import com.nuvio.tv.ui.screens.detail.formatMonth
 import com.nuvio.tv.ui.screens.home.MarqueeHomeSkeleton
@@ -63,6 +65,8 @@ import com.nuvio.tv.ui.screens.home.rememberMarqueeBandBringIntoViewSpec
 import com.nuvio.tv.ui.screens.search.DiscoverRowTitle
 import com.nuvio.tv.ui.screens.search.MarqueeResultsHero
 import com.nuvio.tv.ui.screens.search.rememberResultsHeroState
+import com.nuvio.tv.ui.screens.settings.trackers.TrackerLogo
+import com.nuvio.tv.ui.screens.settings.trackers.TrackerLogoSize
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.formatAddonTypeLabel
@@ -322,9 +326,10 @@ fun LibraryScreen(
                     LibraryTabRow(
                         tabs = uiState.typeTabs,
                         selectedKey = uiState.activeTypeKey,
-                        sourceLabel = stringResource(
+                        sourceLabel = uiState.libraryTracker?.displayName?.uppercase() ?: stringResource(
                             if (uiState.isNuvioAccount) R.string.library_source_nuvio else R.string.library_source_local
                         ),
+                        sourceTracker = uiState.libraryTracker,
                         tabRequesters = tabRequesters,
                         onSelect = viewModel::onSelectTypeTab,
                         pillValue = seeAllTitle
@@ -386,8 +391,8 @@ fun LibraryScreen(
 private val NEVER_WATCHED: (MetaPreview) -> Boolean = { false }
 
 /**
- * The hero eyebrow (stages 1, 3, 7; U4, U15, U1): the title's type eyebrow, when it was added
- * ("Added 2 Oct"), then its watch fact ([libraryWatchFact]) once [watchFactLoaded]. Null without a
+ * The hero eyebrow (stages 1, 3, 7; U4, U15, U1): the title's type eyebrow, its tracker list
+ * ("Plan to watch", Spec 106 G1), when it was added ("Added 2 Oct"), then its watch fact ([libraryWatchFact]) once [watchFactLoaded]. Null without a
  * settled card (the hero then draws nothing).
  */
 @Composable
@@ -402,12 +407,14 @@ private fun libraryHeroEyebrow(
 ): String? {
     val preview = item?.heroPreview ?: return null
     val type = preview.apiType?.let { titleTypeEyebrow(it, preview.isSeries, preview.seasonCount, preview.status) }
+    val context = LocalContext.current
+    val list = entry?.trackerList?.let { libraryTrackerListLabel(context, it) }
     val addedAt = entry?.listedAt?.takeIf { it > 0L }
     val added = addedAt?.let {
         stringResource(R.string.library_hero_added, formatDayMonth(Instant.ofEpochMilli(it).atZone(zone).toLocalDate()))
     }
     val watchFact = if (watchFactLoaded) libraryWatchFact(isSeriesType(preview.apiType), watched, watchCount, today, zone) else null
-    return listOfNotNull(type?.takeIf { it.isNotBlank() }, added, watchFact).joinToString(FACT_SEPARATOR).ifEmpty { null }
+    return listOfNotNull(type?.takeIf { it.isNotBlank() }, list, added, watchFact).joinToString(FACT_SEPARATOR).ifEmpty { null }
 }
 
 /**
@@ -448,7 +455,8 @@ private fun libraryWatchFact(
 
 /**
  * The tab row (stages 1, 2, 5, 7): one tab per library type with its count, then History (no
- * count), select on focus (they are views, Detail's rule), then the library source (NUVIO or LOCAL) and the Sort & filter pill
+ * count), select on focus (they are views, Detail's rule), then the library source (NUVIO or LOCAL, or the tracker [sourceTracker]
+ * with its mark, Spec 104 C4) and the Sort & filter pill
  * ([pillValue]: "Shelves" or the active choices) at the end. Entering the tabs lands on the
  * selected one; Right from the last tab reaches the pill, whose OK calls [onOpenPanel] with its
  * window bounds.
@@ -459,6 +467,7 @@ private fun LibraryTabRow(
     tabs: List<LibraryTypeTab>,
     selectedKey: String,
     sourceLabel: String,
+    sourceTracker: TrackingProviderDescriptor?,
     tabRequesters: MutableMap<String, FocusRequester>,
     onSelect: (String) -> Unit,
     pillValue: String,
@@ -497,6 +506,11 @@ private fun LibraryTabRow(
             }
         }
         Spacer(modifier = Modifier.weight(1f))
+        // A tracker as the source carries its mark beside its name (Spec 104 C4).
+        if (sourceTracker != null) {
+            TrackerLogo(logoRes = sourceTracker.logoRes, name = sourceTracker.displayName, size = TrackerLogoSize.LABEL)
+            Spacer(modifier = Modifier.width(7.dp))
+        }
         Text(
             text = sourceLabel,
             style = NuvioTheme.textStyles.eyebrow,

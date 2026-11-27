@@ -5,6 +5,11 @@ import com.nuvio.tv.domain.model.CatalogRow
 import kotlinx.coroutines.flow.Flow
 
 interface CatalogRepository {
+    /**
+     * One addon catalog page, filtered for the active profile's rating cap and, with [packGate], its
+     * content filters (Spec 117 P5). Home passes `packGate = false`: it applies the packs when it
+     * draws (P5b).
+     */
     fun getCatalog(
         addonBaseUrl: String,
         addonId: String,
@@ -15,7 +20,8 @@ interface CatalogRepository {
         skip: Int = 0,
         skipStep: Int = 100,
         extraArgs: Map<String, String> = emptyMap(),
-        supportsSkip: Boolean = false
+        supportsSkip: Boolean = false,
+        packGate: Boolean = true
     ): Flow<NetworkResult<CatalogRow>>
 
     /**

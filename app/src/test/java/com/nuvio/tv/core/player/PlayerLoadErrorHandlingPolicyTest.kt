@@ -7,6 +7,9 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import com.nuvio.tv.core.player.PlayerStartupWatchdogPolicy.StartupLoadHold.ALL_ERRORS
+import com.nuvio.tv.core.player.PlayerStartupWatchdogPolicy.StartupLoadHold.NONE
+import com.nuvio.tv.core.player.PlayerStartupWatchdogPolicy.StartupLoadHold.TIMEOUTS
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -226,5 +229,134 @@ class PlayerLoadErrorHandlingPolicyTest {
             2000L,
             p.getRetryDelayMsFor(errorInfo(httpError(429), errorCount = 2))
         )
+    }
+
+    // --- Spec 138: torrent start load hold (D2 timeouts, F1 every error under the box) ---
+
+    @Test
+    fun `a held timeout uncaps the retry count until the hold ends`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        var hold = TIMEOUTS
+        p.startupLoadHold = { hold }
+        assertEquals(750L, p.getRetryDelayMsFor(errorInfo(SocketTimeoutException("t"), errorCount = 1)))
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        hold = NONE
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        // Cleared: a later hold needs a new held error.
+        hold = TIMEOUTS
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `only a timeout on a held uri is held while the watchdog judges`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        p.startupLoadHold = { NONE }
+        p.getRetryDelayMsFor(errorInfo(SocketTimeoutException("t")))
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+
+        val q = PlayerLoadErrorHandlingPolicy()
+        q.startupLoadHold = { TIMEOUTS }
+        q.getRetryDelayMsFor(errorInfo(java.io.IOException("not a timeout")))
+        assertEquals(6, q.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `a new start's clear drops the previous torrent's held error`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        p.startupLoadHold = { TIMEOUTS }
+        p.getRetryDelayMsFor(errorInfo(SocketTimeoutException("t")))
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        p.clearHeldError()
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `another error on the held uri ends the hold, another uri's leaves it`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        p.startupLoadHold = { if (it === testUri) TIMEOUTS else NONE }
+        p.getRetryDelayMsFor(errorInfo(SocketTimeoutException("t")))
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        // A sidecar subtitle failing meanwhile does not end the torrent's hold.
+        val otherUri: android.net.Uri = mockk(relaxed = true)
+        p.getRetryDelayMsFor(
+            LoadErrorHandlingPolicy.LoadErrorInfo(
+                LoadEventInfo(0L, DataSpec(otherUri), 0L), MediaLoadData(C.DATA_TYPE_MEDIA),
+                java.io.IOException("subtitle"), 1
+            )
+        )
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        // TorrServer refusing (a non-timeout error on the held URI) counts again.
+        p.getRetryDelayMsFor(errorInfo(java.io.IOException("connection refused")))
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `under the watchdog's box every error on the held uri is retried and uncapped`() {
+        // F1 (Shield window 2026-11-20): held timeouts while judging, the box, then TorrServer's own
+        // add-torrent timeout as HTTP 500 must not reach onPlayerError before the box's grace stop.
+        val p = PlayerLoadErrorHandlingPolicy()
+        var hold = TIMEOUTS
+        p.startupLoadHold = { hold }
+        p.getRetryDelayMsFor(errorInfo(SocketTimeoutException("t"), errorCount = 5))
+        hold = ALL_ERRORS
+        assertEquals(
+            PlayerLoadErrorHandlingPolicy.HELD_ERROR_RETRY_DELAY_MS,
+            p.getRetryDelayMsFor(errorInfo(httpError(500), errorCount = 6))
+        )
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        // Ahead of the fail-fast arms: a dead-link code or a malformed body is held too.
+        assertEquals(
+            PlayerLoadErrorHandlingPolicy.HELD_ERROR_RETRY_DELAY_MS,
+            p.getRetryDelayMsFor(errorInfo(httpError(404), errorCount = 7))
+        )
+        assertEquals(
+            PlayerLoadErrorHandlingPolicy.HELD_ERROR_RETRY_DELAY_MS,
+            p.getRetryDelayMsFor(errorInfo(malformedContainer(), errorCount = 8))
+        )
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        // A 503 under the box starts no rate-limit streak.
+        assertEquals(
+            PlayerLoadErrorHandlingPolicy.HELD_ERROR_RETRY_DELAY_MS,
+            p.getRetryDelayMsFor(errorInfo(httpError(503), errorCount = 9))
+        )
+        // The hold ends: the count applies again and a fail-fast error is fatal again.
+        hold = NONE
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        assertEquals(C.TIME_UNSET, p.getRetryDelayMsFor(errorInfo(httpError(404), errorCount = 10)))
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `a box hold that falls back to the timeout hold keeps a held error until an unheld one`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        var hold = ALL_ERRORS
+        p.startupLoadHold = { hold }
+        p.getRetryDelayMsFor(errorInfo(httpError(500), errorCount = 7))
+        hold = TIMEOUTS
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+        p.getRetryDelayMsFor(errorInfo(httpError(500), errorCount = 8))
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `under the box another uri's error is not held`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        p.startupLoadHold = { if (it === testUri) ALL_ERRORS else NONE }
+        val otherUri: android.net.Uri = mockk(relaxed = true)
+        val subtitle404 = LoadErrorHandlingPolicy.LoadErrorInfo(
+            LoadEventInfo(0L, DataSpec(otherUri), 0L), MediaLoadData(C.DATA_TYPE_MEDIA),
+            HttpDataSource.InvalidResponseCodeException(404, null, null, emptyMap(), DataSpec(otherUri), ByteArray(0)),
+            1
+        )
+        assertEquals(C.TIME_UNSET, p.getRetryDelayMsFor(subtitle404))
+        assertEquals(6, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun `under the box a first non-timeout error starts the hold`() {
+        val p = PlayerLoadErrorHandlingPolicy()
+        p.startupLoadHold = { ALL_ERRORS }
+        p.getRetryDelayMsFor(errorInfo(java.io.IOException("connection refused")))
+        assertEquals(Int.MAX_VALUE, p.getMinimumLoadableRetryCount(C.DATA_TYPE_MEDIA))
     }
 }

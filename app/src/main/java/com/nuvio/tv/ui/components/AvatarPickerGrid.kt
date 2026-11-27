@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -215,6 +216,9 @@ fun AvatarPickerGrid(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = tokens.pickerChipGap)
+                // Re-entry (Up then Down, or the editor's return after the My photo panel, 117) lands
+                // on the last focused tile; applies to the grid's own scroll focus target.
+                .focusRestorer()
                 // Moving between tiles keeps focus inside the grid; leaving it clears the preview.
                 .onFocusChanged { if (!it.hasFocus) latestOnTileFocused?.invoke(null) }
         ) {

@@ -9,6 +9,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -79,6 +80,21 @@ class IptvMetadataRepositoryTest {
     }
 
     @Test
+    fun `unload lets the metadata go and the next load reads it from disk`() = runTest {
+        val repo = repo()
+        assertTrue(repo.refreshIfStale())
+        val held = repo.metadata.value!!
+        val requests = server.requestCount
+        repo.unload()
+        assertEquals(null, repo.metadata.value)
+        repo.load()
+        assertEquals(held, repo.metadata.value)
+        // Fresh on disk: no refetch after the unload.
+        assertFalse(repo.refreshIfStale())
+        assertEquals(requests, server.requestCount)
+    }
+
+    @Test
     fun `a failed refresh keeps the old metadata`() = runTest {
         val repo = repo()
         assertTrue(repo.refreshIfStale())
@@ -116,5 +132,31 @@ class IptvMetadataRepositoryTest {
         channelsBody = "[]"
         assertFalse(repo.refreshIfStale())
         assertEquals(before, repo.metadata.value)
+    }
+
+    /** Every held value whose text is "eng", as one list (identity checks below). */
+    private fun engs(meta: com.nuvio.tv.livetv.data.IptvMetadata): List<String> =
+        meta.channels.values.flatMap { it.languages + it.feedLanguages.values.flatten() }.filter { it == "eng" }
+
+    @Test
+    fun `held metadata shares equal values after a fetch and after a cold read, and the file is unchanged (Spec 143)`() = runTest {
+        val repo = repo()
+        assertTrue(repo.refreshIfStale())
+        val fetched = engs(repo.metadata.value!!)
+        assertTrue(fetched.size >= 2)
+        fetched.forEach { assertSame(fetched[0], it) }
+
+        val file = java.io.File(tmp.root, "iptv-meta.json")
+        val written = file.readText()
+        val cold = repo()
+        cold.load()
+        assertEquals(repo.metadata.value, cold.metadata.value)
+        val read = engs(cold.metadata.value!!)
+        read.forEach { assertSame(read[0], it) }
+        assertEquals(written, file.readText())
+        assertEquals(
+            written,
+            com.nuvio.tv.data.local.localStoreJson.encodeToString(com.nuvio.tv.livetv.data.IptvMetadata.serializer(), cold.metadata.value!!)
+        )
     }
 }

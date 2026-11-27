@@ -1,0 +1,16 @@
+https://torrentio.strem.fun/providers=yts,eztv|sort=qualitysize|alldebrid=hQwErTyUiOpAsDfGhJkL|realdebrid=XQ7ZK2M4P9RT5VW8YB3NC6DF1GH0JLAS2QE4TU6IO8PA1SD3FG5H/manifest.json
+https://aiostreams.elfhosted.com/stremio/2b7c1e9a-5d4f-4e3a-9b8c-7d6e5f4a3b2c/pm7a8b9c0d1e2f3g/manifest.json
+http://line.panel-tv.net:8080/live/arshadk/Pw7xQ2/1234.ts
+http://iptv.example-provider.com/get.php?username=famuser&password=k3y9q&type=m3u_plus
+https://bob:hunter22@private.dav.example.org/epg.xml
+https://torrentio.strem.fun/premiumize=Pm4k8Q2x7Z9w3R5t|torbox=9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b|offcloud=qwertyuiopasdfgh/manifest.json
+https://addon.example.net/torbox/manifest.json
+https://epguser:correcthorse@epg.example.org/guide.xml
+https://jackett.example.org/%7B%22username%22%3A%22jackettusr%22%2C%22password%22%3A%22sunshinelemon%22%2C%22apiPassword%22%3A%22%22%7D/manifest.json
+http://iptv.example-provider.com/get.php?username=famuser&api_password=ab%26cd%2Fef12
+https://proxy.example.org/realdebrid/torrentio.strem.fun/manifest.json
+https://jackett.example.org/api/v2.0/results?tmdb_api_key=short1&sort_key=seeders&xc_username=xcuser
+https://addon.example.net/cfg?authToken=abc123
+https://addon.example.net/%7B%22premiumizeToken%22%3A%22abcdefg%22%7D/manifest.json
+https://iptv.example.org/live?x-auth-token=ab12cd
+https://addon.example.net/x?x-api-key=k9q2zz

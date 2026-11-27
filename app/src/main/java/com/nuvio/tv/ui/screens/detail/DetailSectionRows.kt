@@ -289,7 +289,9 @@ internal data class DetailCardItem<T>(
     val title: String,
     val imageUrl: String?,
     val isWatched: Boolean,
-    val value: T
+    val value: T,
+    /** Spec 122 V3: pack ids marking a previewed filter hit (empty for trailers and clean titles). */
+    val filterHits: List<String> = emptyList()
 )
 
 /**
@@ -353,7 +355,7 @@ internal fun <T> DetailCardRow(
                 error = ART_BACKING_PAINTER,
                 fallback = ART_BACKING_PAINTER
             )
-            MarqueeCardTitle(item.title)
+            MarqueeCardTitle(item.title, item.filterHits)
             if (item.isWatched) MarqueeCardTick(contentDescription = watchedLabel)
         }
     }

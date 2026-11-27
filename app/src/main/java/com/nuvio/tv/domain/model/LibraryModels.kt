@@ -1,6 +1,7 @@
 package com.nuvio.tv.domain.model
 
 import androidx.compose.runtime.Immutable
+import com.nuvio.tv.core.tracking.TrackingListStatus
 
 @Immutable
 data class LibraryEntry(
@@ -16,7 +17,9 @@ data class LibraryEntry(
     val imdbRating: Float?,
     val genres: List<String>,
     val addonBaseUrl: String?,
-    val listedAt: Long = 0L
+    val listedAt: Long = 0L,
+    /** The tracker list the title is on (Simkl, Spec 106 G1; one per title); null when the source has one list. */
+    val trackerList: TrackingListStatus? = null
 ) {
     fun toMetaPreview(): MetaPreview {
         return MetaPreview(

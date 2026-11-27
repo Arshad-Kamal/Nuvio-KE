@@ -15,9 +15,16 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import com.nuvio.tv.core.streams.StreamBadgePresentation
+import com.nuvio.tv.domain.model.StreamBadge
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,13 +45,17 @@ class PrefetchSelectionSupplierTest {
         coEvery { it.get(any()) } returns null
     }
 
+    private val presentation = mockk<StreamBadgePresentation>().also {
+        coEvery { it.badgesFor(any()) } returns emptyList()
+    }
+
     private val supplier = PrefetchSelectionSupplier(
         context = mockk(relaxed = true),
         playerSettingsDataStore = settings,
         addonRepository = addons,
         bingeGroupCacheDataStore = mockk(relaxed = true),
         preferredSourceDataStore = preferredSources,
-        streamBadgePresentation = mockk(relaxed = true),
+        streamBadgePresentation = presentation,
         failedReleases = FailedReleases(
             object : FailedReleaseStorage {
                 override fun load(): String? = null
@@ -136,10 +147,123 @@ class PrefetchSelectionSupplierTest {
             // details_hero: uiKey, prewarm on
             assertTrue(ranksAWinner(uiKey = "k", prewarm = true))
             verify(exactly = 1) { PlayerPlaybackNetworking.prewarmPlaybackConnection("https://host/file.mkv", any()) }
-            assertEquals(SourcePrefetchPhase.READY, supplier.uiSignals.value["k"]?.phase)
+            // READY lands after the badge match, off the rank (Spec 130 round 2).
+            assertEquals(SourcePrefetchPhase.READY, supplier.uiSignals.first { it["k"] != null }["k"]?.phase)
         } finally {
             unmockkObject(PlayerPlaybackNetworking)
         }
+    }
+
+    // Spec 130 round 2: the rank returns before the badge match; READY then carries the badges.
+    @Test
+    fun `the rank does not wait for the badge match`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val badge = StreamBadge(name = "DV", imageURL = "https://cdn/dv.png")
+        coEvery { presentation.badgesFor(any()) } coAnswers { gate.await(); listOf(badge) }
+
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        assertNull(supplier.uiSignals.value["k"])
+
+        gate.complete(Unit)
+        val ready = supplier.uiSignals.first { it["k"] != null }.getValue("k")
+        assertEquals(SourcePrefetchPhase.READY, ready.phase)
+        assertEquals(listOf(badge), ready.badges)
+    }
+
+    /**
+     * The first badgesFor call blocks without suspending, as the ICU match does, so cancel()
+     * cannot stop that job: only the supersede check in publishReady keeps it from publishing.
+     */
+    private inner class StaleMatch(private val fresh: List<StreamBadge>) {
+        val started = CompletableDeferred<Unit>()
+        val returned = CompletableDeferred<Unit>()
+        private val release = java.util.concurrent.CountDownLatch(1)
+        private val calls = java.util.concurrent.atomic.AtomicInteger()
+
+        init {
+            coEvery { presentation.badgesFor(any()) } answers {
+                if (calls.getAndIncrement() == 0) {
+                    started.complete(Unit)
+                    check(release.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "stale match never released" }
+                    returned.complete(Unit)
+                    listOf(StreamBadge(name = "stale"))
+                } else {
+                    fresh
+                }
+            }
+        }
+
+        /** Lets the stale match return, then gives its job time to (wrongly) publish. */
+        suspend fun finish() {
+            release.countDown()
+            returned.await()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { Thread.sleep(200) }
+        }
+    }
+
+    @Test
+    fun `a superseded ready never overwrites a newer empty`() = runTest {
+        val stale = StaleMatch(fresh = emptyList())
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        stale.started.await()
+
+        supplier.rankAndPrewarm(groups = emptyList(), contentId = null, runtimeMinutes = null, episode = false, film = false, uiKey = "k")
+        stale.finish()
+
+        assertEquals(SourcePrefetchPhase.EMPTY, supplier.uiSignals.value["k"]?.phase)
+    }
+
+    @Test
+    fun `a superseded ready never overwrites a newer ready`() = runTest {
+        val fresh = listOf(StreamBadge(name = "fresh"))
+        val stale = StaleMatch(fresh = fresh)
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        stale.started.await()
+
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        supplier.uiSignals.first { it["k"]?.badges == fresh }
+        stale.finish()
+
+        assertEquals(fresh, supplier.uiSignals.value["k"]?.badges)
+    }
+
+    // Spec 141 D2: a new rank pending for the key drops its old signal (the line reads searching).
+    @Test
+    fun `clearing a key drops its ready and leaves other keys`() = runTest {
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        supplier.uiSignals.first { it["k"] != null }
+        publishEmpty("other")
+
+        supplier.clearSignal("k")
+
+        assertEquals(listOf("other"), supplier.uiSignals.value.keys.toList())
+    }
+
+    @Test
+    fun `clearing a key stops its pending badge match from publishing an older ready`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val started = CompletableDeferred<Unit>()
+        coEvery { presentation.badgesFor(any()) } coAnswers { started.complete(Unit); gate.await(); emptyList() }
+        assertTrue(ranksAWinner(uiKey = "k", prewarm = false))
+        started.await()
+
+        supplier.clearSignal("k")
+        gate.complete(Unit)
+        withContext(Dispatchers.Default) { Thread.sleep(200) }
+
+        assertNull(supplier.uiSignals.value["k"])
+    }
+
+    @Test
+    fun `a rank that throws ends its key's line on empty`() = runTest {
+        coEvery { preferredSources.get(any()) } throws IllegalStateException("store failed")
+
+        val thrown = runCatching {
+            supplier.rankAndPrewarm(oneStream, contentId = "tt1", runtimeMinutes = null, episode = false, film = false, uiKey = "k")
+        }.exceptionOrNull()
+
+        assertTrue(thrown is IllegalStateException)
+        assertEquals(SourcePrefetchPhase.EMPTY, supplier.uiSignals.value["k"]?.phase)
     }
 
     // Spec 51 P5: the prefetch ranks under the limit, with the runtime its caller knows.

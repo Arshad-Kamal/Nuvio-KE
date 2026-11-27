@@ -19,6 +19,11 @@ data class MetaPreview(
     val runtime: String? = null,
     val status: String? = null,
     val ageRating: String? = null,
+    /**
+     * Spec 102: the addon's non-US ratings (country -> code), only for a title without a known US
+     * [ageRating]; read by the rating limit, never shown.
+     */
+    val nonUsRatings: Map<String, String> = emptyMap(),
     val language: String? = null,
     val released: String? = null,
     val country: String? = null,
@@ -37,7 +42,18 @@ data class MetaPreview(
     val tmdbRating: Float? = null,
     /** TMDB vote count, beside [tmdbRating]. */
     val voteCount: Int? = null,
-    val sourceAddonBaseUrl: String? = null
+    val sourceAddonBaseUrl: String? = null,
+    /**
+     * Spec 117 S5: the TMDB genre ids and adult flag a TMDB list row carries, so the content filter can
+     * hide a title on them before its tag lookup; empty / false for every other source.
+     */
+    val tmdbGenreIds: List<Int> = emptyList(),
+    val tmdbAdult: Boolean = false,
+    /**
+     * Spec 122 V3: while previewing a profile's content filters, the ids of every pack that would hide
+     * this title (pack order); empty when it is clean or nothing is previewed. Written by the gates only.
+     */
+    val filterHits: List<String> = emptyList()
 ) {
     val apiType: String
         get() = type.toApiString(rawType)

@@ -33,6 +33,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.theme.NuvioPrimitives
@@ -45,7 +48,11 @@ import com.nuvio.tv.ui.theme.NuvioTheme
  * red-edged while [isError] (Spec 52 `.l10in.err`). Each change goes through [inputTransform]
  * first (the TMDB key field drops whitespace and cuts at its length, so a padded paste still
  * lands); a result longer than [maxLength] is ignored (as built for profiles). [textStyle] sets
- * the typed text (the placeholder keeps the field's). IME Done runs [onDone].
+ * the typed text (the placeholder keeps the field's). IME Done runs [onDone]. [leading] draws
+ * before the text inside the field (the Add source panel's field labels, Spec 109); [masked] shows
+ * the text as dots and asks for a password keyboard; [height] replaces the name field's height.
+ * [placeholderStyle] replaces the placeholder's style (Edit login's unchanged-password dots);
+ * [trailing] draws at the field's end, before the counter (its "unchanged" label).
  *
  * [keyboardOnOk]: focus (from [focusRequester], e.g. a panel's first focus) lands on the field
  * with the keyboard down and OK opens it, InputField's pattern; the text field takes focus only
@@ -65,7 +72,12 @@ internal fun MarqueeNameField(
     isError: Boolean = false,
     inputTransform: (String) -> String = { it },
     textStyle: TextStyle = NuvioTheme.textStyles.profileField,
-    keyboardOnOk: Boolean = false
+    keyboardOnOk: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
+    masked: Boolean = false,
+    height: Dp? = null,
+    placeholderStyle: TextStyle? = null,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     val marquee = NuvioTheme.marquee
     val tokens = marquee.profiles
@@ -97,7 +109,7 @@ internal fun MarqueeNameField(
                 }
             )
             .fillMaxWidth()
-            .height(tokens.fieldHeight)
+            .height(height ?: tokens.fieldHeight)
             .background(if (isFocused) marquee.search.fieldFocusedFill else marquee.search.fieldFill, shape)
             .border(
                 width = if (isFocused || isError) marquee.ringWidth else NuvioTheme.spacing.hairline,
@@ -111,9 +123,14 @@ internal fun MarqueeNameField(
             .padding(horizontal = tokens.fieldPaddingHorizontal),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        leading?.invoke()
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.isEmpty()) {
-                Text(text = placeholder, style = NuvioTheme.textStyles.profileField, color = marquee.onImage3)
+                if (placeholderStyle != null) {
+                    Text(text = placeholder, style = placeholderStyle, maxLines = 1)
+                } else {
+                    Text(text = placeholder, style = NuvioTheme.textStyles.profileField, color = marquee.onImage3)
+                }
             }
             BasicTextField(
                 value = value,
@@ -129,11 +146,16 @@ internal fun MarqueeNameField(
                     },
                 textStyle = textStyle.copy(color = NuvioPrimitives.white),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (masked) KeyboardType.Password else keyboardType,
+                    imeAction = ImeAction.Done
+                ),
+                visualTransformation = if (masked) PasswordVisualTransformation() else VisualTransformation.None,
                 keyboardActions = KeyboardActions(onDone = { onDone() }),
                 cursorBrush = SolidColor(NuvioPrimitives.white)
             )
         }
+        trailing?.invoke()
         if (showCounter) {
             Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
             Text(

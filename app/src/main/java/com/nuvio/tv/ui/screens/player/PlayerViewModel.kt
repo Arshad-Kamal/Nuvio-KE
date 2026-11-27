@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -66,6 +67,7 @@ import com.nuvio.tv.core.player.playNextSourceFromFailureBox
 import com.nuvio.tv.core.player.retryFromFailureBox
 import com.nuvio.tv.core.player.switchEngineFromFailureBox
 import com.nuvio.tv.core.player.frameRateLabel
+import com.nuvio.tv.core.player.scrobbleInput
 import com.nuvio.tv.core.player.hideControls
 import com.nuvio.tv.core.player.isRefreshMatch
 import com.nuvio.tv.core.player.isUsingMpvEngine
@@ -108,6 +110,8 @@ class PlayerViewModel @Inject constructor(
     private val screensaverController: com.nuvio.tv.core.player.ScreensaverController,
     private val tvRecommendationManager: com.nuvio.tv.core.recommendations.TvRecommendationManager,
     private val watchCountDataStore: com.nuvio.tv.data.local.WatchCountDataStore,
+    trackingProviderRegistry: com.nuvio.tv.core.tracking.TrackingProviderRegistry,
+    playerScrobbleQueue: com.nuvio.tv.core.player.PlayerScrobbleQueue,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -184,6 +188,22 @@ class PlayerViewModel @Inject constructor(
                 .map { it.isPlaying || it.isBuffering }
                 .distinctUntilChanged()
                 .collect { active -> screensaverController.setPlaybackActive(active) }
+        }
+    }
+
+    // Spec 104 S2e: start / pause / stop to connected trackers; null (no work at all) in a build with no tracker.
+    private val trackingScrobble = com.nuvio.tv.core.player.PlayerTrackingScrobbleSession
+        .createIfTrackers(trackingProviderRegistry, playerScrobbleQueue)
+
+    init {
+        trackingScrobble?.let { session ->
+            // Dispatched (not Main.immediate) and reading both flows' latest values: the controller writes uiState
+            // and the timeline in separate steps of one main-thread task, and the hook must see only the result.
+            viewModelScope.launch(Dispatchers.Main) {
+                merge(controller.uiState, controller.playbackTimeline).collect {
+                    controller.scrobbleInput()?.let(session::observe)
+                }
+            }
         }
     }
 
@@ -1052,7 +1072,16 @@ class PlayerViewModel @Inject constructor(
         controller.switchEngineFromFailureBox()
     }
 
+    /** Ends the tracker scrobble from the player's state right now (the collector may be a task behind). */
+    private fun exitTrackingScrobble() {
+        val session = trackingScrobble ?: return
+        controller.scrobbleInput()?.let(session::observe)
+        session.exit()
+    }
+
     fun stopAndRelease() {
+        // First: the stop reports the position before the release resets it.
+        exitTrackingScrobble()
         controller.stopAndRelease()
         playerSession.close()
     }
@@ -1109,6 +1138,7 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         screensaverController.setPlaybackActive(false)
         playerSession.close()
+        exitTrackingScrobble()
         controller.onCleared()
         // Allow the trailer player to be re-created when returning to home screen.
         trailerPlayerPool.reclaim()
@@ -1198,7 +1228,8 @@ class PlayerViewModel @Inject constructor(
             val torrentSession = controller.torrentSession.takeIf { controller.isTorrentStream }
             if (torrentSession != null) controller.torrentSession = null
             // Stop the internal player only after preparation has completed and immediately
-            // before sending the external intent.
+            // before sending the external intent. The internal play ends here for trackers too.
+            exitTrackingScrobble()
             controller.stopAndRelease()
             val launched = try {
                 externalPlaybackTracker.launchPlayer(

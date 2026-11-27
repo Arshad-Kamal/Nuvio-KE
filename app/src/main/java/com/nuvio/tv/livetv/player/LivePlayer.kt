@@ -38,6 +38,7 @@ import com.nuvio.tv.livetv.source.SourceFetchException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -109,7 +110,8 @@ data class LiveStreamPick(
 
 /**
  * The dedicated Live TV player (Spec 34 O1 (a), L6d): one ExoPlayer for preview and full screen,
- * built once on the first tune from the shared renderer and audio setup, and driven by
+ * built on the first tune from the shared renderer and audio setup (and again on the first tune after
+ * the main player opened, which releases it: Spec 147 D1), and driven by
  * [LiveTuneLadder] with the live overrides of D7 by construction (ExoPlayer only, live sources and
  * client, load control pinned, no AFR preflight, no watch progress). Owned by one screen: the
  * owner calls [release] once, never from a `Player.Listener` callback (M3-PLAYER-02). Every
@@ -159,7 +161,7 @@ class LivePlayer @Inject constructor(
     private var rateJob: Job? = null
 
     init {
-        // The setting may change while this player lives (it is built once): keep Media3's strategy in step.
+        // The setting may change while this player lives: keep the built ExoPlayer's Media3 strategy in step.
         scope.launch {
             frameRateMatching.collect { on -> if (on != null) exo?.setVideoChangeFrameRateStrategy(LiveFrameRate.strategy(on)) }
         }
@@ -167,18 +169,27 @@ class LivePlayer @Inject constructor(
 
     private val _player = MutableStateFlow<Player?>(null)
 
-    /** The player for the screen's view (L7); null until the first tune has built it. */
+    /** The player for the screen's view (L7); null until a tune has built it, and again after a release. */
     val player: StateFlow<Player?> = _player.asStateFlow()
 
-    private val built = scope.async(start = CoroutineStart.LAZY) {
+    /** Builds the ExoPlayer on its first await; replaced by [releaseForMainPlayer]. */
+    private var built: Deferred<ExoPlayer> = newBuild()
+
+    /** Set once [built] completes; null before that, after [release] and after [releaseForMainPlayer]. */
+    private var exo: ExoPlayer? = null
+
+    init {
+        // Declared after [built] and [exo]: the flow answers inline, during construction, when the main player is
+        // already open; releaseForMainPlayer then returns at its first line (nothing built yet).
+        scope.launch { playbackActivity.mainPlayerOpened.collect { releaseForMainPlayer() } }
+    }
+
+    private fun newBuild(): Deferred<ExoPlayer> = scope.async(start = CoroutineStart.LAZY) {
         build(playerSettingsDataStore.playerSettings.first()).also {
             exo = it
             _player.value = it
         }
     }
-
-    /** Set once [built] completes; null before and after [release]. */
-    private var exo: ExoPlayer? = null
 
     /** One tune: the channel, its playable streams (source order), the try order, and the ladder over it. */
     private class Session(
@@ -271,8 +282,10 @@ class LivePlayer @Inject constructor(
             val streams = try {
                 sources.streamsFor(channel)
             } catch (e: IOException) {
-                // Spec 90 L1: an outage is waited out, not shown as a failed lookup.
-                if (!network.online()) {
+                // Spec 90 L1: an outage is waited out, not shown as a failed lookup; a removed source
+                // (Spec 147 F27) is no outage: the network coming back would not bring it back.
+                val sourceGone = (e as? SourceFetchException)?.message == LiveSourceManager.SOURCE_GONE
+                if (!sourceGone && !network.online()) {
                     waitForNetwork(channel)
                     return@launch
                 }
@@ -308,7 +321,7 @@ class LivePlayer @Inject constructor(
         lastChannel?.let(::tune)
     }
 
-    /** Stops playback and tuning; the player stays built for the next [tune]. */
+    /** Stops playback and tuning; the player stays built for the next [tune] (until [releaseForMainPlayer]). */
     fun stop() {
         cancelTune()
         exo?.stop()
@@ -319,16 +332,36 @@ class LivePlayer @Inject constructor(
     /** Releases the player; this instance is done. Never call from a player callback. */
     fun release() {
         cancelTune()
+        dropExo()
+        _stream.value = null
+        _state.value = LiveTuneState.Idle
+        scope.cancel()
+        playbackActivity.setLive(this, false)
+    }
+
+    /**
+     * Spec 147 D1 (R4-5): a movie or episode starts, so the live player (stopped since the screen left
+     * view) gives its ExoPlayer, threads and decoder back; the next [tune] builds a fresh one and the
+     * screen's view follows [player]. A build in flight is cancelled with the tune that awaited it.
+     */
+    private fun releaseForMainPlayer() {
+        // Never started: nothing to free, and the lazy build stays usable ([exo] is set only by a completed build).
+        if (!built.isActive && !built.isCompleted) return
+        stop()
+        built.cancel()
+        dropExo()
+        built = newBuild()
+        Log.i(TAG, "LIVE_PLAYER_RELEASE main player opened")
+    }
+
+    /** Releases the built ExoPlayer, if any, and clears the screen's handle to it. */
+    private fun dropExo() {
         exo?.run {
             removeListener(listener)
             release()
         }
         exo = null
         _player.value = null
-        _stream.value = null
-        _state.value = LiveTuneState.Idle
-        scope.cancel()
-        playbackActivity.setLive(this, false)
     }
 
     private fun startSession(channel: Channel, playable: List<LiveStream>, ordered: List<LiveStream>, tunedAtMs: Long) {

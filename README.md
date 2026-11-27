@@ -44,11 +44,14 @@ https://github.com/user-attachments/assets/de75164a-e5c4-408c-b980-94ef0a529095
   Release groups ranked by TRaSH Guides tiers, and a stream speed test.
 - **Profiles:** PIN unlock by a D-pad combination, settings locked to the primary profile, Live TV off per profile,
   and 40 offline avatars.
+- **MDBList:** connect your own MDBList API key (sent from your phone) to sync what you watch, resume across
+  devices, use your watchlist as the Library, add titles to your lists, show your lists as Home rows, and see up to
+  eight ratings on a title's page.
 
 ## What's gone
 
-- Plugins and scrapers, in-app debrid sign-in and the debrid library, Trakt, Simkl and MDBList. Their lists still
-  arrive as addon catalogs, but nothing scrobbles: watch history lives in the app and your Nuvio account.
+- Plugins and scrapers, in-app debrid sign-in and the debrid library, Trakt and Simkl. Their lists still arrive as
+  addon catalogs; MDBList is the one tracker KE syncs with (above).
 - Layout presets, watch party, ambient mode, Jellyfin and Emby, automatic subtitle sync, post-play
   recommendations, Anime Skip, crash reporting, and the IAMF and MPEG-H decoders.
 - Bengali, Croatian and Serbian (Latin). KE has 34 translations; some are only partly done.

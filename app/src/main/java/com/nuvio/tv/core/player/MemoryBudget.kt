@@ -20,11 +20,11 @@ object MemoryBudget {
     // and give the rest to the buffer (a flat % of max heap overcommits and starves them).
     private const val LOW_HEAP_RESERVE_MB = 210L
 
-    // Extra chunk buffers alive beyond one per connection (see bufferCount).
-    // nt7: matches ParallelRangeDataSource reality — the session holds up to
-    // connections + 2 chunks on low-RAM devices (connections + 4 on high-RAM;
-    // the extra headroom is deliberately not advertised so the enforcement
-    // maths stays conservative). Was 1, which under-stated the ceiling.
+    // Extra chunk buffers alive beyond one per connection (see bufferCount): the
+    // conservative count the enforcement maths and slider maxima use, not the
+    // session's live-chunk ceiling. That is the prefetch depth plus
+    // sessionChunkHeadroom (prefetchDepthChunks; Spec 147 D6: 2c + 2 on the
+    // low-RAM tier in performance mode). Was 1.
     private const val BUFFER_OVERHEAD = 2
 
     // nt37: nt36 clamps ParallelRangeDataSource's live prefetch window to at most
@@ -52,6 +52,11 @@ object MemoryBudget {
     // the floor alone exceeds what those devices can hold. Applies in
     // performance mode too; the cap is a tier property, not a budget one.
     private const val LOW_RAM_MAX_CHUNK_MB = 16
+    // Spec 147 D1/D4 (Arshad 575d7793, fe1314c1): the target buffer on the 1-2 GB class. A 4K DV
+    // start after Live TV on the 2 GB Shield was killed by lmkd with a 150 MB target (~550 MB device-wide
+    // for the start); 100 MB still holds ~12 s of a 63 Mbps remux. A hard cap like the chunk cap:
+    // every reader sees it, allowLargeTargetBuffer does not lift it, no stored value is rewritten.
+    private const val LOW_RAM_MAX_TARGET_MB = 100
     const val BUFFER_STEP_MB = 25
     const val MIN_BUFFER_MB = 25
     const val MAX_BUFFER_MB = 1024 * 4
@@ -98,7 +103,7 @@ object MemoryBudget {
             .coerceAtMost(budgetMb).coerceAtLeast(MIN_BUFFER_MB)
 
     fun effectiveBufferMb(stored: Int): Int =
-        if (stored > 0) stored else defaultBufferSizeMb
+        tierCappedTargetMb(if (stored > 0) stored else defaultBufferSizeMb)
 
     /** Number of chunk-sized buffers alive concurrently */
     fun bufferCount(connectionCount: Int): Int =
@@ -115,15 +120,16 @@ object MemoryBudget {
      * the "recommend to safe" clamp. Two sites are bound to one contract:
      * DeviceAssessmentApplier.apply's pre-commit re-check (enforcement)
      * and ShieldPreset.effectiveTargetMb (card preview and the first-launch
-     * Shield overlay), so what the card advertises is what apply writes. The
+     * Shield overlay), so what the card advertises is what apply leaves. The
      * assessment engine, stream sweep, perf-mode preset, settings slider,
      * first-launch formula (DeviceSetupFormula) and the fit gate
      * (fitPlaybackConfig) reuse the same formula with their own overhead
      * terms and limits.
      */
-    fun maxSafeTargetMb(safeLimitMb: Int, overheadMb: Int): Int =
+    fun maxSafeTargetMb(safeLimitMb: Int, overheadMb: Int, tierMaxMb: Int = tierMaxTargetMb): Int =
         (((safeLimitMb - overheadMb) / BUFFER_STEP_MB) * BUFFER_STEP_MB)
             .coerceAtLeast(MIN_BUFFER_MB)
+            .coerceAtMost(tierMaxMb)
 
     /**
      * Estimated back-buffer footprint in MB. Back-buffer bytes are time-based,
@@ -146,14 +152,18 @@ object MemoryBudget {
      * displayed memory estimate. Mirrors the nt36 runtime maths exactly: spend the safe
      * native budget minus the SampleQueue reserve on chunks, divide by chunk size, clamp
      * to [2*connections, 4*connections].
+     *
+     * On the low-RAM tier ([lowRamTier]) the window is [lowRamPrefetchDepth] instead (Spec 147).
      */
     fun prefetchDepthChunks(
         connections: Int,
         chunkSizeMb: Int,
         safeNativeLimitMb: Int,
         reserveBufferMb: Int,
+        lowRamTier: Boolean = isLowRamTier,
     ): Int {
         val chunkMb = chunkSizeMb.coerceAtLeast(1)
+        if (lowRamTier) return lowRamPrefetchDepth(connections)
         val chunkBudgetMb = (safeNativeLimitMb - reserveBufferMb.coerceAtLeast(0))
             .coerceAtLeast(chunkMb * PREFETCH_DEPTH_LOWER_MULTIPLE)
         val byBudget = chunkBudgetMb / chunkMb
@@ -162,6 +172,20 @@ object MemoryBudget {
             connections * PREFETCH_DEPTH_UPPER_MULTIPLE
         )
     }
+
+    /**
+     * Spec 147 D1 as amended by D5 and D6 (Arshad ee0af66e, 2619188e): the low-RAM tier's prefetch
+     * depth is 2 x connections, the deep path's own floor, instead of the budget formula's up to
+     * 4 x connections. On the 2 GB Shield the formula gave the 3 x 8 MB row depth 12 (a session of
+     * up to 14 chunks, 112 MB, beside the 4K buffer) and lmkd killed the app after Live TV; this
+     * gives depth 6 (session cap 8 chunks, 64 MB; 4 x 16 MB: 8, 160 MB). Never connections + 1
+     * (NuvioTV-Lite `fe4f69969`, D5's first form): the scheduler refills only when the reader
+     * crosses a chunk, so one slow head chunk idles the other connections, the throttle
+     * PlayerMediaSourceFactory records. The session cap is soft: ParallelRangeDataSource's touch
+     * guard can hold 2 chunks over it. Shared by playback, the displayed estimate and the network
+     * sweep ([sweepCellPrefetchDepth], which also keeps its own budget).
+     */
+    fun lowRamPrefetchDepth(connections: Int): Int = connections * PREFETCH_DEPTH_LOWER_MULTIPLE
 
     // ── Assessment-sweep cell budgeting (crash-hardening leg 2, 19 Jul 2026 incident) ──
     //
@@ -180,8 +204,11 @@ object MemoryBudget {
     // Spec 56 T1: the low-RAM tier spends half its safe budget, not three
     // quarters. On the 2 GB Shield (safe 250) 0.75 let a 16 MB cell run
     // depth 11 (176 MB in flight, + session headroom) on top of a 270 MB idle
-    // app, and its first play after the test was killed by lmkd; 0.5 gives
-    // depth 7 (112 MB). No low-tier concurrent cap: the sweep ladder stops at
+    // app, and its first play after the test was killed by lmkd; 0.5 gave
+    // depth 7 (112 MB). Since Spec 147 D5 a low-tier cell runs the playback
+    // window ([lowRamPrefetchDepth], D6: 2 x connections), capped by this
+    // budget: on the 250 MB rung only the 4 x 16 cell (8 -> 7); on the
+    // smaller rungs it cuts deeper (200 MB: 4 x 16 -> 6) or refuses a cell. No low-tier concurrent cap: the sweep ladder stops at
     // tierMaxChunkMb (16) there, so connections x chunk is at most 4 x 16 = 64,
     // and a cell's in-flight memory is its depth, not its connection count.
     private const val SWEEP_BUDGET_FRACTION = 0.75
@@ -192,7 +219,8 @@ object MemoryBudget {
      * Prefetch depth (in chunks) a sweep cell may run with on this device, or
      * null when the cell must NOT be scheduled at all. Null when either the
      * nominal concurrent footprint (connections x chunk) exceeds
-     * [SWEEP_CELL_MAX_CONCURRENT_MB], or the budget-derived depth falls below
+     * [SWEEP_CELL_MAX_CONCURRENT_MB], or the depth (budget-derived; on the
+     * low-RAM tier the playback window capped by that budget) falls below
      * ParallelRangeDataSource's own floor of connections + 1 — a window that
      * small cannot be honoured, so the cell cannot be memory-bounded.
      * Single source of truth: the sweep's ladder gate and the tester's window
@@ -208,8 +236,11 @@ object MemoryBudget {
         if (connections * chunkMb > SWEEP_CELL_MAX_CONCURRENT_MB) return null
         val fraction = if (lowRamTier) SWEEP_BUDGET_FRACTION_LOW_RAM else SWEEP_BUDGET_FRACTION
         val budgetMb = (safeNativeLimitMb * fraction).toInt()
-        val depth = (budgetMb / chunkMb)
+        val budgetDepth = (budgetMb / chunkMb)
             .coerceAtMost(connections * PREFETCH_DEPTH_UPPER_MULTIPLE)
+        // Spec 147 D5/D6: on the low-RAM tier a cell measures the window playback uses, never above its budget
+        // (2 GB rung: a 4 x 16 MB cell runs 7, one chunk under playback's 8).
+        val depth = if (lowRamTier) minOf(budgetDepth, lowRamPrefetchDepth(connections)) else budgetDepth
         return depth.takeIf { it >= connections + 1 }
     }
 
@@ -223,8 +254,8 @@ object MemoryBudget {
      * live-chunk headroom (depth + 2 on low-RAM, depth + 4 on high-RAM — mirrors
      * ParallelRangeDataSource.sessionChunkCap; the old flat +2 under-counted the
      * high-RAM ceiling by two chunks at the clamp). When the deep path is inactive
-     * (performance mode off, or MP4 session mode) the runtime window is connections + 1
-     * and the estimate says so. Unlike [parallelOverheadMb] (which underpins the slider
+     * (performance mode off, or MP4 session mode) the runtime window is connections + 1 and
+     * the estimate says so; on the low-RAM tier it is [lowRamPrefetchDepth] (Spec 147 D5/D6). Unlike [parallelOverheadMb] (which underpins the slider
      * maxima and must stay conservative), this is display-only.
      */
     fun displayParallelOverheadMb(
@@ -233,13 +264,14 @@ object MemoryBudget {
         safeNativeLimitMb: Int,
         reserveBufferMb: Int,
         deepPathActive: Boolean,
+        lowRamTier: Boolean = isLowRamTier,
     ): Int {
         val depth = if (deepPathActive) {
-            prefetchDepthChunks(connectionCount, chunkSizeMb, safeNativeLimitMb, reserveBufferMb)
+            prefetchDepthChunks(connectionCount, chunkSizeMb, safeNativeLimitMb, reserveBufferMb, lowRamTier)
         } else {
             connectionCount + 1
         }
-        return (depth + sessionChunkHeadroom) * chunkSizeMb
+        return (depth + sessionChunkHeadroomFor(lowRamTier)) * chunkSizeMb
     }
 
     /** Total usage for the DISPLAYED estimate: buffer plus the exact parallel overhead. */
@@ -262,7 +294,10 @@ object MemoryBudget {
      * LRU headroom): 2 on the low-RAM tier, 4 above. Shared by the session cap and the
      * displayed estimate.
      */
-    val sessionChunkHeadroom: Int = if (isLowRamTier) 2 else 4
+    val sessionChunkHeadroom: Int = sessionChunkHeadroomFor(isLowRamTier)
+
+    /** [sessionChunkHeadroom] of a RAM tier, so the displayed estimate takes depth and headroom from one tier. */
+    fun sessionChunkHeadroomFor(lowRamTier: Boolean): Int = if (lowRamTier) 2 else 4
 
     /**
      * A chunk size capped at the RAM tier's ceiling. The one home for that cap: the settings
@@ -274,6 +309,16 @@ object MemoryBudget {
 
     /** Hard chunk-size ceiling for this RAM tier; binds everywhere, including performance mode and the sweep. */
     val tierMaxChunkMb: Int = if (isLowRamTier) LOW_RAM_MAX_CHUNK_MB else MAX_CHUNK_MB
+
+    /** Hard target-buffer ceiling for this RAM tier (Spec 147 D4); binds every reader, as [tierMaxChunkMb] does. */
+    val tierMaxTargetMb: Int = tierMaxTargetMbFor(isLowRamTier)
+
+    /** The target-buffer ceiling of a RAM tier: [LOW_RAM_MAX_TARGET_MB] on the low-RAM tier, none above it. */
+    fun tierMaxTargetMbFor(lowRamTier: Boolean): Int = if (lowRamTier) LOW_RAM_MAX_TARGET_MB else Int.MAX_VALUE
+
+    /** A target buffer size capped at the RAM tier's ceiling; 0 (unset) stays 0. The one home for that cap. */
+    fun tierCappedTargetMb(targetMb: Int, tierMaxMb: Int = tierMaxTargetMb): Int =
+        if (targetMb > 0) targetMb.coerceAtMost(tierMaxMb) else targetMb
 
     /** Max chunk size that fits budget given current buffer size */
     fun maxChunkMb(bufferMb: Int, connectionCount: Int): Int =

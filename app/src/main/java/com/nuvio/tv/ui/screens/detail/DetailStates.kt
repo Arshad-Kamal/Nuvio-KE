@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -33,6 +34,8 @@ import com.nuvio.tv.R
 import com.nuvio.tv.ui.components.errorStateText
 import com.nuvio.tv.ui.components.marquee.MarqueeBackdropImage
 import com.nuvio.tv.ui.components.marquee.MarqueeMessage
+import com.nuvio.tv.ui.components.marquee.builtInPackNameRes
+import com.nuvio.tv.ui.components.marquee.filterPackName
 import com.nuvio.tv.ui.components.marquee.MarqueeScrims
 import com.nuvio.tv.ui.components.marquee.marqueeSkeletonBar
 import com.nuvio.tv.ui.components.marquee.marqueeSkeletonTextBar
@@ -50,7 +53,12 @@ private val EYEBROW_BAR = DpSize(150.dp, 12.dp)
 private val TITLE_BAR = DpSize(280.dp, 56.dp)
 private val META_BAR = DpSize(360.dp, 16.dp)
 private val SOURCE_BAR = DpSize(300.dp, 20.dp)
+private val RATINGS_BAR = DpSize(420.dp, 14.dp)
 private val DESCRIPTION_BARS = listOf(DpSize(460.dp, 14.dp), DpSize(440.dp, 14.dp), DpSize(300.dp, 14.dp))
+// With the ratings line (Spec 105 D27, sandbox `spec-105-mdblist` v6 F4): RATINGS_DESCRIPTION_MAX_LINES bars, the
+// last one short.
+private val RATINGS_DESCRIPTION_BARS =
+    DESCRIPTION_BARS.take(RATINGS_DESCRIPTION_MAX_LINES - 1) + DESCRIPTION_BARS.last()
 private val CREDIT_BAR = DpSize(160.dp, 14.dp)
 private val PRIMARY_BAR_WIDTH = 170.dp
 // Library, About, and Watched (movies) or Trailer: the common count before the title type is known.
@@ -63,11 +71,12 @@ private const val CONTENT_ENTER_MS = 320
 /**
  * Detail loading state: the backdrop handed over from Home ([backdropUrl], cropped and
  * scrimmed as the first frame) under a static skeleton in the first-frame geometry: the info
- * column (eyebrow, title, meta, source line, 3 description lines, credit, primary + 2 glass
- * buttons), then the episodes band (title bar + 208x117 cards). Black without a backdrop.
+ * column (eyebrow, title, meta, MDBList's ratings line when [ratingsLine] (Spec 105 C1, reserved), source line,
+ * 3 description lines (2 with [ratingsLine], D27), credit, primary + 3 glass buttons), then the episodes band (title bar + 208x117 cards).
+ * Black without a backdrop.
  */
 @Composable
-internal fun DetailLoadingState(backdropUrl: String?, modifier: Modifier = Modifier) {
+internal fun DetailLoadingState(backdropUrl: String?, modifier: Modifier = Modifier, ratingsLine: Boolean = false) {
     val marquee = NuvioTheme.marquee
     Box(
         modifier = modifier
@@ -82,12 +91,12 @@ internal fun DetailLoadingState(backdropUrl: String?, modifier: Modifier = Modif
                 drawTopScrim = false
             )
         }
-        DetailSkeleton()
+        DetailSkeleton(ratingsLine)
     }
 }
 
 @Composable
-private fun DetailSkeleton() {
+private fun DetailSkeleton(ratingsLine: Boolean) {
     val marquee = NuvioTheme.marquee
     val detail = marquee.detail
     val styles = NuvioTheme.textStyles
@@ -96,6 +105,7 @@ private fun DetailSkeleton() {
     val eyebrowLine = with(density) { styles.eyebrow.lineHeight.toDp() }
     val titleLine = with(density) { styles.displayHero.lineHeight.toDp() }
     val metaLine = with(density) { styles.meta.lineHeight.toDp() }
+    val ratingsHeight = mdbListRatingsLineHeight()
     val bodyLine = with(density) { styles.bodyDetail.lineHeight.toDp() }
     val primaryHeight = marquee.primaryButton.height
     val glassSize = marquee.glassButton.size
@@ -116,9 +126,13 @@ private fun DetailSkeleton() {
                 y += titleLine + detail.infoGap
                 textBar(y, metaLine, META_BAR)
                 y += metaLine + detail.infoGap
+                if (ratingsLine) {
+                    textBar(y, ratingsHeight, RATINGS_BAR)
+                    y += ratingsHeight + detail.infoGap
+                }
                 textBar(y, detail.sourceLineHeight, SOURCE_BAR)
                 y += detail.sourceLineHeight + detail.infoGap
-                DESCRIPTION_BARS.forEach { line ->
+                (if (ratingsLine) RATINGS_DESCRIPTION_BARS else DESCRIPTION_BARS).forEach { line ->
                     textBar(y, bodyLine, line)
                     y += bodyLine
                 }
@@ -156,12 +170,13 @@ private fun DetailSkeleton() {
 internal fun DetailContentEnter(
     animate: Boolean,
     backdropUrl: String?,
+    ratingsLine: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val alpha = remember { Animatable(if (animate) 0f else 1f) }
     val entering by remember { derivedStateOf { alpha.value < 1f } }
     LaunchedEffect(alpha) { alpha.animateTo(1f, tween(CONTENT_ENTER_MS)) }
-    if (entering) DetailLoadingState(backdropUrl = backdropUrl)
+    if (entering) DetailLoadingState(backdropUrl = backdropUrl, ratingsLine = ratingsLine)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -209,7 +224,6 @@ internal fun DetailRatingBlockState(
     onSwitchProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val focusRequester = remember { FocusRequester() }
     val name = block.limit.profileName ?: stringResource(R.string.rating_limit_profile_fallback)
     val body = if (block.rating != null) {
         val (movieCeiling, tvCeiling) = block.limit.cap.ceiling()
@@ -217,19 +231,74 @@ internal fun DetailRatingBlockState(
     } else {
         stringResource(R.string.detail_rating_block_unrated, name)
     }
+    BlockedTitleMessage(block.title, name, body, onBack, onSwitchProfile, modifier)
+}
+
+/** The blocked-title message (Spec 64 stage 7-8, Spec 117 M1 stage 7): lock disc, "Not on <name>'s profile", Back focused, Switch profile. */
+@Composable
+private fun BlockedTitleMessage(
+    title: String,
+    profileName: String,
+    body: String,
+    onBack: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    modifier: Modifier
+) {
     MarqueeMessage(
-        eyebrow = block.title,
-        title = stringResource(R.string.detail_rating_block_title, name),
+        eyebrow = title,
+        title = stringResource(R.string.detail_rating_block_title, profileName),
         body = AnnotatedString(body),
         actionLabel = stringResource(R.string.action_back),
         actionIcon = Icons.AutoMirrored.Filled.ArrowBack,
         onAction = onBack,
-        focusRequester = focusRequester,
+        focusRequester = remember { FocusRequester() },
         secondaryLabel = stringResource(R.string.detail_rating_block_switch_profile),
         onSecondary = onSwitchProfile,
         leading = { RatingLockDisc() },
         modifier = modifier
     )
+}
+
+/**
+ * Spec 117 P8: what Detail shows when the content filters keep a title from opening, in the rating
+ * block's layout. [DetailFilterBlock.Hidden] (M1 stage 7): lock disc, "Not on <name>'s profile", the
+ * packs that hide it, Back focused and Switch profile. [DetailFilterBlock.Unchecked] (stage 7b, D36):
+ * no lock, "Couldn't check this title", Retry focused ([onRetry] reloads) and Back.
+ */
+@Composable
+internal fun DetailFilterBlockState(
+    block: DetailFilterBlock,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val name = block.profileName ?: stringResource(R.string.rating_limit_profile_fallback)
+    when (block) {
+        is DetailFilterBlock.Hidden -> {
+            val resources = LocalContext.current.resources
+            val myWords = stringResource(R.string.content_filter_my_words)
+            val unknown = stringResource(R.string.content_filter_badge_unknown)
+            val packs = block.packIds.map { id ->
+                filterPackName(id, { builtInPackNameRes(it)?.let(resources::getString) }, block.ownPackNames, myWords, unknown)
+            }.distinct().joinToString()
+            BlockedTitleMessage(
+                block.title, name, stringResource(R.string.detail_filter_block_hidden, name, packs), onBack, onSwitchProfile, modifier
+            )
+        }
+        is DetailFilterBlock.Unchecked -> MarqueeMessage(
+            eyebrow = block.title,
+            title = stringResource(R.string.detail_filter_unchecked_title),
+            body = AnnotatedString(stringResource(R.string.detail_filter_unchecked_body, name)),
+            actionLabel = stringResource(R.string.action_retry),
+            actionIcon = Icons.Default.Refresh,
+            onAction = onRetry,
+            focusRequester = remember { FocusRequester() },
+            secondaryLabel = stringResource(R.string.action_back),
+            onSecondary = onBack,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable

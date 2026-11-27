@@ -373,7 +373,9 @@ internal fun LiveTvInfo(
     unavailable: Boolean,
     timeFormat: DateFormat,
     modifier: Modifier = Modifier,
-    sourceName: String? = null
+    sourceName: String? = null,
+    searching: Boolean = false,
+    backToFilters: Boolean = false
 ) {
     if (row.lost) {
         LiveTvLostInfo(row, nowMs, sourceName, timeFormat, modifier)
@@ -423,7 +425,7 @@ internal fun LiveTvInfo(
                 maxLines = 2
             )
         } else {
-            LiveTvKeyHints(schedule = row.hasSchedule, modifier = Modifier.padding(top = 6.dp))
+            LiveTvKeyHints(row.hasSchedule, searching, backToFilters, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
@@ -523,17 +525,28 @@ internal fun LiveTvNextLine(next: EpgProgramme, timeFormat: DateFormat) {
     }
 }
 
-/** `.lvhint`: OK Full screen, HOLD OK Options, CH ± Zap (outlined keys), ► Schedule when [schedule] (Spec 67 D3 Q1). */
+/**
+ * `.lvhint`: OK Full screen, HOLD OK Options, BACK Filters while a row holds focus ([backToFilters]; Spec 111
+ * D7), ► Schedule when [schedule] (Spec 67
+ * D3 Q1); while [searching], OK Full screen and BACK Close search (Spec 111 stage 4).
+ */
 @Composable
-private fun LiveTvKeyHints(schedule: Boolean, modifier: Modifier = Modifier) {
+private fun LiveTvKeyHints(schedule: Boolean, searching: Boolean, backToFilters: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_ok)), stringResource(R.string.live_tv_hint_full_screen))
+        if (searching) {
+            LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_back)), stringResource(R.string.live_tv_hint_close_search))
+            return@Row
+        }
         LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_hold_ok)), stringResource(R.string.live_tv_hint_options))
-        LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_ch)), stringResource(R.string.live_tv_hint_zap))
+        // D7 stage 12: Back from a row goes to the filters (CH +/- still zaps, unhinted); shown only while it does.
+        if (backToFilters) {
+            LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_back)), stringResource(R.string.live_tv_hint_filters))
+        }
         if (schedule) {
             LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_right)), stringResource(R.string.live_tv_hint_schedule))
         }

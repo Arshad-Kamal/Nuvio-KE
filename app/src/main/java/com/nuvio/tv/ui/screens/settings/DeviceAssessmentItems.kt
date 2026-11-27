@@ -418,8 +418,9 @@ private fun LazyListScope.assessmentResultItems(res: AssessmentResult, state: De
  * the card, so the card itself is one target (expand) and the rows are the next two.
  * Arm-to-confirm guards apply. Rides the same undo slot as the assessment (Undo the last change in
  * Playback › Buffer & network › This TV); the state lines say so. Target / memory figures
- * preview the applier's live safe-limit clamp via ShieldPreset.effective* so advertised values equal written values (the 2017 reference Shield is
- * the 2 GB model: 250 MB rung -> 150/246, see ShieldPreset KDoc).
+ * preview the applier's live safe-limit clamp and the RAM tier's target ceiling via ShieldPreset.effective*, so the
+ * advertised values are what the player gets (the 2017 reference Shield is the 2 GB model: 250 MB rung -> 100/196,
+ * Spec 147 D4; see ShieldPreset KDoc).
  */
 @Composable
 private fun ShieldPresetCard(

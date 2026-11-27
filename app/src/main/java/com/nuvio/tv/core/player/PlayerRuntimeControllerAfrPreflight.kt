@@ -3,6 +3,7 @@ package com.nuvio.tv.core.player
 import android.os.SystemClock
 import android.util.Log
 import com.nuvio.tv.data.local.FrameRateMatchingMode
+import com.nuvio.tv.data.local.PlayerSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -23,6 +24,18 @@ internal const val AFR_PREFLIGHT_FALLBACK_TIMEOUT_MS = 5_000L
 internal const val AFR_PREFLIGHT_TOTAL_TIMEOUT_MS = 18_000L
 /** Minimum remaining time to attempt NextLib / extractor after OkHttp. */
 internal const val AFR_PREFLIGHT_MIN_STAGE_MS = 2_000L
+
+/**
+ * Spec 152: the settings one playback session plays with. A changelog release video (Spec 80 D20)
+ * is a short clip, so it plays with AFR off: no preflight, display-mode, track-format or resolution
+ * switch on any engine. The stored settings are untouched; every other session plays them as stored.
+ */
+internal fun PlayerSettings.forPlaybackSession(releaseVideo: Boolean): PlayerSettings =
+    if (releaseVideo) {
+        copy(frameRateMatchingMode = FrameRateMatchingMode.OFF, resolutionMatchingEnabled = false)
+    } else {
+        this
+    }
 
 /** Current display mode id of [activity]'s window, read on Main; null when unavailable. */
 private suspend fun currentDisplayModeId(activity: android.app.Activity): Int? =

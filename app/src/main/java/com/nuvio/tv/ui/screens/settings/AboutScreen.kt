@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,12 +45,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
+import com.nuvio.tv.core.report.LastReport
 import com.nuvio.tv.core.update.UpdateState
 import com.nuvio.tv.core.update.toChangelogRelease
 import com.nuvio.tv.core.update.noticeShown
@@ -95,6 +99,8 @@ internal const val ABOUT_UPDATE_ROW_KEY = "about_update"
  * the developer row that opens the tip card, while a tip link is set (D4; a locked profile never
  * reaches Settings). Spec 124 (sandbox spec-124-community-row v1): a Community section ends it in
  * every build, one r/nuvioke row whose QR dialog ([CommunityDialog]) opens the subreddit on a phone.
+ * Spec 116 A1: a Help section with Send a report sits just above Support in a build with a report
+ * address; its panel ([ReportPanelHost]) closes, stopping a send, on Home or when the pane leaves.
  */
 @Composable
 fun AboutSettingsContent(
@@ -108,6 +114,8 @@ fun AboutSettingsContent(
     val tipLink = tipViewModel.link.collectAsStateWithLifecycle().value
     val tip = remember { TipEntryState() }
     val community = remember { TipEntryState() }
+    // Spec 116 D2: no report address, no Help row and no report view model.
+    val report: ReportViewModel? = if (reportRowVisible()) hiltViewModel() else null
     val update = viewModel.state.collectAsStateWithLifecycle().value
     val panelRelease = viewModel.panelRelease.collectAsStateWithLifecycle().value
     val changelogOpen = changelog.listOpen.collectAsStateWithLifecycle().value
@@ -176,6 +184,13 @@ fun AboutSettingsContent(
                 )
             }
         }
+        if (report != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.marquee.settings.rowGap)) {
+                SettingsSectionLabel(text = stringResource(R.string.report_section))
+                AboutReportRow(onOpen = report::open)
+            }
+        }
         if (tipLink != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.marquee.settings.rowGap)) {
@@ -197,6 +212,21 @@ fun AboutSettingsContent(
     // Same open / close / refocus as the tip card; the row is in every build, so no fallback is needed.
     TipEntryDialog(community, fallback = null, card = { link, onDismiss -> CommunityDialog(link, onDismiss) })
 
+    if (report != null) {
+        val reportState = report.state.collectAsStateWithLifecycle().value
+        if (reportState != ReportState.Closed) {
+            ReportPanelHost(
+                state = reportState,
+                onSend = report::send,
+                onCancelSend = report::cancelSend,
+                onClose = report::close
+            )
+        }
+        // C1: Home, or leaving the pane or Settings, stops a send and drops the report.
+        LifecycleEventEffect(Lifecycle.Event.ON_STOP) { report.close() }
+        DisposableEffect(report) { onDispose { report.close() } }
+    }
+
     if (panelRelease != null) {
         UpdateSidePanel(
             release = panelRelease,
@@ -208,6 +238,31 @@ fun AboutSettingsContent(
             onCancel = viewModel::cancelDownload,
             onDismiss = viewModel::closePanel
         )
+    }
+}
+
+/**
+ * Spec 116 A1 `.l8r` (sandbox spec-116-report-sharing v6, stage a-about): Send a report and its
+ * line, which reads the last code sent while the app runs (D8); the chevron at the end.
+ */
+@Composable
+private fun AboutReportRow(onOpen: () -> Unit) {
+    val last = LastReport.sent.collectAsStateWithLifecycle().value
+    MarqueeFormRow(
+        label = stringResource(R.string.report_row_title),
+        helper = if (last != null) {
+            stringResource(
+                R.string.report_row_last,
+                last.code,
+                DateFormat.getTimeFormat(LocalContext.current).format(Date(last.sentAtMs))
+            )
+        } else {
+            stringResource(R.string.report_row_subtitle)
+        },
+        onClick = onOpen,
+        minHeight = NuvioTheme.marquee.settings.rowMinHeight
+    ) { _ ->
+        MarqueeFormRowIcon(Icons.AutoMirrored.Filled.KeyboardArrowRight)
     }
 }
 

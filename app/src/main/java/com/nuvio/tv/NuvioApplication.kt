@@ -6,7 +6,11 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.imageLoader
 
+import com.nuvio.tv.core.backup.RestoreApplier
+import com.nuvio.tv.core.backup.RestoreNoticeToast
 import com.nuvio.tv.core.diagnostics.LastExitReason
+import com.nuvio.tv.core.report.CrashRecorder
+import com.nuvio.tv.core.report.ReportStorage
 import com.nuvio.tv.core.network.access.AccessHeaderStore
 import com.nuvio.tv.core.network.dns.PrivateDnsSettings
 import com.nuvio.tv.core.runtime.LegacyFeatureDataCleanup
@@ -55,6 +59,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     }
 
     override fun onCreate() {
+        // Spec 116 D4: before super.onCreate() (Hilt injects there), so a crash during injection is kept.
+        CrashRecorder.install(ReportStorage.dir(this))
+        // Spec 101 R6: a staged restore lands as plain files here, before Hilt injects and any store opens.
+        RestoreApplier.applyIfStaged(this)
         super.onCreate()
         // Spec 97 A2/N4: warm reads take the first decrypt and the first setting read off the
         // request path.
@@ -70,6 +78,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         val tag = getSharedPreferences(LocaleCache.PREFS_NAME, Context.MODE_PRIVATE)
             .getString(LocaleCache.PREFS_KEY_TAG, null)
         LocaleCache.localeTag = tag ?: ""
+        // Spec 101 D47: the startup applier's result, as a toast in the app's language (after the tag above;
+        // one file check when there is none).
+        RestoreNoticeToast.showIfAny(this)
 
         // Build 1 instrument: the only way to answer whether OkHttp's 50 MB
         // addon cache (ADDON_HTTP_CACHE_DIR) holds anything, and the only way to see Coil's COMPUTED

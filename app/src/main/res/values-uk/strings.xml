@@ -644,7 +644,7 @@
     <string name="settings_p2p_title">P2P Стримінг</string>
     <string name="settings_p2p_subtitle">Дозволити P2P (торент) потоки</string>
     <string name="settings_p2p_hide_stats_title">Приховати статистику торента</string>
-    <string name="settings_p2p_hide_stats_subtitle">Приховати буфер, сіди, піри та швидкість завантаження під час завантаження та відтворення</string>
+    <string name="settings_p2p_hide_stats_subtitle">Приховати буфер, сіди, піри та швидкість завантаження під час відтворення</string>
     <string name="stream_filter_all">Всі</string>
     <string name="stream_episode_label">С%1$d Е%2$d</string>
 

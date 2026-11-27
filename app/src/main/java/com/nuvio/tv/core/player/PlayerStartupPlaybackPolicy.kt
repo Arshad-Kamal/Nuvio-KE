@@ -49,16 +49,25 @@ internal object PlayerStartupPlaybackPolicy {
     )
 
     fun onStateReady(state: ReadyState): ReadyTransition {
+        // Tunneled: the first READY stands in for the first frame, a paused build's too.
+        // initializePlayer clears shouldEnforceAutoplayOnFirstReady for startPaused, so that
+        // build's READY must not depend on it, or nothing ever sets the flag (Spec 108 F1).
+        if (state.isTunneledPlayback &&
+            (state.shouldEnforceAutoplayOnFirstReady || !state.hasRenderedFirstFrame)
+        ) {
+            return ReadyTransition(
+                nextState = state.copy(
+                    shouldEnforceAutoplayOnFirstReady = false,
+                    hasRenderedFirstFrame = true,
+                ),
+                action = ReadyAction.TunneledFirstReady(
+                    startsPlayback = !state.startPaused && !state.userPausedManually,
+                )
+            )
+        }
         if (state.shouldEnforceAutoplayOnFirstReady) {
             val next = state.copy(shouldEnforceAutoplayOnFirstReady = false)
-            return if (state.isTunneledPlayback) {
-                ReadyTransition(
-                    nextState = next.copy(hasRenderedFirstFrame = true),
-                    action = ReadyAction.TunneledFirstReady(
-                        startsPlayback = !state.startPaused && !state.userPausedManually,
-                    )
-                )
-            } else if (!state.startPaused && !state.userPausedManually) {
+            return if (!state.startPaused && !state.userPausedManually) {
                 ReadyTransition(
                     nextState = next,
                     action = ReadyAction.ColdStartPrime,

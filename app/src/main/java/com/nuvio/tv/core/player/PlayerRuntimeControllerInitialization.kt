@@ -64,7 +64,8 @@ import androidx.media3.session.MediaSession
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.nuvio.tv.R
-import com.nuvio.tv.core.di.trimImageMemoryCacheForPlayback
+import com.nuvio.tv.core.di.emptyImageMemoryCacheForPlayback
+import com.nuvio.tv.livetv.releaseLiveTvForPlayback
 import com.nuvio.tv.data.local.AudioLanguageOption
 import com.nuvio.tv.data.local.Dv7HandlingMode
 import com.nuvio.tv.data.local.FrameRateMatchingMode
@@ -385,7 +386,12 @@ internal fun PlayerRuntimeController.initializePlayer(
             playbackFatalErrorRecorded = false
             playbackAnalyticsDiagnostics.reset()
             resetLoadingOverlayForNewStream(streamUrl = url)
-            trimImageMemoryCacheForPlayback(context)
+            if (!imageCacheTrimmedForSession) {
+                imageCacheTrimmedForSession = true
+                emptyImageMemoryCacheForPlayback(context)
+            }
+            // Spec 146 D2: Live TV's data goes too; its own coroutine, so the init never waits on it.
+            scope.launch { releaseLiveTvForPlayback(context) }
             if (startPaused) {
                 userPausedManually = true
                 shouldEnforceAutoplayOnFirstReady = false
@@ -422,7 +428,7 @@ internal fun PlayerRuntimeController.initializePlayer(
             effectiveBackBufferDurationMs = 0
             currentBitrateAwareLoadControl = null
 
-            val savedPlayerSettings = playerSettingsDataStore.playerSettings.first()
+            val savedPlayerSettings = sessionPlayerSettings.first()
             // var only for the Spec 33 D6 network test hold below, which may rewrite the network rows.
             var playerSettings = withPerPlayNetwork(savedPlayerSettings, url)
             currentPlayerSettings = playerSettings
@@ -492,7 +498,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                 // Spec 75: the test's own requests to this URL are not the play's link or
                 // connection; the attempt (and its step times) starts after the hold.
                 stepClock.start(android.os.SystemClock.elapsedRealtime(), stepSourcesFoundMs, url)
-                playerSettings = withPerPlayNetwork(playerSettingsDataStore.playerSettings.first(), url)
+                playerSettings = withPerPlayNetwork(sessionPlayerSettings.first(), url)
                 currentPlayerSettings = playerSettings
                 // Spec 59 D3: an alias to a service already measured is no test result to show.
                 if (networkTest.measured) {
@@ -802,7 +808,8 @@ internal fun PlayerRuntimeController.initializePlayer(
                 // Stay full here even on a DV display; first frame tightens only for confirmed DV7.
                 val budgetManaged = playerSettings.bufferBudgetManaged
                 val budgetMbEffective = if (budgetManaged) {
-                    MemoryBudget.budgetMb
+                    // Spec 147 D4: the heap budget (435 MB with largeHeap on 2 GB) under the RAM tier's ceiling.
+                    MemoryBudget.tierCappedTargetMb(MemoryBudget.budgetMb)
                 } else {
                     MemoryBudget.effectiveBufferMb(bufferSettings.targetBufferSizeMb)
                         .coerceAtLeast(MemoryBudget.MIN_BUFFER_MB)
@@ -1237,8 +1244,11 @@ internal fun PlayerRuntimeController.initializePlayer(
             // feature is active it wraps with an inactive config - only the
             // Matroska swap fires (for the DTS-HD sniff); MP4/TS extractors are
             // returned untouched via the early return in wrap().
-            val effectiveExtractorsFactory: ExtractorsFactory =
-                    DolbyVisionExtractorsFactory(
+            // Spec 108: AutoSync's embedded subtitle observer wraps outside the DV factory (and,
+            // through RewrappableExtractor, survives the libass Matroska swap); off = unwrapped.
+            val effectiveExtractorsFactory: ExtractorsFactory = autoSyncExtractorsFactory(
+                url = url,
+                delegate = DolbyVisionExtractorsFactory(
                         delegate = extractorsFactory,
                         config = DolbyVisionConversionConfig(
                             active = isExperimentalDv7ToDv81ActiveForCurrentPlayback,
@@ -1255,6 +1265,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                         injectHdr10Sei = playerSettings.injectHdr10MetadataOnStrip,
                         hdr10BaseLayerMode = isHdr10BaseLayerModeActive
                     )
+            )
 
             setLoadingStatus(
                 phase = "building_player",
@@ -1657,6 +1668,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                             shouldEnforceAutoplayOnFirstReady =
                                 readyTransition.nextState.shouldEnforceAutoplayOnFirstReady
                             if (readyTransition.nextState.hasRenderedFirstFrame && isTunneledPlayback()) {
+                                if (!hasRenderedFirstFrame) prefetchAutoSyncIndex() // Spec 108 Q5
                                 hasRenderedFirstFrame = true
                                 blackStartRebuiltStreamUrls.remove(currentStreamUrl)
                                 cancelStartupWatchdog()
@@ -1870,6 +1882,8 @@ internal fun PlayerRuntimeController.initializePlayer(
                         // landed before the callback or the player existed) is caught here;
                         // the check is idempotent and rebuilds only on a pinned/live mismatch.
                         if (isFirstFrame) schedulePassthroughReturnCheck()
+                        // Spec 108 Q5: AutoSync's index download waits for the first frame.
+                        if (isFirstFrame) prefetchAutoSyncIndex()
                         // NuvioTV fork (T2, ysosrs cad15d29e): pre-populate the source
                         // list in the background once playback is healthy, so a
                         // mid-play failover (an unrecoverable malformed hole, or an
@@ -1915,6 +1929,20 @@ internal fun PlayerRuntimeController.initializePlayer(
 
                     override fun onPlayerError(error: PlaybackException) {
                         if (isReleasingPlayer && error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT) return
+                        if (
+                            PlayerStartupWatchdogPolicy.keepsBoxOnLateError(
+                                torrentStream = isTorrentStream,
+                                graceStopped = startupGraceStopped,
+                                errorIsWatchdogBox = _uiState.value.error?.fromStartupWatchdog == true,
+                                renderedFirstFrame = hasRenderedFirstFrame,
+                            )
+                        ) {
+                            Log.w(
+                                PlayerRuntimeController.TAG,
+                                "STARTUP_WATCHDOG: ${error.errorCodeName} after the box's grace stop; keeping the box"
+                            )
+                            return
+                        }
                         cancelFirstFrameWatchdog()
                         // Spec 75 S4: the failure as it stands now (cause, step line, facts); the
                         // rungs carry it, a failover records its mark, the box shows it.
@@ -2524,6 +2552,10 @@ internal fun PlayerRuntimeController.resetAddonSubtitleStateForNewStream() {
     // first pause; the new stream runs its own subtitle restore.
     deferredAutoAddonSubtitle = null
     attachedAddonSubtitleKeys = emptySet()
+    // Spec 108: every (re)build drops the retimed sidecar below, so the new player's auto-pick
+    // runs AutoSync again (a run of the old player is void).
+    cancelAutomaticSubtitleSync()
+    autoSyncStartupClaim = null
     stopSidecarAddonSubtitle(clearView = true)
     _uiState.update {
         it.copy(
@@ -3305,7 +3337,7 @@ private fun PlayerRuntimeController.recordFirstFrameDiagnostics(
                     "managed=$budgetManaged " +
                     "budgetMb=${when {
                         keepZeroForDv7 -> MemoryBudget.conversionBudgetMb
-                        budgetManaged -> MemoryBudget.budgetMb
+                        budgetManaged -> MemoryBudget.tierCappedTargetMb(MemoryBudget.budgetMb)
                         else -> MemoryBudget.effectiveBufferMb(playerSettings.bufferSettings.targetBufferSizeMb)
                     }} " +
                     "host=${currentStreamUrl.safeHost()}"

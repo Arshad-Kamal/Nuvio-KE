@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -83,6 +85,9 @@ import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.screens.account.AccountSettingsInline
+import com.nuvio.tv.ui.screens.settings.backup.BackupSettingsContent
+import com.nuvio.tv.ui.screens.settings.trackers.TrackersSettingsContent
+import com.nuvio.tv.ui.screens.settings.trackers.TrackersViewModel
 import com.nuvio.tv.ui.theme.NuvioPrimitives
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.requestFocusAfterFrames
@@ -113,7 +118,9 @@ private fun settingsSectionSpec(category: SettingsCategory): SettingsSectionSpec
     SettingsCategory.CONTENT_DISCOVERY ->
         SettingsSectionSpec(category, stringResource(R.string.settings_content_discovery), Icons.Default.Explore)
     SettingsCategory.INTEGRATION -> SettingsSectionSpec(category, stringResource(R.string.settings_integration), Icons.Default.Link)
+    SettingsCategory.TRACKERS -> SettingsSectionSpec(category, stringResource(R.string.settings_trackers), Icons.Default.TrackChanges)
     SettingsCategory.PLAYBACK -> SettingsSectionSpec(category, stringResource(R.string.settings_playback), Icons.Rounded.PlayArrow)
+    SettingsCategory.BACKUP -> SettingsSectionSpec(category, stringResource(R.string.settings_backup), Icons.Default.CloudUpload)
     SettingsCategory.ABOUT -> SettingsSectionSpec(category, stringResource(R.string.about_title), Icons.Default.Info)
     SettingsCategory.ADVANCED -> SettingsSectionSpec(category, stringResource(R.string.settings_advanced), Icons.Default.Build)
     SettingsCategory.DEBUG -> SettingsSectionSpec(category, stringResource(R.string.settings_debug), Icons.Default.BugReport)
@@ -218,12 +225,15 @@ fun SettingsScreen(
     profileViewModel: ProfileSettingsViewModel = hiltViewModel(),
     // The same instances About's pane resolves (this back-stack entry's store).
     updateViewModel: UpdateViewModel = hiltViewModel(),
-    changelogViewModel: ChangelogViewModel = hiltViewModel()
+    changelogViewModel: ChangelogViewModel = hiltViewModel(),
+    // The instance the Trackers pane resolves (this back-stack entry's store).
+    trackersViewModel: TrackersViewModel = hiltViewModel()
 ) {
     val isPrimaryProfileActive by profileViewModel.isPrimaryProfileActive.collectAsStateWithLifecycle()
     val showUpdateDot by updateViewModel.showNotice.collectAsStateWithLifecycle()
-    val visibleCategories = remember(isPrimaryProfileActive) {
-        visibleSettingsCategories(isPrimaryProfileActive, BuildConfig.IS_DEBUG_BUILD)
+    val hasTrackers = trackersViewModel.hasTrackers
+    val visibleCategories = remember(isPrimaryProfileActive, hasTrackers) {
+        visibleSettingsCategories(isPrimaryProfileActive, BuildConfig.IS_DEBUG_BUILD, hasTrackers)
     }
 
     var selectedCategory by rememberSaveable { mutableStateOf(defaultSettingsCategory(visibleCategories)) }
@@ -488,6 +498,8 @@ fun SettingsScreen(
                     playbackSection = playbackSectionRequest,
                     openPanel = panelRequest == selectedCategory,
                     onPanelOpened = { panelRequest = null },
+                    // A pane opening another pane's row (Spec 105 D28) goes through the same entry as from outside.
+                    onOpenEntry = { entry = it },
                     initialFocusRequester = paneRequesters.getValue(selectedCategory).takeIf { paneFocus == PaneFocus.ENTERED },
                     onNavigateToManageProfiles = onNavigateToManageProfiles,
                     onNavigateToDpadComboSetup = onNavigateToDpadComboSetup,
@@ -583,6 +595,7 @@ private fun SettingsDetailPane(
     playbackSection: PlaybackSection?,
     openPanel: Boolean,
     onPanelOpened: () -> Unit,
+    onOpenEntry: (SettingsEntry) -> Unit,
     initialFocusRequester: FocusRequester?,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToDpadComboSetup: (String) -> Unit,
@@ -612,12 +625,20 @@ private fun SettingsDetailPane(
         SettingsCategory.INTEGRATION -> TmdbSettingsContent(
             initialFocusRequester = initialFocusRequester,
             openKeyPanel = openPanel,
-            onKeyPanelOpened = onPanelOpened
+            onKeyPanelOpened = onPanelOpened,
+            onOpenMdbListAccount = { onOpenEntry(SettingsEntry.MDBLIST_ACCOUNT) }
+        )
+        SettingsCategory.TRACKERS -> TrackersSettingsContent(
+            initialFocusRequester = initialFocusRequester,
+            openMdbListAccount = openPanel,
+            onMdbListAccountOpened = onPanelOpened,
+            onOpenHomeCatalogOrder = onNavigateToCatalogOrder
         )
         SettingsCategory.PLAYBACK -> PlaybackSettingsContent(
             initialFocusRequester = initialFocusRequester,
             initialSection = playbackSection
         )
+        SettingsCategory.BACKUP -> BackupSettingsContent(initialFocusRequester = initialFocusRequester)
         SettingsCategory.ABOUT -> AboutSettingsContent(
             initialFocusRequester = initialFocusRequester,
             openUpdatePanel = openPanel,

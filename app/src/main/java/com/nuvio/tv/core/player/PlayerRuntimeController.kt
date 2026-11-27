@@ -33,14 +33,23 @@ import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import androidx.media3.session.MediaSession
+import com.nuvio.tv.core.report.PlaybackErrorLog
+import com.nuvio.tv.core.report.playbackErrorRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicLong
 
@@ -164,6 +173,14 @@ class PlayerRuntimeController(
 
     /** Spec 80 D20: a changelog release video: no stored diagnostics, and it ends on its own however short. */
     internal val releaseVideo: Boolean = navigationArgs.releaseVideo
+
+    /**
+     * Spec 152: the stored player settings as this session plays them ([forPlaybackSession]).
+     * Every read that sets AFR, resolution matching or the player build goes through this; reads of
+     * unrelated settings (stream pick, binge, addon subtitles) may use the store.
+     */
+    internal val sessionPlayerSettings: Flow<PlayerSettings> =
+        playerSettingsDataStore.playerSettings.map { it.forPlaybackSession(releaseVideo) }
     internal val mediaSourceFactory = PlayerMediaSourceFactory(context.applicationContext)
 
     internal var currentVideoHash: String? = navigationArgs.videoHash
@@ -200,6 +217,12 @@ class PlayerRuntimeController(
      * frame instead (Spec 85 E7).
      */
     internal var placeholderProbeDone: Boolean = false
+    /**
+     * Spec 147 S2: the image memory cache was emptied for this player session; in-player rebuilds
+     * (source or episode switch, failover, passthrough rebuild) skip it, so the loading overlay's art
+     * stays in memory. Never reset: one controller is one player session.
+     */
+    internal var imageCacheTrimmedForSession: Boolean = false
     /** Spec 21 P3: this stream was rejected as a placeholder (auto-advance or error); reset per stream. */
     internal var placeholderRejectedForStream: Boolean = false
     /** Spec 35: the runtime mismatch check has judged this stream (it runs once per stream). */
@@ -352,6 +375,9 @@ class PlayerRuntimeController(
     internal var firstFrameWatchdogJob: Job? = null
     internal var stallWatchdogJob: Job? = null
     internal var startupWatchdogJob: Job? = null
+    // Spec 138 F1: the box's grace stop ended this start (set before stop(), reset at the next arm);
+    // onPlayerError keeps the box over a late error (PlayerStartupWatchdogPolicy.keepsBoxOnLateError).
+    internal var startupGraceStopped: Boolean = false
     internal var hideControlsJob: Job? = null
     internal var hideSeekOverlayJob: Job? = null
     internal var watchProgressSaveJob: Job? = null
@@ -360,10 +386,26 @@ class PlayerRuntimeController(
     internal var hideStreamSourceIndicatorJob: Job? = null
     internal var hidePlayerEngineSwitchInfoJob: Job? = null
     internal var hideSubtitleDelayOverlayJob: Job? = null
-    internal var subtitleAutoSyncLoadJob: Job? = null
+    internal var subtitleManualSyncLoadJob: Job? = null
+    /** Spec 108: the AutoSync run in flight (PlayerRuntimeControllerAutomaticSubtitleSync). */
+    internal var automaticSubtitleSyncJob: Job? = null
+    /** Spec 108: "addonSubtitleKey|scope" of the mpv AutoSync run in [automaticSubtitleSyncJob]. */
+    internal var mpvAutoSyncRunKey: String? = null
+    /**
+     * Spec 108: (stream URL, addonSubtitleKey) whose one startup AutoSync search has run (upstream
+     * claimStartupRun); a later auto-pick of another subtitle on that stream is only checked.
+     */
+    internal var autoSyncStartupClaim: Pair<String, String>? = null
+    /** Spec 108: "url|addonSubtitleKey" the no-fit toast was raised for, so a rebuild does not repeat it. */
+    internal var autoSyncNoFitNotifiedFor: String? = null
     /** ExoPlayer sidecar path: external addon cues without setMediaSource (preserves buffer). */
     internal var sidecarSubtitleJob: Job? = null
     internal var activeSidecarSubtitleKey: String? = null
+    /** Spec 108: one attachment of [activeSidecarSubtitleKey]; 0 when none. Bumped on every start/swap. */
+    internal var activeSidecarGeneration: Long = 0L
+    /** Spec 108: the raw body of the current attachment (null on failure/cancel), shared with AutoSync. */
+    internal var activeSidecarRawBody: kotlinx.coroutines.CompletableDeferred<String?>? = null
+    internal var sidecarGenerationCounter: Long = 0L
     internal var sidecarTimedCues: List<androidx.media3.extractor.text.CuesWithTiming> = emptyList()
     internal var lastSidecarCueSignature: Long? = null
     internal var exoSubtitleViewRef: WeakReference<androidx.media3.ui.SubtitleView>? = null
@@ -560,6 +602,14 @@ class PlayerRuntimeController(
     internal var currentStreamBingeGroup: String? = navigationArgs.bingeGroup
 
     /**
+     * Spec 131 D1/D4: the user picked the playing stream by hand (a Stream-screen row press, a Sources or
+     * Episodes panel pick, the error box's Next source), so a failure stops at the error box instead of
+     * failing over to another source ([advanceToNextLiveSource]). Set by every switch; auto-play and
+     * automatic episode picks are not hand picks.
+     */
+    internal var currentStreamHandPicked: Boolean = navigationArgs.handPicked
+
+    /**
      * The stream playing, for the next episode's continuation (Spec 65 P7): set from the stream on
      * every switch (applyStreamMetadata); at launch rebuilt from the route, which carries its name,
      * addon, description, filename and size but not its title or AIOStreams parse (a step that
@@ -619,6 +669,8 @@ class PlayerRuntimeController(
     internal var mpvTrackRefreshJob: Job? = null
     /** In-flight MPV addon-subtitle download+attach; a newer pick cancels it. */
     internal var mpvAddonSubtitleSelectJob: Job? = null
+    /** Spec 108: addonSubtitleKey of [mpvAddonSubtitleSelectJob]'s subtitle (see mpvAddonSubtitleKeyInFlight). */
+    internal var mpvAddonSubtitleSelectKey: String? = null
     internal var mpvTrackRefreshInProgress: Boolean = false
     internal var pendingMpvHardRestartOnNextAttach: Boolean = false
     internal var delayMpvResumeSeekUntilVideoTrack: Boolean = false
@@ -859,6 +911,25 @@ class PlayerRuntimeController(
         observeDeviceLocalAspectMode()
         observeStreamLimit()
         observePreferredSource()
+        observePlaybackErrorsForReports()
+    }
+
+    /**
+     * Spec 116 D4b: each failure box shown is kept on this TV for a report. distinctUntilChanged on
+     * the nullable value, so a retry that fails the same way again (box gone, then back) is recorded
+     * again. The write outlives the ViewModel's scope (leaving the player right after the box).
+     */
+    private fun observePlaybackErrorsForReports() {
+        scope.launch {
+            uiState.map { it.error }.distinctUntilChanged().filterNotNull().collect { failure ->
+                val record = playbackErrorRecord(
+                    failure, uiState.value.internalPlayerEngine.name, System.currentTimeMillis()
+                )
+                withContext(Dispatchers.IO + NonCancellable) {
+                    PlaybackErrorLog.append(context.applicationContext, record)
+                }
+            }
+        }
     }
 
     private fun observeTorrentSettings() {

@@ -278,16 +278,21 @@ private fun LazyListScope.secondsStepperItem(
 }
 
 /**
- * The cap the runtime buffers to under the managed budget: the RAM-tier native safe limit with
- * the native allocator (off-heap), else the heap budget (BitrateAwareLoadControl's budgetBytes).
+ * The device's memory limit for the buffer: the RAM-tier native safe limit with the native
+ * allocator (off-heap), else the heap budget (BitrateAwareLoadControl's budgetBytes). The
+ * estimate's colour compares against this, never against the buffer's tier cap.
  */
 @Composable
-private fun managedLimitMb(settings: PlayerSettings): Int =
+private fun deviceLimitMb(settings: PlayerSettings): Int =
     if (settings.nuvioPerformanceModeEnabled) {
         NuvioExoPlayerPerformanceHelper.getSafeNativeMemoryLimitMb(LocalContext.current)
     } else {
         MemoryBudget.budgetMb
     }
+
+/** The cap the runtime buffers to under the managed budget: [deviceLimitMb] under the RAM tier's ceiling (Spec 147 D4). */
+@Composable
+private fun managedLimitMb(settings: PlayerSettings): Int = MemoryBudget.tierCappedTargetMb(deviceLimitMb(settings))
 
 /** The stored target buffer size as the runtime applies it. */
 private fun storedTargetMb(settings: PlayerSettings): Int =
@@ -324,7 +329,9 @@ private fun LazyListScope.targetBufferItems(settings: PlayerSettings, onSetBuffe
             MemoryBudget.maxSafeTargetMb(heapWarningLimitMb(), parallelOverheadMb)
                 .coerceAtMost(MemoryBudget.MAX_BUFFER_MB)
         }
-        val maxSizeMb = if (settings.allowLargeTargetBuffer) PlayerSettings.LARGE_TARGET_BUFFER_MAX_MB else warningMaxMb
+        // Spec 147 D4: no step past the RAM tier's ceiling, as the chunk row lists no size past its own.
+        val maxSizeMb = (if (settings.allowLargeTargetBuffer) PlayerSettings.LARGE_TARGET_BUFFER_MAX_MB else warningMaxMb)
+            .coerceAtMost(MemoryBudget.tierMaxTargetMb)
         val minSizeMb = ((MemoryBudget.defaultBufferSizeMb / 2) / MemoryBudget.BUFFER_STEP_MB * MemoryBudget.BUFFER_STEP_MB)
             .coerceIn(MemoryBudget.MIN_BUFFER_MB, maxSizeMb)
         val storedMb = storedTargetMb(settings)
@@ -451,7 +458,7 @@ private fun MemoryEstimateNote(settings: PlayerSettings) {
     } else {
         heapWarningLimitMb()
     }
-    val color: Color = when (MemoryBudget.getUsageStatus(totalMb, managedMb, warningLimitMb)) {
+    val color: Color = when (MemoryBudget.getUsageStatus(totalMb, deviceLimitMb(settings), warningLimitMb)) {
         MemoryUsageStatus.DANGER -> NuvioPrimitives.errorOnImage
         MemoryUsageStatus.WARNING -> NuvioPrimitives.warning
         MemoryUsageStatus.SAFE -> NuvioTheme.marquee.readyText

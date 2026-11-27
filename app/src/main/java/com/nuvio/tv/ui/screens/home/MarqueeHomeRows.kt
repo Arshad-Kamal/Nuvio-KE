@@ -9,6 +9,14 @@ package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +36,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
@@ -59,6 +68,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import coil3.imageLoader
+import com.nuvio.tv.R
+import com.nuvio.tv.core.posters.RatingPosters
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.ContinueWatchingItem
 import com.nuvio.tv.domain.model.MetaPreview
@@ -205,7 +216,7 @@ internal fun MarqueeHomeRowsList(
     isVerticalRowsScrollingState: State<Boolean>,
     focusedItemByRow: StableRef<MutableMap<String, Int>>,
     rowListStates: StableRef<MutableMap<String, LazyListState>>,
-    loadMoreRequestedTotals: StableRef<MutableMap<String, Int>>,
+    loadMoreEntries: StableRef<MutableMap<String, RowLoadMoreEntry>>,
     focusState: HomeScreenFocusState,
     focus: MarqueeBandFocus,
     activeRowIndex: State<Int>,
@@ -243,8 +254,10 @@ internal fun MarqueeHomeRowsList(
     val imageLoader = context.imageLoader
     val continueWatchingPoster = continueWatchingCardStyle == ContinueWatchingCardStyle.POSTER
     val latestRowsForPrefetch = rememberUpdatedState(carouselRows)
+    // Spec 114 P0-4: a key, so items skipped while the rating-poster setting loads are warmed once it settles.
+    val ratingPosters by RatingPosters.state.collectAsState()
 
-    LaunchedEffect(imageLoader, verticalRowListState, density, useLandscapePosters, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes) {
+    LaunchedEffect(imageLoader, verticalRowListState, density, useLandscapePosters, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, ratingPosters) {
         snapshotFlow {
             val visible = verticalRowListState.layoutInfo.visibleItemsInfo
             (visible.firstOrNull()?.index ?: -1) to (visible.lastOrNull()?.index ?: -1)
@@ -258,7 +271,7 @@ internal fun MarqueeHomeRowsList(
                         val landscapeRow = row.usesLandscapeCards(useLandscapePosters)
                         for (i in 0 until minOf(VERTICAL_POSTER_PREFETCH_ITEMS_PER_ROW, row.items.list.size)) {
                             val spec = row.items.list[i].marqueeImageRequestSpec(
-                                landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home
+                                landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home, ratingPosters
                             ) ?: continue
                             enqueueMarqueeImage(imageLoader, context, density, spec)
                         }
@@ -405,7 +418,7 @@ internal fun MarqueeHomeRowsList(
                     focusStateCatalogRowScrollIndex = focusState.catalogRowScrollStates[row.key] ?: 0,
                     focusedItemByRow = focusedItemByRow,
                     rowListStates = rowListStates,
-                    loadMoreRequestedTotals = loadMoreRequestedTotals,
+                    loadMoreEntries = loadMoreEntries,
                     isVerticalRowsScrollingState = isVerticalRowsScrollingState,
                     focus = focus,
                     onRowItemFocused = stableOnRowItemFocused,
@@ -446,7 +459,8 @@ internal fun MarqueeRowSection(
     focusStateCatalogRowScrollIndex: Int,
     focusedItemByRow: StableRef<MutableMap<String, Int>>,
     rowListStates: StableRef<MutableMap<String, LazyListState>>,
-    loadMoreRequestedTotals: StableRef<MutableMap<String, Int>>,
+    // Each paging row's trigger memory (RowLoadMoreTrigger); a snapshot map where rows page.
+    loadMoreEntries: StableRef<MutableMap<String, RowLoadMoreEntry>>,
     isVerticalRowsScrollingState: State<Boolean>,
     focus: MarqueeBandFocus,
     onRowItemFocused: (String, Int, Boolean) -> Unit,
@@ -474,7 +488,7 @@ internal fun MarqueeRowSection(
 ) {
     val focusedItemByRowMap = focusedItemByRow.value
     val rowListStatesMap = rowListStates.value
-    val loadMoreTotals = loadMoreRequestedTotals.value
+    val loadMoreEntryMap = loadMoreEntries.value
     val requesters = itemFocusRequesters.value
     val home = NuvioTheme.marquee.home
     val rowKey = row.key
@@ -560,21 +574,31 @@ internal fun MarqueeRowSection(
         }
 
         if (canObserveLoadMore) {
+            val latestIsActiveRow = rememberUpdatedState(isActiveRow)
             LaunchedEffect(rowKey, rowListState) {
+                // Spec 117 P5b (R12-M2): every input is read here, in one snapshot.
                 snapshotFlow {
-                    val layoutInfo = rowListState.layoutInfo
-                    (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) to layoutInfo.totalItemsCount
+                    val rowState = currentRowState.value
+                    val inputs = RowLoadMoreInputs(
+                        lastVisibleIndex = rowListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index,
+                        // Cards plus a trailing tile: one past the last focus target.
+                        drawnCount = lastFocusTarget.value + 1,
+                        currentPage = rowState.currentPage,
+                        hasMore = rowState.hasMore,
+                        isLoading = rowState.isLoading,
+                        isActiveRow = latestIsActiveRow.value(),
+                        focusedIndex = focusedItemByRowMap[rowKey]
+                    )
+                    inputs to loadMoreEntryMap[rowKey]
                 }
                     .distinctUntilChanged()
-                    .collect { (lastVisible, total) ->
-                        if (total <= 0) return@collect
-                        val rowState = currentRowState.value
-                        if (lastVisible < total - 4) {
-                            loadMoreTotals.remove(rowState.key)
-                            return@collect
-                        }
-                        if (rowState.hasMore && !rowState.isLoading && loadMoreTotals[rowState.key] != total) {
-                            loadMoreTotals[rowState.key] = total
+                    .collect { (inputs, entry) ->
+                        val decision = decideRowLoadMore(inputs, entry)
+                        // Re-emits once with the new entry; the decision is then a no-op.
+                        if (decision.entry != entry) loadMoreEntryMap[rowKey] = decision.entry
+                        if (decision.fire) {
+                            // The ids are part of rowKey, so the row read here is the one judged.
+                            val rowState = currentRowState.value
                             onLoadMoreCatalog(
                                 rowState.catalogId.orEmpty(),
                                 rowState.addonId.orEmpty(),
@@ -589,7 +613,9 @@ internal fun MarqueeRowSection(
         val context = LocalContext.current
         val imageLoader = context.imageLoader
         val rowItemCount = row.items.list.size
-        LaunchedEffect(rowKey, rowItemCount, landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes) {
+        // Spec 114 P0-4: a key, as in the vertical prefetcher.
+        val ratingPosters by RatingPosters.state.collectAsState()
+        LaunchedEffect(rowKey, rowItemCount, landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, ratingPosters) {
             // Arms whenever this row becomes the focused one and the vertical scroll has stopped.
             snapshotFlow { isActiveRow() && !isVerticalRowsScrollingState.value }
                 .distinctUntilChanged()
@@ -598,7 +624,7 @@ internal fun MarqueeRowSection(
                     delay(150) // Survive rapid vertical D-pad travel before spending image requests.
                     fun enqueueIfNeeded(item: ModernCarouselItem) {
                         item.marqueeImageRequestSpec(
-                            landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home
+                            landscapeRow, continueWatchingPoster, useEpisodeThumbnails, blurUnwatchedEpisodes, home, ratingPosters
                         )?.let { enqueueMarqueeImage(imageLoader, context, density, it) }
                     }
                     val items = currentRowState.value.items.list
@@ -791,19 +817,40 @@ internal fun MarqueeRowTitle(row: HeroCarouselRow, active: () -> Boolean) {
         )
     }
     val titleSuffix = row.titleSuffix
-    if (titleSuffix == null) {
-        title(titleModifier)
+    val titleAndSuffix: @Composable (Modifier) -> Unit = { modifier ->
+        if (titleSuffix == null) {
+            title(modifier)
+        } else {
+            Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
+                title(Modifier.alignByBaseline().weight(1f, fill = false))
+                Text(
+                    text = titleSuffix,
+                    style = NuvioTheme.textStyles.meta,
+                    color = marquee.onImage3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alignByBaseline()
+                )
+            }
+        }
+    }
+    if (!row.mdbList) {
+        titleAndSuffix(titleModifier)
     } else {
-        Row(modifier = titleModifier, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
-            title(Modifier.alignByBaseline().weight(1f, fill = false))
-            Text(
-                text = titleSuffix,
-                style = NuvioTheme.textStyles.meta,
-                color = marquee.onImage3,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.alignByBaseline()
+        // Spec 105 D1 (sandbox spec-105-mdblist v3): MDBList's glyph before the title.
+        Row(modifier = titleModifier, verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(R.drawable.ic_tracker_mdblist),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(MDBLIST_ROW_GLYPH).clip(RoundedCornerShape(MDBLIST_ROW_GLYPH_RADIUS))
             )
+            Spacer(Modifier.width(MDBLIST_ROW_GLYPH_GAP))
+            titleAndSuffix(Modifier.weight(1f, fill = false))
         }
     }
 }
+
+private val MDBLIST_ROW_GLYPH = 18.dp
+private val MDBLIST_ROW_GLYPH_RADIUS = 5.dp
+private val MDBLIST_ROW_GLYPH_GAP = 9.dp

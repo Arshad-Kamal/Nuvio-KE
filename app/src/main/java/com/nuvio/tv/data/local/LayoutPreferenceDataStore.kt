@@ -12,6 +12,7 @@ import com.nuvio.tv.core.sync.LocalHomeCatalogSettingsState
 import com.nuvio.tv.core.sync.SyncHomeCatalogPayload
 import com.nuvio.tv.core.sync.buildHomeCatalogSyncPayload
 import com.nuvio.tv.core.sync.homeCatalogKey
+import com.nuvio.tv.core.sync.HomeCatalogOrdering
 import com.nuvio.tv.core.sync.homeCollectionKey
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Collection
@@ -333,6 +334,33 @@ class LayoutPreferenceDataStore @Inject constructor(
         updateCatalogKeys(disabledHomeCatalogKeysKey, transform)
 
     /**
+     * Spec 105 S5b1 (D2): MDBList keys in [available] not yet in [profileId]'s saved order join it in one edit of order
+     * and hidden keys ([HomeCatalogOrdering.admitMdbListKeys]). Returns the hidden keys Home goes by: as stored after
+     * the edit, or for a read-only profile (nothing written) as the admission would store them.
+     */
+    suspend fun admitMdbListKeys(profileId: Int, available: List<String>): Set<String> {
+        fun admit(state: LocalHomeCatalogSettingsState) =
+            HomeCatalogOrdering.admitMdbListKeys(state.orderKeys, state.disabledKeys, available)
+        val target = catalogWriteStore(profileId)
+        if (target == null) {
+            val state = readHomeCatalogSettingsState(catalogReadStore(profileId).data.first())
+            return admit(state)?.disabledKeys ?: state.disabledKeys
+        }
+        var hiddenKeys = emptySet<String>()
+        target.edit { prefs ->
+            val state = readHomeCatalogSettingsState(prefs)
+            val admission = admit(state)
+            hiddenKeys = admission?.disabledKeys ?: state.disabledKeys
+            if (admission == null) return@edit
+            prefs[homeCatalogOrderKeysKey] = encodeStringList(admission.orderKeys)
+            if (admission.disabledKeys.isNotEmpty()) {
+                prefs[disabledHomeCatalogKeysKey] = encodeStringList(admission.disabledKeys.toList())
+            }
+        }
+        return hiddenKeys
+    }
+
+    /**
      * Sets the custom Home title of catalog [key] in one edit of the whole title map (synced in
      * the home-catalog payload): a blank [title], or one equal to [originalName], removes the
      * entry. True when written; false for a read-only profile or no change.
@@ -545,15 +573,15 @@ class LayoutPreferenceDataStore @Inject constructor(
         profileId: Int = profileManager.activeProfileId.value
     ) {
         val sortedItems = payload.items.sortedBy { it.order }
-        val orderKeys = sortedItems.map { item ->
+        val remoteOrderKeys = sortedItems.map { item ->
             if (item.isCollection) homeCollectionKey(item.collectionId)
             else homeCatalogKey(item.addonId, item.type, item.catalogId)
         }
-        val disabledKeys = sortedItems.filter { !it.enabled }.map { item ->
+        val remoteDisabledKeys = sortedItems.filter { !it.enabled }.map { item ->
             if (item.isCollection) homeCollectionKey(item.collectionId)
             else homeCatalogKey(item.addonId, item.type, item.catalogId)
         }
-        val titles = sortedItems.associate { item ->
+        val remoteTitles = sortedItems.associate { item ->
             val key = if (item.isCollection) homeCollectionKey(item.collectionId)
             else homeCatalogKey(item.addonId, item.type, item.catalogId)
             key to item.customTitle
@@ -561,6 +589,14 @@ class LayoutPreferenceDataStore @Inject constructor(
 
         val target = catalogWriteStore(profileId) ?: return
         target.edit { prefs ->
+            // The payload never carries MDBList rows (Spec 105 S5a: per TV profile): keep their slots, hidden state
+            // and titles.
+            val local = readHomeCatalogSettingsState(prefs)
+            val orderKeys = HomeCatalogOrdering.keepLocalMdbListKeys(local.orderKeys, remoteOrderKeys)
+            val disabledKeys = HomeCatalogOrdering.keepLocalMdbListDisabled(local.disabledKeys, remoteOrderKeys, remoteDisabledKeys)
+            val titles = remoteTitles + local.customTitles.filterKeys {
+                HomeCatalogOrdering.isMdbListKey(it) && it !in remoteOrderKeys
+            }
             prefs[hideUnreleasedContentKey] = payload.hideUnreleasedContent
             if (orderKeys.isNotEmpty()) {
                 prefs[homeCatalogOrderKeysKey] = encodeStringList(orderKeys)
@@ -568,7 +604,7 @@ class LayoutPreferenceDataStore @Inject constructor(
                 prefs.remove(homeCatalogOrderKeysKey)
             }
             if (disabledKeys.isNotEmpty()) {
-                prefs[disabledHomeCatalogKeysKey] = encodeStringList(disabledKeys)
+                prefs[disabledHomeCatalogKeysKey] = encodeStringList(disabledKeys.toList())
             } else {
                 prefs.remove(disabledHomeCatalogKeysKey)
             }

@@ -10,7 +10,9 @@ import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.awaitKey
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.repository.CatalogContentFilter
 import com.nuvio.tv.domain.model.PersonDetail
+import com.nuvio.tv.domain.model.PersonDepartment
 import com.nuvio.tv.ui.screens.detail.formatShortDate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,6 +41,7 @@ class CastDetailViewModel @Inject constructor(
     private val watchProgressRepository: com.nuvio.tv.domain.repository.WatchProgressRepository,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
+    private val contentFilter: CatalogContentFilter,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -117,7 +120,8 @@ class CastDetailViewModel @Inject constructor(
                     language = tmdbSettingsDataStore.settings.first().language
                 )
                 if (detail != null) {
-                    PersonLoad.Loaded(detail)
+                    // Spec 117 P6: the content filter's one-shot gate over every department.
+                    PersonLoad.Loaded(contentFilter.open()?.let { detail.filteredBy(it) } ?: detail)
                 } else {
                     PersonLoad.Failed(context.getString(R.string.cast_error_load_details_for, personName))
                 }
@@ -145,4 +149,20 @@ private sealed interface PersonLoad {
     data object NoKey : PersonLoad
     data class Failed(val message: String) : PersonLoad
     data class Loaded(val detail: PersonDetail) : PersonLoad
+}
+
+/**
+ * Spec 117 P6: every department's credits through [gate] (one wait for all titles, departments in
+ * order); a department it empties is dropped and the rest re-sorted, most credits first (ties by name).
+ */
+internal suspend fun PersonDetail.filteredBy(gate: CatalogContentFilter.Gate): PersonDetail {
+    val shown = gate.applyAll(departments.map { department -> department.credits.map { it.preview } })
+    val kept = departments.zip(shown).mapNotNull { (department, previews) ->
+        val byKey = previews.associateBy { "${it.apiType}:${it.id}" }
+        val credits = department.credits.mapNotNull { credit ->
+            byKey["${credit.preview.apiType}:${credit.preview.id}"]?.let { credit.copy(preview = it) }
+        }
+        if (credits.isEmpty()) null else PersonDepartment(department.name, credits)
+    }
+    return copy(departments = kept.sortedWith(compareByDescending<PersonDepartment> { it.credits.size }.thenBy { it.name }))
 }

@@ -350,7 +350,8 @@ fun StreamScreen(
                     onStreamSelected = { stream ->
                         TtffTrace.begin("press_manual")
                         focusedStreamKey = stream.limitKey()
-                        val playbackInfo = viewModel.playbackInfoFor(stream)
+                        // Spec 131 D4: a row press is a hand pick (kept through the P2P consent dialog).
+                        val playbackInfo = viewModel.playbackInfoFor(stream).copy(handPicked = true)
                         // An addon's info row opens nothing: the press does nothing and the search goes on.
                         if (playbackInfo.hasTarget) {
                             // S1g: warm the connection while the player is built.

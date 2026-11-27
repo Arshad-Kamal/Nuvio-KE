@@ -118,6 +118,9 @@ class XmltvNowNextParser(
         val windowEnd = windowStartMs + lookAheadMs
         val channels = LinkedHashMap<String, EpgChannel>()
         val slots = HashMap<String, Slot>()
+        // Spec 143: equal titles and categories share one String (series repeat all day), so `LiveCompact.guide`
+        // keeps every programme and programme list of a fresh parse (it still rebuilds the two maps).
+        val texts = HashMap<String, String>()
         // kxml reaches END_DOCUMENT on a truncated file without an error: complete only once </tv> closes.
         var rootClosed = false
         var failed = false
@@ -133,7 +136,7 @@ class XmltvNowNextParser(
                         "channel" -> readChannel(parser)?.let { ch ->
                             if (channels.size < MAX_CHANNELS || ch.id in channels) channels[ch.id] = ch
                         }
-                        "programme" -> readProgramme(parser, windowStartMs, windowEnd, maxPerChannel, keepChannel, slots)
+                        "programme" -> readProgramme(parser, windowStartMs, windowEnd, maxPerChannel, keepChannel, slots, texts)
                     }
                 }
                 event = parser.next()
@@ -181,7 +184,8 @@ class XmltvNowNextParser(
         windowEnd: Long,
         maxPerChannel: Int,
         keepChannel: (String) -> Boolean,
-        slots: MutableMap<String, Slot>
+        slots: MutableMap<String, Slot>,
+        texts: MutableMap<String, String>
     ) {
         // Cheap checks before time parsing; distinct channel keys are capped like channels.
         val channel = parser.getAttributeValue(null, "channel")?.trim().orEmpty()
@@ -223,7 +227,10 @@ class XmltvNowNextParser(
                 else -> skipElement(parser)
             }
         }
-        val p = EpgProgramme(start, stop, title.orEmpty(), category?.ifEmpty { null }, live)
+        val p = EpgProgramme(
+            start, stop, title.orEmpty().let { t -> texts.getOrPut(t) { t } },
+            category?.ifEmpty { null }?.let { c -> texts.getOrPut(c) { c } }, live
+        )
         when {
             start >= windowEnd -> slot.afterWindow = p
             replaceAt == -1 -> list += p

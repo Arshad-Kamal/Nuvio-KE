@@ -34,6 +34,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -90,7 +91,7 @@ class LiveTvSourcesViewModelTest {
 
     @Test
     fun `a passed check enables Add, and editing the URL drops it`() = runTest(mainDispatcherRule.dispatcher) {
-        coEvery { manager.check(any()) } returns LiveSourceManager.CheckResult.Ready(checked)
+        coEvery { manager.checkLink(any()) } returns LiveSourceManager.CheckResult.Ready(checked)
         val vm = viewModel()
         vm.checkAdd()
         assertEquals(AddCheck.Idle, vm.addCheck.value) // nothing typed: no check
@@ -106,7 +107,7 @@ class LiveTvSourcesViewModelTest {
     @Test
     fun `an add in progress survives edits and closing, then reports Added`() = runTest(mainDispatcherRule.dispatcher) {
         val gate = CompletableDeferred<LiveSourceManager.AddResult>()
-        coEvery { manager.check(any()) } returns LiveSourceManager.CheckResult.Ready(checked)
+        coEvery { manager.checkLink(any()) } returns LiveSourceManager.CheckResult.Ready(checked)
         coEvery { manager.add(checked) } coAnswers { gate.await() }
         val vm = viewModel()
         vm.onAddUrlChange(source.url)
@@ -126,11 +127,54 @@ class LiveTvSourcesViewModelTest {
         assertEquals(SourcesEvent.Added("s1", "example.org"), vm.event.first())
         assertEquals(AddCheck.Idle, vm.addCheck.value)
         assertEquals("", vm.addUrl.value)
+        // A playlist's add listed everything already: no refresh follows.
+        coVerify(exactly = 0) { manager.refresh(any()) }
+        coVerify(exactly = 0) { manager.refreshGuide(any()) }
+    }
+
+    @Test
+    fun `closing the panel during an Xtream add clears the typed login, the add finishes and reads the guide`() =
+        runTest(mainDispatcherRule.dispatcher) {
+        val gate = CompletableDeferred<LiveSourceManager.AddResult>()
+        val login = XtreamFields("tv.example.net:8080", "kamal.home", "s3cr3t-Pa55")
+        val xtream = LiveSource("x1", SourceKind.XTREAM, "tv.example.net", "http://tv.example.net:8080", 0L, 0L, channelCount = 3)
+        val checked = LiveSourceManager.Checked(xtream, 3, LiveSourceManager.Loaded.Channels(emptyList()))
+        coEvery { manager.checkXtream(login.server, login.username, login.password) } returns
+            LiveSourceManager.CheckResult.Ready(checked)
+        coEvery { manager.add(checked) } coAnswers { gate.await() }
+        val guideGate = CompletableDeferred<LiveSource?>()
+        coEvery { manager.refreshGuide("x1") } coAnswers { guideGate.await() }
+        val vm = viewModel()
+        vm.selectAddTab(AddTab.XTREAM)
+        vm.onXtreamChange(login)
+        vm.checkXtream()
+        advanceUntilIdle()
+        vm.confirmAdd()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Adding, vm.addCheck.value)
+        vm.closeAdd()
+        // The password is not kept past the panel, while the add still saves its own copy.
+        assertEquals(XtreamFields(), vm.xtreamFields.value)
+        assertEquals(AddCheck.Adding, vm.addCheck.value)
+
+        sourceList.value = listOf(xtream)
+        gate.complete(LiveSourceManager.AddResult.Added(xtream))
+        advanceUntilIdle()
+        assertEquals(SourcesEvent.Added("x1", "tv.example.net"), vm.event.first())
+        coVerify(exactly = 1) { manager.add(checked) }
+        // The check listed the channels: only the guide is read, once, shown as Refreshing meanwhile.
+        vm.uiState.first { state -> state.rows.any { it.source.id == "x1" && it.health == SourceHealth.Refreshing } }
+        vm.refresh("x1") // a Refresh press while it runs does nothing
+        guideGate.complete(xtream)
+        advanceUntilIdle()
+        vm.uiState.first { state -> state.rows.any { it.source.id == "x1" && it.health != SourceHealth.Refreshing } }
+        coVerify(exactly = 1) { manager.refreshGuide("x1") }
+        coVerify(exactly = 0) { manager.refresh(any()) }
     }
 
     @Test
     fun `a refused check or add shows the reason and can be checked again`() = runTest(mainDispatcherRule.dispatcher) {
-        coEvery { manager.check(any()) } returns LiveSourceManager.CheckResult.Refused("HTTP 403") andThen
+        coEvery { manager.checkLink(any()) } returns LiveSourceManager.CheckResult.Refused("HTTP 403") andThen
             LiveSourceManager.CheckResult.Ready(checked)
         coEvery { manager.add(checked) } returns LiveSourceManager.AddResult.Refused("Already added")
         val vm = viewModel()
@@ -316,10 +360,162 @@ class LiveTvSourcesViewModelTest {
         coVerify(exactly = 0) { manager.refresh(any()) }
     }
 
+    private val login = LiveSource("x1", SourceKind.XTREAM, "Living room", "http://tv.example.net:8080", 0L, 1L, channelCount = 3)
+    private val edited = LiveSourceManager.Checked(login, 3, LiveSourceManager.Loaded.Channels(emptyList()))
+
+    /** A view model with the Xtream [login] listed and its Edit login open (username [stored], null = none on this TV). */
+    private fun TestScope.editing(stored: String?): LiveTvSourcesViewModel {
+        sourceList.value = listOf(login)
+        coEvery { manager.xtreamUsername("x1") } returns stored
+        coEvery { manager.refreshGuide("x1") } returns login
+        val vm = viewModel()
+        vm.openEdit("x1")
+        advanceUntilIdle()
+        return vm
+    }
+
+    @Test
+    fun `Edit login opens on the server and stored username, the password unchanged, or both empty with none stored`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val kept = XtreamFields("http://tv.example.net:8080", "kamal.home", "")
+            assertEquals(EditLogin("x1", kept, kept, stored = true), editing("kamal.home").editLogin.value)
+            val none = XtreamFields("http://tv.example.net:8080", "", "")
+            assertEquals(EditLogin("x1", none, none, stored = false), editing(null).editLogin.value)
+        }
+
+    @Test
+    fun `Save with nothing changed closes without a check`() = runTest(mainDispatcherRule.dispatcher) {
+        val vm = editing("kamal.home")
+        vm.saveEdit()
+        advanceUntilIdle()
+        assertNull(vm.editLogin.value)
+        coVerify(exactly = 0) { manager.checkXtreamEdit(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { manager.saveEdit(any()) }
+    }
+
+    @Test
+    fun `Save before a check checks then saves in one press, keeping an empty password as the stored one`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            coEvery { manager.checkXtreamEdit("x1", "http://tv.example.net:8080", "kamal.new", null) } returns
+                LiveSourceManager.CheckResult.Ready(edited)
+            coEvery { manager.saveEdit(edited) } returns LiveSourceManager.AddResult.Added(login)
+            val vm = editing("kamal.home")
+            vm.onEditChange(vm.editLogin.value!!.fields.copy(username = "kamal.new"))
+            vm.saveEdit()
+            advanceUntilIdle()
+            assertEquals(SourcesEvent.Edited("x1"), vm.event.first())
+            assertNull(vm.editLogin.value)
+            assertEquals(AddCheck.Idle, vm.editCheck.value)
+            coVerify(exactly = 1) { manager.saveEdit(edited) }
+            // The guide is read after the save (the server may have moved).
+            coVerify(exactly = 1) { manager.refreshGuide("x1") }
+        }
+
+    @Test
+    fun `a refused edit check or save stays on the line and the panel stays open`() = runTest(mainDispatcherRule.dispatcher) {
+        coEvery { manager.checkXtreamEdit("x1", any(), "kamal.home", "wrong") } returns
+            LiveSourceManager.CheckResult.Refused("The server turned down this username and password")
+        coEvery { manager.checkXtreamEdit("x1", any(), "kamal.home", "n3w") } returns LiveSourceManager.CheckResult.Ready(edited)
+        coEvery { manager.saveEdit(edited) } returns LiveSourceManager.AddResult.Refused("Already added")
+        val vm = editing("kamal.home")
+        vm.onEditChange(vm.editLogin.value!!.fields.copy(password = "wrong"))
+        vm.checkEdit()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Refused("The server turned down this username and password"), vm.editCheck.value)
+        vm.saveEdit() // checks again, refused again: nothing saved
+        advanceUntilIdle()
+        coVerify(exactly = 2) { manager.checkXtreamEdit("x1", any(), "kamal.home", "wrong") }
+        coVerify(exactly = 0) { manager.saveEdit(any()) }
+        vm.onEditChange(vm.editLogin.value!!.fields.copy(password = "n3w"))
+        vm.checkEdit()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Ready(edited), vm.editCheck.value)
+        vm.saveEdit() // a passed check saves without checking again
+        advanceUntilIdle()
+        assertEquals(AddCheck.Refused("Already added"), vm.editCheck.value)
+        assertTrue(vm.editLogin.value != null)
+        coVerify(exactly = 1) { manager.checkXtreamEdit("x1", any(), "kamal.home", "n3w") }
+        coVerify(exactly = 0) { manager.refreshGuide(any()) }
+    }
+
+    @Test
+    fun `closing Edit login drops the typed password, reopening starts from the stored login`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val vm = editing("kamal.home")
+            vm.onEditChange(vm.editLogin.value!!.fields.copy(password = "n3w"))
+            vm.closeEdit()
+            assertNull(vm.editLogin.value)
+            vm.openEdit("x1")
+            advanceUntilIdle()
+            assertEquals("", vm.editLogin.value!!.fields.password)
+            assertEquals(AddCheck.Idle, vm.editCheck.value)
+        }
+
+    @Test
+    fun `Save while its own check or Done's check runs waits for it, one check, one save`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val gate = CompletableDeferred<LiveSourceManager.CheckResult>()
+            coEvery { manager.checkXtreamEdit("x1", any(), any(), "n3w") } coAnswers { gate.await() }
+            coEvery { manager.saveEdit(edited) } returns LiveSourceManager.AddResult.Added(login)
+            val vm = editing("kamal.home")
+            vm.onEditChange(vm.editLogin.value!!.fields.copy(password = "n3w"))
+            vm.checkEdit() // Done
+            vm.saveEdit()
+            vm.saveEdit() // an impatient second press
+            advanceUntilIdle()
+            assertEquals(AddCheck.Checking, vm.editCheck.value)
+            gate.complete(LiveSourceManager.CheckResult.Ready(edited))
+            advanceUntilIdle()
+            assertEquals(SourcesEvent.Edited("x1"), vm.event.first())
+            coVerify(exactly = 1) { manager.checkXtreamEdit("x1", any(), any(), "n3w") }
+            coVerify(exactly = 1) { manager.saveEdit(edited) }
+        }
+
+    @Test
+    fun `a save outliving its panel finishes without touching Add source`() = runTest(mainDispatcherRule.dispatcher) {
+        val gate = CompletableDeferred<LiveSourceManager.AddResult>()
+        coEvery { manager.checkXtreamEdit("x1", any(), any(), "n3w") } returns LiveSourceManager.CheckResult.Ready(edited)
+        coEvery { manager.saveEdit(edited) } coAnswers { gate.await() }
+        coEvery { manager.checkLink(any()) } returns LiveSourceManager.CheckResult.Ready(checked)
+        val vm = editing("kamal.home")
+        vm.onEditChange(vm.editLogin.value!!.fields.copy(password = "n3w"))
+        vm.saveEdit()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Adding, vm.editCheck.value)
+        vm.closeEdit() // Cancel while it stores
+        vm.saveEdit() // no panel: nothing
+        // Add source opens and checks as usual meanwhile.
+        vm.openAdd()
+        vm.onAddUrlChange(source.url)
+        vm.checkAdd()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Ready(checked), vm.addCheck.value)
+        gate.complete(LiveSourceManager.AddResult.Refused("Already added"))
+        advanceUntilIdle()
+        assertEquals(AddCheck.Ready(checked), vm.addCheck.value)
+        assertEquals(AddCheck.Idle, vm.editCheck.value)
+        assertNull(vm.editLogin.value)
+        coVerify(exactly = 1) { manager.saveEdit(edited) }
+    }
+
+    @Test
+    fun `another panel opening drops an Edit login still loading`() = runTest(mainDispatcherRule.dispatcher) {
+        val gate = CompletableDeferred<String?>()
+        sourceList.value = listOf(login)
+        coEvery { manager.xtreamUsername("x1") } coAnswers { gate.await() }
+        val vm = viewModel()
+        vm.openEdit("x1")
+        advanceUntilIdle()
+        vm.closeEdit() // Rename, Remove or Add source pressed first
+        gate.complete("kamal.home")
+        advanceUntilIdle()
+        assertNull(vm.editLogin.value)
+    }
+
     @Test
     fun `closing during a check drops it`() = runTest(mainDispatcherRule.dispatcher) {
         val gate = CompletableDeferred<LiveSourceManager.CheckResult>()
-        coEvery { manager.check(any()) } coAnswers { gate.await() }
+        coEvery { manager.checkLink(any()) } coAnswers { gate.await() }
         val vm = viewModel()
         vm.onAddUrlChange(source.url)
         vm.checkAdd()
@@ -329,5 +525,134 @@ class LiveTvSourcesViewModelTest {
         advanceUntilIdle()
         assertEquals(AddCheck.Idle, vm.addCheck.value)
         assertTrue(vm.addUrl.value.isNotEmpty())
+    }
+
+    private val pasted = "http://tv.example.net:8080/get.php?username=kamal.home&password=s3cr3t-Pa55&type=m3u_plus"
+    private val upgraded = LiveSourceManager.Checked(
+        LiveSource("x1", SourceKind.XTREAM, "tv.example.net", "http://tv.example.net:8080", 0L, 0L, channelCount = 3),
+        3,
+        LiveSourceManager.Loaded.Channels(emptyList())
+    )
+
+    @Test
+    fun `a pasted link that signed in as Xtream adds as a login and reads its guide`() = runTest(mainDispatcherRule.dispatcher) {
+        coEvery { manager.checkLink(pasted) } returns LiveSourceManager.CheckResult.Ready(upgraded)
+        coEvery { manager.add(upgraded) } returns LiveSourceManager.AddResult.Added(upgraded.source)
+        coEvery { manager.refreshGuide("x1") } returns upgraded.source
+        val vm = viewModel()
+        vm.onAddUrlChange(pasted)
+        vm.checkAdd()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Ready(upgraded), vm.addCheck.value)
+        vm.confirmAdd() // Add as Xtream login
+        advanceUntilIdle()
+        assertEquals(SourcesEvent.Added("x1", "tv.example.net"), vm.event.first())
+        assertEquals("", vm.addUrl.value) // the pasted link carries the password: gone with the add
+        coVerify(exactly = 1) { manager.refreshGuide("x1") }
+        coVerify(exactly = 0) { manager.check(any()) }
+    }
+
+    @Test
+    fun `Add as playlist checks the link as a playlist and adds it in one press`() = runTest(mainDispatcherRule.dispatcher) {
+        val gate = CompletableDeferred<LiveSourceManager.CheckResult>()
+        coEvery { manager.checkLink(pasted) } returns LiveSourceManager.CheckResult.Ready(upgraded)
+        coEvery { manager.check(pasted) } coAnswers { gate.await() }
+        coEvery { manager.add(checked) } returns LiveSourceManager.AddResult.Added(source)
+        val vm = viewModel()
+        vm.addAsPlaylist() // nothing checked: nothing
+        vm.onAddUrlChange(pasted)
+        vm.checkAdd()
+        advanceUntilIdle()
+        vm.addAsPlaylist()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Checking, vm.addCheck.value)
+        vm.addAsPlaylist() // a second press while it checks: nothing
+        gate.complete(LiveSourceManager.CheckResult.Ready(checked))
+        advanceUntilIdle()
+        assertEquals(SourcesEvent.Added("s1", "example.org"), vm.event.first())
+        assertEquals(AddCheck.Idle, vm.addCheck.value)
+        coVerify(exactly = 1) { manager.check(pasted) }
+        coVerify(exactly = 0) { manager.add(upgraded) }
+        coVerify(exactly = 0) { manager.refreshGuide(any()) }
+    }
+
+    @Test
+    fun `a typed link already stored is marked so the offer drops Add as playlist`() = runTest(mainDispatcherRule.dispatcher) {
+        val vm = viewModel()
+        backgroundScope.launch { vm.linkStored.collect {} }
+        vm.onAddUrlChange(" $pasted ")
+        advanceUntilIdle()
+        assertEquals(false, vm.linkStored.value)
+        sourceList.value = listOf(source.copy(url = pasted))
+        advanceUntilIdle()
+        assertEquals(true, vm.linkStored.value) // compared as check() stores it: trimmed
+        vm.onAddUrlChange("$pasted&output=ts")
+        advanceUntilIdle()
+        assertEquals(false, vm.linkStored.value)
+        vm.onAddUrlChange("")
+        sourceList.value = listOf(source.copy(url = ""))
+        advanceUntilIdle()
+        assertEquals(false, vm.linkStored.value) // nothing typed is never stored
+    }
+
+    @Test
+    fun `Add as playlist refused stays on the line, and is not offered for a playlist`() = runTest(mainDispatcherRule.dispatcher) {
+        coEvery { manager.checkLink(pasted) } returns LiveSourceManager.CheckResult.Ready(upgraded)
+        coEvery { manager.checkLink(source.url) } returns LiveSourceManager.CheckResult.Ready(checked)
+        coEvery { manager.check(pasted) } returns LiveSourceManager.CheckResult.Refused("Already added")
+        val vm = viewModel()
+        vm.onAddUrlChange(pasted)
+        vm.checkAdd()
+        advanceUntilIdle()
+        vm.addAsPlaylist()
+        advanceUntilIdle()
+        assertEquals(AddCheck.Refused("Already added"), vm.addCheck.value)
+        // A plain playlist's Ready has no playlist offer.
+        vm.onAddUrlChange(source.url)
+        vm.checkAdd()
+        advanceUntilIdle()
+        vm.addAsPlaylist()
+        assertEquals(AddCheck.Ready(checked), vm.addCheck.value)
+        // The Xtream tab's own Ready is no pasted link: no playlist check of the Link field.
+        val login = XtreamFields("tv.example.net:8080", "kamal.home", "s3cr3t-Pa55")
+        coEvery { manager.checkXtream(login.server, login.username, login.password) } returns
+            LiveSourceManager.CheckResult.Ready(upgraded)
+        vm.selectAddTab(AddTab.XTREAM)
+        vm.onXtreamChange(login)
+        vm.checkXtream()
+        advanceUntilIdle()
+        vm.addAsPlaylist()
+        assertEquals(AddCheck.Ready(upgraded), vm.addCheck.value)
+        coVerify(exactly = 1) { manager.check(any()) }
+        coVerify(exactly = 0) { manager.add(any()) }
+    }
+
+    @Test
+    fun `closing, editing the link or switching tab during Add as playlist's check drops it, nothing is added`() =
+        runTest(mainDispatcherRule.dispatcher) {
+        val gate = CompletableDeferred<LiveSourceManager.CheckResult>()
+        coEvery { manager.checkLink(pasted) } returns LiveSourceManager.CheckResult.Ready(upgraded)
+        coEvery { manager.check(pasted) } coAnswers { gate.await() }
+        val vm = viewModel()
+        val drops = listOf<() -> Unit>(
+            { vm.closeAdd() },
+            { vm.onAddUrlChange(pasted + "&x=1") },
+            { vm.selectAddTab(AddTab.XTREAM) }
+        )
+        for (drop in drops) {
+            vm.selectAddTab(AddTab.LINK)
+            vm.onAddUrlChange(pasted)
+            vm.checkAdd()
+            advanceUntilIdle()
+            vm.addAsPlaylist()
+            advanceUntilIdle()
+            assertEquals(AddCheck.Checking, vm.addCheck.value)
+            drop()
+            assertEquals(AddCheck.Idle, vm.addCheck.value)
+        }
+        gate.complete(LiveSourceManager.CheckResult.Ready(checked))
+        advanceUntilIdle()
+        assertEquals(AddCheck.Idle, vm.addCheck.value)
+        coVerify(exactly = 0) { manager.add(any()) }
     }
 }

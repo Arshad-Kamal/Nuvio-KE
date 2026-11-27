@@ -15,6 +15,14 @@ import org.junit.Test
 class ChannelIdentityTest {
 
     @Test
+    fun `an Xtream key is the stream id under its source, never the URL`() {
+        assertEquals("src#xt:101", ChannelIdentity.xtreamKey("src", "101"))
+        // Apart from an M3U item's URL key: a get.php list and a login never share keys.
+        val url = "http://tv.example.net/live/u/p/101.ts"
+        assertEquals("src#url:$url", ChannelIdentity.m3uKey("src", null, url))
+    }
+
+    @Test
     fun `tvg-id normalisation drops the feed and case`() {
         assertEquals("starjalsha.in", ChannelIdentity.normalizeTvgId(" StarJalsha.in@SD "))
         assertEquals("starjalsha.in", ChannelIdentity.normalizeTvgId("STARJALSHA.IN"))

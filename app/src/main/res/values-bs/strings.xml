@@ -449,7 +449,7 @@
     <string name="settings_p2p_title">P2P Streaming</string>
     <string name="settings_p2p_subtitle">Dozvoli peer-to-peer (torrent) streamove</string>
     <string name="settings_p2p_hide_stats_title">Sakrij torrent statistiku</string>
-    <string name="settings_p2p_hide_stats_subtitle">Sakrij buffer, seeds, peers i brzinu preuzimanja tokom učitavanja i reprodukcije</string>
+    <string name="settings_p2p_hide_stats_subtitle">Sakrij buffer, seeds, peers i brzinu preuzimanja tokom reprodukcije</string>
 
     <!-- PlayerScreen -->
     <string name="player_no_external_player">Nije pronađen nijedan vanjski player</string>

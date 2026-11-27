@@ -20,7 +20,8 @@ enum class ContentRatingCap(val storageKey: String, val ratings: Set<String>) {
 
         /**
          * The tier of a US-board [rating] (trimmed, case-insensitive), or null when it is
-         * unknown: absent, `NR`/unrated, or any non-US code (Spec 64 D1, D4).
+         * unknown: absent, `NR`/unrated, or any non-US code (Spec 64 D1, D4; non-US boards are
+         * read only through [effectiveTierOf], Spec 102).
          */
         fun tierOf(rating: String?): ContentRatingCap? {
             val code = usRatingCode(rating) ?: return null
@@ -33,6 +34,17 @@ enum class ContentRatingCap(val storageKey: String, val ratings: Set<String>) {
             return code.takeIf { entries.any { tier -> code in tier.ratings } }
         }
 
+        /**
+         * The tier [isRatingAllowed] decides on (Spec 102 R1): the US [rating], else a known US code inside
+         * [nonUsRatings], else [NonUsRatingBoards.tierOf] the non-US boards; null when none places it.
+         */
+        fun effectiveTierOf(rating: String?, nonUsRatings: Map<String, String>): ContentRatingCap? =
+            usTierOf(rating, nonUsRatings) ?: NonUsRatingBoards.tierOf(nonUsRatings)
+
+        /** R1 alone: the US [rating], else a known US code inside [nonUsRatings]; null when neither is known. */
+        fun usTierOf(rating: String?, nonUsRatings: Map<String, String>): ContentRatingCap? =
+            tierOf(rating) ?: NonUsRatingBoards.usTierOf(nonUsRatings)
+
         /** The cap stored as [key]; null for an absent or unknown key (the store decides what junk means). */
         fun fromStorageKey(key: String?): ContentRatingCap? = entries.firstOrNull { it.storageKey == key }
     }
@@ -40,12 +52,17 @@ enum class ContentRatingCap(val storageKey: String, val ratings: Set<String>) {
 
 /**
  * Whether a title rated [rating] may be shown under [cap]. No cap allows everything; under a
- * cap an unknown rating is hidden (fail closed, Spec 64 D1). [rating] must be a US-board value
+ * cap an unplaceable rating is hidden (fail closed, Spec 64 D1). [rating] must be a US-board value
  * (the addon's `app_extras.certification`): a bare code cannot say which board issued it, and
- * several non-US boards reuse US spellings ("PG", "G").
+ * several non-US boards reuse US spellings ("PG", "G"). Non-US codes arrive only keyed by country
+ * in [nonUsRatings] (`app_extras.certifications`), read when [rating] is unknown (Spec 102).
  */
-fun isRatingAllowed(rating: String?, cap: ContentRatingCap?): Boolean {
+fun isRatingAllowed(
+    rating: String?,
+    cap: ContentRatingCap?,
+    nonUsRatings: Map<String, String> = emptyMap()
+): Boolean {
     if (cap == null) return true
-    val tier = ContentRatingCap.tierOf(rating) ?: return false
+    val tier = ContentRatingCap.effectiveTierOf(rating, nonUsRatings) ?: return false
     return tier <= cap
 }

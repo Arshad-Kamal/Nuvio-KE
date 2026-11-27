@@ -72,4 +72,24 @@ class ExpiringUrlBlacklistTest {
         now = 191L
         assertFalse("x" in blacklist)
     }
+
+    @Test
+    fun `an expiry check never drops a fresh add made meanwhile`() {
+        var now = 0L
+        var blacklist: ExpiringUrlBlacklist? = null
+        var readdOnce = true
+        // The expiry check reads the clock between reading the old entry and removing it: another
+        // thread's add() lands right there.
+        blacklist = ExpiringUrlBlacklist(ttlMs = 100L, maxEntries = 10, nowMs = {
+            if (readdOnce && now == 500L) {
+                readdOnce = false
+                blacklist!!.add("a")
+            }
+            now
+        })
+        blacklist.add("a")
+        now = 500L
+        assertFalse("a" in blacklist)
+        assertTrue("a" in blacklist)
+    }
 }

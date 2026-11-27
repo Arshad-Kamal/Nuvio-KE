@@ -17,10 +17,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
-private val subtitleAutoSyncHttpClient: OkHttpClient by lazy {
+internal val subtitleDownloadHttpClient: OkHttpClient by lazy {
     OkHttpClient.Builder()
         .dns(IPv4FirstDns())
-        // Sidecar + auto-sync both use this client; keep timeouts generous for flaky hosts.
+        // Every subtitle download (sidecar, Manual sync) uses this client; keep timeouts generous for flaky hosts.
         .connectTimeout(12_000, TimeUnit.MILLISECONDS)
         .readTimeout(15_000, TimeUnit.MILLISECONDS)
         .callTimeout(25_000, TimeUnit.MILLISECONDS)
@@ -54,7 +54,7 @@ internal fun subtitleRedirectCredentialInterceptor(
 private const val SUBTITLE_DOWNLOAD_MAX_ATTEMPTS = 3
 private const val SUBTITLE_DOWNLOAD_RETRY_DELAY_MS = 350L
 
-private const val AUTO_SYNC_REACTION_COMPENSATION_MS = 300L
+private const val MANUAL_SYNC_REACTION_COMPENSATION_MS = 300L
 
 internal fun PlayerRuntimeController.showSubtitleTimingDialog() {
     _uiState.update {
@@ -67,35 +67,35 @@ internal fun PlayerRuntimeController.showSubtitleTimingDialog() {
             showChaptersPanel = false,
             showAudioOverlay = false,
             showControls = false,
-            subtitleAutoSyncCapturedVideoMs = null,
-            subtitleAutoSyncStatus = null
+            subtitleManualSyncCapturedVideoMs = null,
+            subtitleManualSyncStatus = null
         )
     }
-    maybeLoadSubtitleAutoSyncCues(force = false)
+    maybeLoadSubtitleManualSyncCues(force = false)
 }
 
 internal fun PlayerRuntimeController.dismissSubtitleTimingDialog() {
-    subtitleAutoSyncLoadJob?.cancel()
-    subtitleAutoSyncLoadJob = null
-    _uiState.update { it.copy(showSubtitleTimingDialog = false, subtitleAutoSyncStatus = null) }
+    subtitleManualSyncLoadJob?.cancel()
+    subtitleManualSyncLoadJob = null
+    _uiState.update { it.copy(showSubtitleTimingDialog = false, subtitleManualSyncStatus = null) }
     scheduleHideControls()
 }
 
-internal fun PlayerRuntimeController.captureSubtitleAutoSyncTime() {
+internal fun PlayerRuntimeController.captureSubtitleManualSyncTime() {
     val capturePositionMs = currentPlaybackPositionMs()?.coerceAtLeast(0L) ?: 0L
     _uiState.update {
         it.copy(
-            subtitleAutoSyncCapturedVideoMs = capturePositionMs,
-            subtitleAutoSyncStatus = null,
-            subtitleAutoSyncError = null
+            subtitleManualSyncCapturedVideoMs = capturePositionMs,
+            subtitleManualSyncStatus = null,
+            subtitleManualSyncError = null
         )
     }
 }
 
-internal fun PlayerRuntimeController.applySubtitleAutoSyncCue(cueStartTimeMs: Long) {
+internal fun PlayerRuntimeController.applySubtitleManualSyncCue(cueStartTimeMs: Long) {
     val capturePositionMs =
-        _uiState.value.subtitleAutoSyncCapturedVideoMs ?: currentPlaybackPositionMs() ?: return
-    val newDelayMs = (capturePositionMs - cueStartTimeMs - AUTO_SYNC_REACTION_COMPENSATION_MS)
+        _uiState.value.subtitleManualSyncCapturedVideoMs ?: currentPlaybackPositionMs() ?: return
+    val newDelayMs = (capturePositionMs - cueStartTimeMs - MANUAL_SYNC_REACTION_COMPENSATION_MS)
         .toInt()
         .coerceIn(SUBTITLE_DELAY_MIN_MS, SUBTITLE_DELAY_MAX_MS)
 
@@ -106,11 +106,11 @@ internal fun PlayerRuntimeController.applySubtitleAutoSyncCue(cueStartTimeMs: Lo
             showSubtitleTimingDialog = false,
             showSubtitleDelayOverlay = true,
             showControls = false,
-            subtitleAutoSyncStatus = context.getString(
+            subtitleManualSyncStatus = context.getString(
                 R.string.subtitle_auto_sync_applied,
-                formatAutoSyncDelay(newDelayMs)
+                formatManualSyncDelay(newDelayMs)
             ),
-            subtitleAutoSyncError = null
+            subtitleManualSyncError = null
         )
     }
     // Remember the delay so it survives to the next session (issue #1063).
@@ -119,59 +119,59 @@ internal fun PlayerRuntimeController.applySubtitleAutoSyncCue(cueStartTimeMs: Lo
     scheduleHideSubtitleDelayOverlay()
 }
 
-internal fun PlayerRuntimeController.reloadSubtitleAutoSyncCues() {
-    maybeLoadSubtitleAutoSyncCues(force = true)
+internal fun PlayerRuntimeController.reloadSubtitleManualSyncCues() {
+    maybeLoadSubtitleManualSyncCues(force = true)
 }
 
-internal fun PlayerRuntimeController.resetSubtitleAutoSyncState(clearLoadedTrack: Boolean = true) {
-    subtitleAutoSyncLoadJob?.cancel()
-    subtitleAutoSyncLoadJob = null
+internal fun PlayerRuntimeController.resetSubtitleManualSyncState(clearLoadedTrack: Boolean = true) {
+    subtitleManualSyncLoadJob?.cancel()
+    subtitleManualSyncLoadJob = null
     _uiState.update {
         it.copy(
-            subtitleAutoSyncCues = emptyList(),
-            subtitleAutoSyncCapturedVideoMs = null,
-            subtitleAutoSyncStatus = null,
-            subtitleAutoSyncError = null,
-            subtitleAutoSyncLoading = false,
-            subtitleAutoSyncLoadedTrackKey = if (clearLoadedTrack) null else it.subtitleAutoSyncLoadedTrackKey
+            subtitleManualSyncCues = emptyList(),
+            subtitleManualSyncCapturedVideoMs = null,
+            subtitleManualSyncStatus = null,
+            subtitleManualSyncError = null,
+            subtitleManualSyncLoading = false,
+            subtitleManualSyncLoadedTrackKey = if (clearLoadedTrack) null else it.subtitleManualSyncLoadedTrackKey
         )
     }
 }
 
-private fun PlayerRuntimeController.maybeLoadSubtitleAutoSyncCues(force: Boolean) {
+private fun PlayerRuntimeController.maybeLoadSubtitleManualSyncCues(force: Boolean) {
     val selectedSubtitle = _uiState.value.selectedAddonSubtitle
     if (selectedSubtitle == null) {
         _uiState.update {
             it.copy(
-                subtitleAutoSyncCues = emptyList(),
-                subtitleAutoSyncCapturedVideoMs = null,
-                subtitleAutoSyncLoading = false,
-                subtitleAutoSyncError = context.getString(R.string.subtitle_auto_sync_select_addon_track),
-                subtitleAutoSyncLoadedTrackKey = null
+                subtitleManualSyncCues = emptyList(),
+                subtitleManualSyncCapturedVideoMs = null,
+                subtitleManualSyncLoading = false,
+                subtitleManualSyncError = context.getString(R.string.subtitle_auto_sync_select_addon_track),
+                subtitleManualSyncLoadedTrackKey = null
             )
         }
         return
     }
 
-    val selectedTrackKey = selectedSubtitle.autoSyncTrackKey()
+    val selectedTrackKey = selectedSubtitle.manualSyncTrackKey()
     val state = _uiState.value
     if (!force &&
-        state.subtitleAutoSyncLoadedTrackKey == selectedTrackKey &&
-        state.subtitleAutoSyncCues.isNotEmpty()
+        state.subtitleManualSyncLoadedTrackKey == selectedTrackKey &&
+        state.subtitleManualSyncCues.isNotEmpty()
     ) {
         return
     }
 
-    subtitleAutoSyncLoadJob?.cancel()
-    subtitleAutoSyncLoadJob = scope.launch {
+    subtitleManualSyncLoadJob?.cancel()
+    subtitleManualSyncLoadJob = scope.launch {
         _uiState.update {
             it.copy(
-                subtitleAutoSyncLoading = true,
-                subtitleAutoSyncError = null,
-                subtitleAutoSyncStatus = null,
-                subtitleAutoSyncCues = if (force) emptyList() else it.subtitleAutoSyncCues,
-                subtitleAutoSyncCapturedVideoMs = if (force) null else it.subtitleAutoSyncCapturedVideoMs,
-                subtitleAutoSyncLoadedTrackKey = selectedTrackKey
+                subtitleManualSyncLoading = true,
+                subtitleManualSyncError = null,
+                subtitleManualSyncStatus = null,
+                subtitleManualSyncCues = if (force) emptyList() else it.subtitleManualSyncCues,
+                subtitleManualSyncCapturedVideoMs = if (force) null else it.subtitleManualSyncCapturedVideoMs,
+                subtitleManualSyncLoadedTrackKey = selectedTrackKey
             )
         }
 
@@ -187,34 +187,34 @@ private fun PlayerRuntimeController.maybeLoadSubtitleAutoSyncCues(force: Boolean
             )
                 .filter { cue -> cue.text.isNotBlank() }
 
-            if (_uiState.value.selectedAddonSubtitle?.autoSyncTrackKey() != selectedTrackKey) {
+            if (_uiState.value.selectedAddonSubtitle?.manualSyncTrackKey() != selectedTrackKey) {
                 return@launch
             }
 
             _uiState.update {
                 it.copy(
-                    subtitleAutoSyncLoading = false,
-                    subtitleAutoSyncCues = parsedCues,
-                    subtitleAutoSyncError = if (parsedCues.isEmpty()) {
+                    subtitleManualSyncLoading = false,
+                    subtitleManualSyncCues = parsedCues,
+                    subtitleManualSyncError = if (parsedCues.isEmpty()) {
                         context.getString(com.nuvio.tv.R.string.subtitle_timing_file_no_lines)
                     } else {
                         null
                     },
-                    subtitleAutoSyncLoadedTrackKey = selectedTrackKey
+                    subtitleManualSyncLoadedTrackKey = selectedTrackKey
                 )
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (_uiState.value.selectedAddonSubtitle?.autoSyncTrackKey() != selectedTrackKey) {
+            if (_uiState.value.selectedAddonSubtitle?.manualSyncTrackKey() != selectedTrackKey) {
                 return@launch
             }
             _uiState.update {
                 it.copy(
-                    subtitleAutoSyncLoading = false,
-                    subtitleAutoSyncCues = emptyList(),
-                    subtitleAutoSyncError = e.message ?: context.getString(com.nuvio.tv.R.string.subtitle_timing_load_lines_failed),
-                    subtitleAutoSyncLoadedTrackKey = selectedTrackKey
+                    subtitleManualSyncLoading = false,
+                    subtitleManualSyncCues = emptyList(),
+                    subtitleManualSyncError = e.message ?: context.getString(com.nuvio.tv.R.string.subtitle_timing_load_lines_failed),
+                    subtitleManualSyncLoadedTrackKey = selectedTrackKey
                 )
             }
         }
@@ -367,14 +367,21 @@ internal fun buildSubtitleRequestHeaders(
     return headers
 }
 
-private fun PlayerRuntimeController.executeSubtitleDownload(
+/**
+ * The headers a download of the subtitle at [url] sends: [buildSubtitleRequestHeaders] over the
+ * current stream's headers. Shared by [downloadSubtitleBody] and AutoSync's own subtitle reads.
+ */
+internal fun PlayerRuntimeController.subtitleRequestHeadersFor(
     url: String,
-    languageHint: String? = null,
-    customHeaders: Map<String, String>? = null
-): String {
+    customHeaders: Map<String, String>?,
+    // AutoSync passes the stream it started on, so a stream switch mid-run cannot pair one
+    // stream's URL with another's credentials.
+    streamUrl: String = currentStreamUrl,
+    streamHeaders: Map<String, String> = currentHeaders
+): Map<String, String> {
     // Stream UA rides along when present (even cross-domain); the browser UA is only a
     // fallback when the stream carries none.
-    val streamUa = currentHeaders.entries.firstOrNull {
+    val streamUa = streamHeaders.entries.firstOrNull {
         it.key.equals("User-Agent", ignoreCase = true)
     }?.value
     val defaultUa = streamUa ?: (
@@ -382,18 +389,26 @@ private fun PlayerRuntimeController.executeSubtitleDownload(
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
 
-    val requestHeaders = buildSubtitleRequestHeaders(
-        streamHeaders = currentHeaders,
-        sendCredentials = shouldSendStreamCredentials(url, currentStreamUrl),
+    return buildSubtitleRequestHeaders(
+        streamHeaders = streamHeaders,
+        sendCredentials = shouldSendStreamCredentials(url, streamUrl),
         explicitHeaders = customHeaders,
         defaultUserAgent = defaultUa,
         defaultAccept = "text/plain, text/vtt, application/x-subrip, */*"
     )
+}
+
+private fun PlayerRuntimeController.executeSubtitleDownload(
+    url: String,
+    languageHint: String? = null,
+    customHeaders: Map<String, String>? = null
+): String {
+    val requestHeaders = subtitleRequestHeadersFor(url, customHeaders)
     val requestBuilder = requestHeaders.entries.fold(Request.Builder().url(url)) { builder, (key, value) ->
         builder.header(key, value)
     }
 
-    subtitleAutoSyncHttpClient.newCall(requestBuilder.build()).execute().use { response ->
+    subtitleDownloadHttpClient.newCall(requestBuilder.build()).execute().use { response ->
         if (!response.isSuccessful) {
             error(context.getString(com.nuvio.tv.R.string.subtitle_download_failed_http, response.code))
         }
@@ -409,12 +424,12 @@ private fun PlayerRuntimeController.executeSubtitleDownload(
     }
 }
 
-private fun Subtitle.autoSyncTrackKey(): String = "$id|$url"
+private fun Subtitle.manualSyncTrackKey(): String = "$id|$url"
 
-internal fun formatAutoSyncTimestamp(positionMs: Long): String =
+internal fun formatManualSyncTimestamp(positionMs: Long): String =
     com.nuvio.tv.ui.util.formatPlaybackClock(positionMs, padMinutesUnderHour = true)
 
-internal fun formatAutoSyncDelay(delayMs: Int): String {
+internal fun formatManualSyncDelay(delayMs: Int): String {
     val sign = if (delayMs >= 0) "+" else "-"
     val absMs = kotlin.math.abs(delayMs)
     val seconds = absMs / 1000

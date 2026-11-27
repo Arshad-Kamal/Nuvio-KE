@@ -635,7 +635,7 @@
     <string name="settings_p2p_title">סטרימינג P2P</string>
     <string name="settings_p2p_subtitle">אפשר מקורות עמית-לעמית (חינמי אך טעינה איטית).</string>
     <string name="settings_p2p_hide_stats_title">הסתר נתוני טורנט</string>
-    <string name="settings_p2p_hide_stats_subtitle">הסתר מאגר נתונים, seeds, peers ומהירות הורדה במהלך טעינה והפעלה</string>
+    <string name="settings_p2p_hide_stats_subtitle">הסתר מאגר נתונים, seeds, peers ומהירות הורדה במהלך הפעלה</string>
     <string name="stream_filter_all">הכל</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

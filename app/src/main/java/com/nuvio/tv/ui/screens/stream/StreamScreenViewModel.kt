@@ -823,7 +823,9 @@ class StreamScreenViewModel @Inject constructor(
                 // S4a: a completed details-page prefetch is emitted here as one
                 // Success followed by completion -- exactly the shape of a very
                 // fast scrape -- so the collect below and the post-collect
-                // isAllLoaded=true pass behave identically. A miss returns the
+                // isAllLoaded=true pass behave identically. A join onto a running
+                // prefetch emits the scrape's partial pools first, so the timeout
+                // below picks from what arrived (Spec 141 D2). A miss returns the
                 // live repository flow unchanged.
                 com.nuvio.tv.core.stream.StreamPrefetchCache.streamsFor(
                     repository = streamRepository,
@@ -1470,7 +1472,9 @@ data class StreamPlaybackInfo(
     // launch (title press for auto-select, stream selection for manual).
     val launchStartedAtMs: Long? = null,
     /** Spec 75: how long finding sources took (the Finding sources step); null for a reused cached link. */
-    val sourcesFoundMs: Long? = null
+    val sourcesFoundMs: Long? = null,
+    /** Spec 131 D4: the user pressed this row (set by the Stream screen's row press), not an auto-play pick. */
+    val handPicked: Boolean = false
 ) {
     /** Whether a press opens anything: a url (player or browser), or a torrent with its info hash. */
     val hasTarget: Boolean get() = url != null || (isTorrent && infoHash != null)

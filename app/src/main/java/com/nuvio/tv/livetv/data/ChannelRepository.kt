@@ -30,7 +30,7 @@ internal data class ChannelCache(val version: Int = 1, val channels: List<Channe
  *
  * Bound (data/local AGENTS.md): each source is capped by its parser (M3U 100k entries) and a
  * channel a source stops listing is kept, hidden as "Source lost", for [LOST_RETENTION_MS], then
- * pruned. Both files decode on [io], never on main.
+ * pruned. Both files decode on [io], never on main. Held channels share equal values ([LiveCompact], Spec 143).
  *
  * Held publishing (Spec 115 D4): a background refresh saves with `publish = false` (on disk at
  * once, [channels] unchanged) and calls [publishLatest] when it ends, so a multi-source refresh
@@ -99,7 +99,8 @@ class ChannelRepository internal constructor(
             ensureLoaded()
             val before = current
             // An unchanged listing keeps the list already held (no second copy while it is held).
-            val merged = mergeSource(before, sourceId, fresh, nowMs()).let { if (it == before) before else it }
+            // Spec 143 P1: the fresh listing's repeated values shared before it is held.
+            val merged = mergeSource(before, sourceId, LiveCompact.channels(fresh), nowMs()).let { if (it == before) before else it }
             // Unchanged: the cache already holds it (every save writes before it publishes).
             if (merged !== before) cacheFile.write(ChannelCache(channels = merged))
             current = merged
@@ -144,6 +145,20 @@ class ChannelRepository internal constructor(
         }
     }
 
+    /**
+     * Spec 146: lets the held channels and overrides go (a movie start after Live TV use); the next
+     * read loads them from disk again. Every write saves before it publishes, so nothing is lost; held
+     * unpublished refresh results are the caller's to keep out ([LiveSourceManager.unload]).
+     */
+    internal suspend fun unload() = withContext(io) {
+        mutex.withLock {
+            loaded = false
+            current = emptyList()
+            _channels.value = emptyList()
+            _overrides.value = emptyMap()
+        }
+    }
+
     private fun dropOverrides(channels: List<Channel>) {
         if (channels.isEmpty()) return
         val keys = channels.mapTo(HashSet()) { it.key }
@@ -155,7 +170,7 @@ class ChannelRepository internal constructor(
 
     private fun ensureLoaded() {
         if (loaded) return
-        current = cacheFile.read()?.channels.orEmpty()
+        current = LiveCompact.channels(cacheFile.read()?.channels.orEmpty())
         _channels.value = current
         _overrides.value = overridesFile.read().orEmpty()
         loaded = true

@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -143,6 +146,7 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
     val focusedKey by viewModel.focusedKey.collectAsState()
     val sourceNames by viewModel.sourceNames.collectAsState()
     val schedule by viewModel.schedule.collectAsState()
+    val previewOnFocus by viewModel.previewOnFocus.collectAsState()
     val context = LocalContext.current
     val timeFormat = remember(context) { android.text.format.DateFormat.getTimeFormat(context) }
     val listState = rememberLazyListState()
@@ -155,6 +159,20 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
         FocusRequester()
     }
     val retryRequester = remember { FocusRequester() }
+    // Live search (Spec 111 stages 1-7): open = its field in the pill row's place, the rows its results.
+    val search = ui.search
+    val searching = search != null
+    val settledSearch = rememberSettledSearch(search)
+    val fieldRequester = remember { FocusRequester() }
+    val searchButtonRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // What focus does when the screen's search state lands: the field + keyboard after the button's OK,
+    // the row search left (else the button) after Back closes it. The row is the one focused at open.
+    var searchOpening by remember { mutableStateOf(false) }
+    var searchClosing by remember { mutableStateOf(false) }
+    var searchLeftKey by remember { mutableStateOf<String?>(null) }
+    // Above the rows: the field while searching, else the selected pill.
+    val topRequester = if (searching) fieldRequester else selectedPill
     val rows = ui.rows
     val rowsEmpty = rows.isEmpty()
     // The Guide and Compact views (Spec 67 G3c): the band over the grid in place of list + preview.
@@ -185,7 +203,7 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
 
     /**
      * Focus [key]'s row (scrolled to sit at most `focusRowsAbove` down; in a grid view its grid row at
-     * the kept time), else the selected pill.
+     * the kept time), else the selected pill (the search field while searching).
      */
     val focusRowOrPill = { key: String? ->
         scope.launch {
@@ -197,7 +215,7 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
                 listState.scrollToItem((index - live.focusRowsAbove).coerceAtLeast(0))
                 requesterFor(key).requestFocusAfterFrames()
             } else {
-                selectedPill.requestFocusAfterFrames()
+                topRequester.requestFocusAfterFrames()
             }
         }
     }
@@ -219,10 +237,57 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
     }
     BackHandler(enabled = scheduleOpen.isOpen && !fullScreen) { closeSchedule(true) }
 
+    // Back closes search (the open keyboard takes the first Back itself); the schedule, the grid away
+    // from now and the options panel take it first.
+    BackHandler(enabled = searching && !fullScreen && !scheduleOpen.isOpen && panelRow == null) {
+        searchClosing = true
+        keyboard?.hide()
+        viewModel.closeSearch()
+    }
+    // D7 (variant A, stage 12): Back from any row (List, Guide or Compact) focuses the selected filter;
+    // a second Back (on the filter) leaves as before. The grid away from now takes it first (to now).
+    var listFocused by remember { mutableStateOf(false) }
+    val rowFocused = if (guide != null) guideCursor.gridFocused else listFocused
+    // One rule for the handler and the info block's BACK Filters hint (it says what Back does).
+    val backToFilters = liveTvBackToFilters(rowFocused, searching, fullScreen, scheduleOpen.isOpen || panelRow != null)
+    BackHandler(enabled = backToFilters) {
+        scope.launch { selectedPill.requestFocusAfterFrames() }
+    }
+    // Runs in the composition that first shows the new state, so its focus calls see that state's rows.
+    LaunchedEffect(searching) {
+        if (searching && searchOpening) {
+            searchOpening = false
+            fieldRequester.requestFocusAfterFrames()
+            keyboard?.show()
+        } else if (!searching && searchClosing) {
+            searchClosing = false
+            val key = searchLeftKey
+            if (key != null && rows.any { it.channel.key == key }) focusRowOrPill(key)
+            else searchButtonRequester.requestFocusAfterFrames()
+        }
+    }
+    // Search or Down pressed before the typed text's results settled: entered once they do (stage 4;
+    // none found: focus stays in the field, stage 6). Typing again or leaving the field drops it.
+    val searchEntry = remember { LiveSearchEntry() }
+    val enterSearchResults: (String) -> Unit = { text ->
+        if (searchEntry.submit(text, search)) rows.firstOrNull()?.let { focusRowOrPill(it.channel.key) }
+    }
+    LaunchedEffect(search?.query, search?.pending, search == null) {
+        if (searchEntry.settled(search)) rows.firstOrNull()?.let { focusRowOrPill(it.channel.key) }
+    }
+    // Every new query starts its results at the top (the grid on the first result's airing programme).
+    val searchQuery = search?.query
+    LaunchedEffect(searchQuery) {
+        if (searchQuery == null) return@LaunchedEffect
+        listState.requestScrollToItem(0)
+        gridListState.requestScrollToItem(0)
+        guide?.let { guideCursor.filterChanged(rows, it, ui.nowMs) }
+    }
+
     // Initial focus (Q1), once: the last-focused channel's row, else the first row; the selected
     // pill when the filter lists nothing (Down enters the list once it has rows).
     LaunchedEffect(Unit) {
-        if (rowsEmpty) selectedPill.requestFocusAfterFrames()
+        if (rowsEmpty) topRequester.requestFocusAfterFrames()
         else focusRowOrPill(focusedKey?.takeIf { k -> rows.any { it.channel.key == k } } ?: rows.first().channel.key)
     }
     // Down pressed on a pill before its filter's rows were derived: entered once they land.
@@ -287,7 +352,28 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
         return
     }
 
-    LiveTvPillRow(
+    if (search != null) LiveTvSearchField(
+        initialText = viewModel.searchText ?: search.query,
+        status = liveSearchStatus(search, settledSearch),
+        fieldRequester = fieldRequester,
+        // Down from the bar lands on the field only while no result shows.
+        contentRequester = contentRequester.takeIf { rowsEmpty },
+        onQueryChange = { text ->
+            searchEntry.drop()
+            viewModel.setSearchQuery(text)
+        },
+        // The Search key or Down: the first result of the text typed.
+        onSubmit = enterSearchResults,
+        onDown = enterSearchResults,
+        onHideKeyboard = { keyboard?.hide() },
+        onFocusLeft = searchEntry::drop,
+        // Centred on the pill row.
+        modifier = Modifier.padding(
+            start = NuvioTheme.layout.tvSafeHorizontal,
+            end = NuvioTheme.layout.tvSafeHorizontal,
+            top = marquee.topBar.contentTop + live.pillsTop - (live.searchFieldHeight - live.pillHeight) / 2
+        )
+    ) else LiveTvPillRow(
         selected = ui.filter,
         browse = ui.browse,
         pickers = ui.pickers,
@@ -300,7 +386,15 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
         contentRequester = contentRequester.takeIf { rowsEmpty },
         onSelect = viewModel::selectFilter,
         onSelectView = viewModel::selectView,
+        previewOnFocus = previewOnFocus,
+        onTogglePreview = viewModel::togglePreviewOnFocus,
         onOpenSources = onOpenSources,
+        searchButtonRequester = searchButtonRequester,
+        onOpenSearch = {
+            searchLeftKey = viewModel.focusedKey.value
+            searchOpening = true
+            viewModel.openSearch()
+        },
         onDown = {
             when {
                 // The rows shown are another filter's: enter once the selected one's land.
@@ -343,7 +437,8 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
                 start = NuvioTheme.layout.tvSafeHorizontal,
                 end = NuvioTheme.layout.tvSafeHorizontal,
                 top = live.guideBandTop
-            )
+            ),
+            searching = searching
         )
         LiveTvGuide(
             rows = rows,
@@ -360,7 +455,7 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
             contentRequester = contentRequester,
             onRowFocused = { viewModel.onRowFocused(it.channel) },
             onFocusLeft = viewModel::cancelPendingPreview,
-            onUpFromTop = { scope.launch { selectedPill.requestFocusAfterFrames() } },
+            onUpFromTop = { scope.launch { topRequester.requestFocusAfterFrames() } },
             onWatch = { if (viewModel.tuneNow(it.channel)) fullScreen = true },
             onOptions = { row ->
                 panelRow = row
@@ -368,7 +463,8 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
             },
             modifier = Modifier
                 .padding(start = NuvioTheme.layout.tvSafeHorizontal, end = NuvioTheme.layout.tvSafeHorizontal, top = live.guideTop)
-                .fillMaxSize()
+                .fillMaxSize(),
+            search = search
         )
     }
 
@@ -382,7 +478,10 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
                 // Down from the bar returns to the list's last-focused row (stage 2).
                 .then(if (!rowsEmpty) Modifier.focusRequester(contentRequester) else Modifier)
                 // A preview still waiting for focus to rest never starts once focus leaves (Q2).
-                .onFocusChanged { if (!it.hasFocus) viewModel.cancelPendingPreview() }
+                .onFocusChanged {
+                    listFocused = it.hasFocus
+                    if (!it.hasFocus) viewModel.cancelPendingPreview()
+                }
                 // CH +/- zap from the tuned channel and focus follows (L8-D6); one zap per press.
                 .onPreviewKeyEvent { event ->
                     val key = event.nativeKeyEvent
@@ -416,6 +515,7 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
                         panelRow = row
                         panelIndex = rows.indexOfFirst { it.channel.key == row.channel.key }
                     },
+                    mark = search.mark(rowKey),
                     modifier = Modifier
                         .focusRequester(requesterFor(rowKey))
                         // Right on a row with a guide opens its day schedule (Spec 67 D3 Q1); not on
@@ -430,7 +530,11 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
                             }
                             true
                         }
-                        .focusProperties { if (rowKey == unavailableKey) right = retryRequester }
+                        .focusProperties {
+                            if (rowKey == unavailableKey) right = retryRequester
+                            // Up from the first result returns to the field (stage 4).
+                            if (searching && rowKey == rows.first().channel.key) up = fieldRequester
+                        }
                         .onFocusChanged {
                             if (it.isFocused) viewModel.onRowFocused(row.channel)
                             // Moved off before its schedule arrived: the pending open is dropped (D6).
@@ -442,8 +546,17 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
     }
 
     // Q-L7b (sandbox v4 stage 17): the selected filter lists nothing; focus stays on its pill.
-    // rows and ui.filter come from one state, so the name always matches the rows shown.
-    if (rowsEmpty) {
+    // rows and ui.filter come from one state, so the name always matches the rows shown. Search
+    // without a result says what to type, or that nothing matched (stages 2, 6).
+    if (rowsEmpty && search != null) {
+        LiveTvSearchMessage(
+            note = liveSearchStatus(search, settledSearch).note,
+            query = search.query,
+            modifier = Modifier
+                .padding(start = live.listStart, top = if (guide != null) live.guideTop else live.listTop)
+                .width(live.listWidth)
+        )
+    } else if (rowsEmpty) {
         LiveTvEmptyFilter(
             filter = ui.filter,
             categoryLabels = ui.categoryLabels,
@@ -489,7 +602,9 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
             unavailable = row.channel.key == unavailableKey,
             timeFormat = timeFormat,
             modifier = Modifier.padding(start = live.previewStart, top = live.infoTop),
-            sourceName = sourceNames[row.channel.sourceId]
+            sourceName = sourceNames[row.channel.sourceId],
+            searching = searching,
+            backToFilters = backToFilters
         )
     }
     LiveTvBottomFade()
@@ -523,8 +638,10 @@ private fun LiveTvContent(viewModel: LiveTvViewModel, ui: LiveTvUiState, onOpenS
  * The pill row (`.lvpills`, Spec 38 stage 1): Favorites and Recents with their counts (select on
  * focus, D16, as Library's tabs), the Country, Category and Language pickers (OK opens one and
  * makes them the shown filter; while Favorites or Recents show they keep their values, dimmed),
- * then at the row's end the View picker ([view], value only, Spec 67 D7 Q1)
- * and Sources. Entering it lands on [selectedPill] (the Country picker for a
+ * then at the row's end the View picker ([view], value only, Spec 67 D7 Q1; its panel ends in the
+ * [previewOnFocus] row, Spec 111 stage 16)
+ * and Sources; first of all the search button (Spec 111 stage 1: never a filter, OK = [onOpenSearch]).
+ * Entering it lands on [selectedPill] (the Country picker for a
  * Browse). [onDown] handles Down from any pill and says whether it consumed the key.
  */
 @Composable
@@ -540,121 +657,170 @@ private fun LiveTvPillRow(
     contentRequester: FocusRequester?,
     onSelect: (LiveTvFilter) -> Unit,
     onSelectView: (LiveTvView) -> Unit,
+    previewOnFocus: Boolean,
+    onTogglePreview: () -> Unit,
     onOpenSources: () -> Unit,
+    searchButtonRequester: FocusRequester,
+    onOpenSearch: () -> Unit,
     onDown: () -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val numbers = remember { NumberFormat.getIntegerInstance() }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (contentRequester != null) Modifier.focusRequester(contentRequester) else Modifier)
-            .focusRestorer(selectedPill)
-            .focusGroup()
-            .onPreviewKeyEvent { event ->
-                val key = event.nativeKeyEvent
-                // Focus moves on key-down only; the key-up needs no answer.
-                key.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && key.action == KeyEvent.ACTION_DOWN && onDown()
-            },
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.marquee.liveTv.pillGap),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        listOf(LiveTvFilter.Favorites, LiveTvFilter.Recents).forEach { filter ->
-            key(filter) {
-                LiveTvPill(
-                    label = liveTvFilterLabel(filter),
-                    selected = filter == selected,
-                    onClick = { onSelect(filter) },
-                    count = counts[filter],
-                    modifier = Modifier
-                        .focusRequester(pillRequesters.getOrPut(filter) { FocusRequester() })
-                        .onFocusChanged { if (it.isFocused) onSelect(filter) }
+    val live = NuvioTheme.marquee.liveTv
+    val styles = NuvioTheme.textStyles
+    val active = selected is LiveTvFilter.Browse
+    val all = stringResource(R.string.live_tv_picker_all)
+    val (country, category, language) = liveTvBrowseLabels(browse, categoryLabels)
+    val countryTitle = stringResource(R.string.live_tv_picker_country)
+    val categoryTitle = stringResource(R.string.live_tv_picker_category)
+    val languageTitle = stringResource(R.string.live_tv_picker_language)
+    val viewTitle = stringResource(R.string.live_tv_view)
+    val viewValue = liveTvViewLabel(view)
+    val sourcesLabel = stringResource(R.string.live_tv_sources)
+    val favoritesLabel = liveTvFilterLabel(LiveTvFilter.Favorites)
+    val recentsLabel = liveTvFilterLabel(LiveTvFilter.Recents)
+    val textWidth = rememberTextWidth()
+    val pickerTexts = listOf(countryTitle to (country ?: all), categoryTitle to (category ?: all), languageTitle to (language ?: all))
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        // D12 (stage 17): the fixed pills never shrink; when the row would overflow, the three pickers drop
+        // their captions together and share what is left (each value cut at pickerValueMaxWidth).
+        fun countWidth(filter: LiveTvFilter) = counts[filter]?.let { textWidth(it.toString(), styles.caption) }
+        val fixed = listOf(
+            live.pillHeight,
+            liveTvPillWidth(textWidth(favoritesLabel, styles.cardLabel), countWidth(LiveTvFilter.Favorites), icon = false, live),
+            liveTvPillWidth(textWidth(recentsLabel, styles.cardLabel), countWidth(LiveTvFilter.Recents), icon = false, live),
+            liveTvPickerWidth(null, textWidth(viewValue, styles.cardLabel), live),
+            liveTvPillWidth(textWidth(sourcesLabel, styles.cardLabel), null, icon = true, live)
+        )
+        val values = pickerTexts.map { (_, value) -> textWidth(value, styles.cardLabel) }
+        val space = liveTvPickerSpace(maxWidth, fixed, pickerTexts.size, live.pillGap)
+        val captions = pickerTexts.foldIndexed(0.dp) { i, sum, (title, _) ->
+            sum + liveTvPickerWidth(textWidth(title, styles.caption), values[i], live)
+        } <= space
+        // Captions dropped: what each caption-less picker gets of the rest (water-fill; short ones stay whole).
+        val shares = if (captions) null else liveTvPickerShares(
+            remaining = space,
+            naturals = values.map { liveTvPickerWidth(null, it, live) },
+            floor = liveTvPickerWidth(null, 0.dp, live)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (contentRequester != null) Modifier.focusRequester(contentRequester) else Modifier)
+                .focusRestorer(selectedPill)
+                .focusGroup()
+                .onPreviewKeyEvent { event ->
+                    val key = event.nativeKeyEvent
+                    // Focus moves on key-down only; the key-up needs no answer.
+                    key.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && key.action == KeyEvent.ACTION_DOWN && onDown()
+                },
+            horizontalArrangement = Arrangement.spacedBy(live.pillGap),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(live.pillGap),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // A row that fits is unchanged (natural widths); else each picker stops at its share.
+                val shrink = List(pickerTexts.size) { i -> shares?.let { Modifier.widthIn(max = it[i]) } ?: Modifier }
+                LiveTvSearchButton(onClick = onOpenSearch, modifier = Modifier.focusRequester(searchButtonRequester))
+                listOf(LiveTvFilter.Favorites, LiveTvFilter.Recents).forEach { filter ->
+                    key(filter) {
+                        LiveTvPill(
+                            label = liveTvFilterLabel(filter),
+                            selected = filter == selected,
+                            onClick = { onSelect(filter) },
+                            count = counts[filter],
+                            modifier = Modifier
+                                .focusRequester(pillRequesters.getOrPut(filter) { FocusRequester() })
+                                .onFocusChanged { if (it.isFocused) onSelect(filter) }
+                        )
+                    }
+                }
+                // The panel's eyebrow names what its counts are inside: "Category · Canada".
+                fun eyebrow(title: String, vararg inside: String?) = (listOf(title) + inside.filterNotNull()).joinToString(FACT_SEPARATOR)
+
+                LiveTvPicker(
+                    label = countryTitle,
+                    value = country ?: all,
+                    eyebrow = eyebrow(countryTitle, category, language),
+                    active = active,
+                    all = browse.country == null,
+                    options = {
+                        liveTvPickerOptions(pickers?.country, stringResource(R.string.live_tv_filter_all_countries), numbers) {
+                            liveTvCountryLabel(it)
+                        }
+                    },
+                    selectedValue = browse.country ?: PICKER_ALL,
+                    onOpen = { onSelect(browse) },
+                    onSelect = { v -> onSelect(browse.copy(country = v.ifEmpty { null })) },
+                    modifier = shrink[0].focusRequester(pillRequesters.getOrPut(PICKERS_PILL) { FocusRequester() }),
+                    showLabel = captions
+                )
+                LiveTvPicker(
+                    label = categoryTitle,
+                    value = category ?: all,
+                    eyebrow = eyebrow(categoryTitle, country, language),
+                    active = active,
+                    all = browse.category == null,
+                    options = {
+                        liveTvPickerOptions(pickers?.category, stringResource(R.string.live_tv_all_categories), numbers) {
+                            liveTvCategoryLabel(it, categoryLabels)
+                        }
+                    },
+                    selectedValue = browse.category ?: PICKER_ALL,
+                    onOpen = { onSelect(browse) },
+                    onSelect = { v -> onSelect(browse.copy(category = v.ifEmpty { null })) },
+                    modifier = shrink[1],
+                    showLabel = captions
+                )
+                LiveTvPicker(
+                    label = languageTitle,
+                    value = language ?: all,
+                    eyebrow = eyebrow(languageTitle, country, category),
+                    active = active,
+                    all = browse.language == null,
+                    options = {
+                        liveTvPickerOptions(pickers?.language, stringResource(R.string.live_tv_all_languages), numbers) {
+                            LiveTvModel.languageName(it)
+                        }
+                    },
+                    selectedValue = browse.language ?: PICKER_ALL,
+                    onOpen = { onSelect(browse) },
+                    onSelect = { v -> onSelect(browse.copy(language = v.ifEmpty { null })) },
+                    modifier = shrink[2],
+                    showLabel = captions
                 )
             }
+            LiveTvPicker(
+                label = viewTitle,
+                value = viewValue,
+                eyebrow = viewTitle,
+                // Always a value, never a filter: glass like a picker holding one (sandbox `on view`).
+                active = true,
+                all = false,
+                options = {
+                    LiveTvView.entries.map { v ->
+                        MarqueePickerOption(liveTvViewLabel(v), v.id, detail = liveTvViewDetail(v))
+                    }
+                },
+                selectedValue = view.id,
+                onOpen = {},
+                onSelect = { id -> onSelectView(LiveTvView.fromId(id)) },
+                showLabel = false,
+                alignEnd = true,
+                footer = { LiveTvPreviewOnFocusRow(on = previewOnFocus, onToggle = onTogglePreview) }
+            )
+            LiveTvPill(
+                label = sourcesLabel,
+                selected = false,
+                onClick = onOpenSources,
+                // Sandbox icon `lv_ant`.
+                icon = Icons.Filled.LiveTv,
+                modifier = Modifier.focusProperties { right = FocusRequester.Cancel }
+            )
         }
-        val active = selected is LiveTvFilter.Browse
-        val all = stringResource(R.string.live_tv_picker_all)
-        val (country, category, language) = liveTvBrowseLabels(browse, categoryLabels)
-        // The panel's eyebrow names what its counts are inside: "Category · Canada".
-        fun eyebrow(title: String, vararg inside: String?) = (listOf(title) + inside.filterNotNull()).joinToString(FACT_SEPARATOR)
-
-        val countryTitle = stringResource(R.string.live_tv_picker_country)
-        LiveTvPicker(
-            label = countryTitle,
-            value = country ?: all,
-            eyebrow = eyebrow(countryTitle, category, language),
-            active = active,
-            all = browse.country == null,
-            options = {
-                liveTvPickerOptions(pickers?.country, stringResource(R.string.live_tv_filter_all_countries), numbers) {
-                    liveTvCountryLabel(it)
-                }
-            },
-            selectedValue = browse.country ?: PICKER_ALL,
-            onOpen = { onSelect(browse) },
-            onSelect = { v -> onSelect(browse.copy(country = v.ifEmpty { null })) },
-            modifier = Modifier.focusRequester(pillRequesters.getOrPut(PICKERS_PILL) { FocusRequester() })
-        )
-        val categoryTitle = stringResource(R.string.live_tv_picker_category)
-        LiveTvPicker(
-            label = categoryTitle,
-            value = category ?: all,
-            eyebrow = eyebrow(categoryTitle, country, language),
-            active = active,
-            all = browse.category == null,
-            options = {
-                liveTvPickerOptions(pickers?.category, stringResource(R.string.live_tv_all_categories), numbers) {
-                    liveTvCategoryLabel(it, categoryLabels)
-                }
-            },
-            selectedValue = browse.category ?: PICKER_ALL,
-            onOpen = { onSelect(browse) },
-            onSelect = { v -> onSelect(browse.copy(category = v.ifEmpty { null })) }
-        )
-        val languageTitle = stringResource(R.string.live_tv_picker_language)
-        LiveTvPicker(
-            label = languageTitle,
-            value = language ?: all,
-            eyebrow = eyebrow(languageTitle, country, category),
-            active = active,
-            all = browse.language == null,
-            options = {
-                liveTvPickerOptions(pickers?.language, stringResource(R.string.live_tv_all_languages), numbers) {
-                    LiveTvModel.languageName(it)
-                }
-            },
-            selectedValue = browse.language ?: PICKER_ALL,
-            onOpen = { onSelect(browse) },
-            onSelect = { v -> onSelect(browse.copy(language = v.ifEmpty { null })) }
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        val viewTitle = stringResource(R.string.live_tv_view)
-        LiveTvPicker(
-            label = viewTitle,
-            value = liveTvViewLabel(view),
-            eyebrow = viewTitle,
-            // Always a value, never a filter: glass like a picker holding one (sandbox `on view`).
-            active = true,
-            all = false,
-            options = {
-                LiveTvView.entries.map { v ->
-                    MarqueePickerOption(liveTvViewLabel(v), v.id, detail = liveTvViewDetail(v))
-                }
-            },
-            selectedValue = view.id,
-            onOpen = {},
-            onSelect = { id -> onSelectView(LiveTvView.fromId(id)) },
-            showLabel = false,
-            alignEnd = true
-        )
-        LiveTvPill(
-            label = stringResource(R.string.live_tv_sources),
-            selected = false,
-            onClick = onOpenSources,
-            // Sandbox icon `lv_ant`.
-            icon = Icons.Filled.LiveTv,
-            modifier = Modifier.focusProperties { right = FocusRequester.Cancel }
-        )
     }
 }
 
@@ -833,18 +999,9 @@ private fun LiveTvEmptyFilter(filter: LiveTvFilter, categoryLabels: Map<String, 
         LiveTvFilter.Recents -> stringResource(R.string.live_tv_empty_recents_hint)
         else -> null
     }
-    Column(
-        // Sandbox stage 17: 14 dp above, 10 dp in, 4 dp between.
-        modifier = modifier.padding(start = 10.dp, end = 10.dp, top = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.live_tv_empty_filter, liveTvFilterLabel(filter, categoryLabels)),
-            style = NuvioTheme.textStyles.rowTitle,
-            color = NuvioPrimitives.white
-        )
-        if (hint != null) {
-            Text(text = hint, style = NuvioTheme.textStyles.meta, color = NuvioTheme.marquee.onImage3)
-        }
-    }
+    LiveTvListMessage(
+        title = stringResource(R.string.live_tv_empty_filter, liveTvFilterLabel(filter, categoryLabels)),
+        hint = hint,
+        modifier = modifier
+    )
 }

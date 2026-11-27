@@ -33,7 +33,9 @@ internal fun PlayerRuntimeController.checkRuntimeMismatch(player: ExoPlayer, dur
         RuntimeMismatchPolicy.evaluate(
             durationMs = durationMs,
             expectedRuntimeMs = runtimeMinutes?.let { it * 60_000L },
-            resumed = resumePositionApplied
+            resumed = resumePositionApplied,
+            // Spec 142: an episode is what the warning's own copy calls one (RuntimeMismatchOverlay).
+            episode = currentSeason != null && currentEpisode != null
         )
     }
     Log.i(

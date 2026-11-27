@@ -31,19 +31,21 @@ data class RecentChannel(val key: String, val atMs: Long)
 /**
  * One profile's Live TV state (Spec 34 L8-D1): [favorites] in add order, [recents] newest first
  * (its head is the last-watched channel, Q1), [lastFilter] the id of the filter last selected,
- * [lastView] the id of the view last picked (Spec 67 D7 Q1: List, Guide or Compact).
+ * [lastView] the id of the view last picked (Spec 67 D7 Q1: List, Guide or Compact), [previewOnFocus]
+ * whether a resting focus tunes the preview (Spec 111 D10; on unless turned off).
  */
 data class LiveTvUserState(
     val favorites: List<String> = emptyList(),
     val recents: List<RecentChannel> = emptyList(),
     val lastFilter: String? = null,
-    val lastView: String? = null
+    val lastView: String? = null,
+    val previewOnFocus: Boolean = true
 ) {
     val recentKeys: List<String> get() = recents.map { it.key }
 }
 
 /**
- * Favorites, Recents, the last filter and the last view, per profile (Spec 34 L8-D1): a DataStore of its own
+ * Favorites, Recents, the last filter, the last view and Preview on focus, per profile (Spec 34 L8-D1): a DataStore of its own
  * through [ProfileDataStoreFactory], so toggling a favorite never rewrites the channel cache
  * (D11) and profile deletion and sign-out sweep it with the other profile files. Bounded:
  * [MAX_FAVORITES] (oldest dropped) and [MAX_RECENTS]. Writes report failure (a full disk) instead
@@ -95,6 +97,13 @@ class LiveTvUserStore @Inject constructor(
 
     suspend fun setLastView(id: String): Boolean = write { prefs -> prefs[LAST_VIEW] = id }
 
+    suspend fun setPreviewOnFocus(on: Boolean): Boolean = write { prefs -> prefs[PREVIEW_ON_FOCUS] = on }
+
+    /** Flips Preview on focus (the View picker's row); decided inside the edit, so two quick OKs flip twice. */
+    suspend fun togglePreviewOnFocus(): Boolean = write { prefs ->
+        prefs[PREVIEW_ON_FOCUS] = !(prefs[PREVIEW_ON_FOCUS] ?: true)
+    }
+
     private suspend fun write(
         profileId: Int = profileManager.activeProfileId.value,
         block: (MutablePreferences) -> Unit
@@ -117,13 +126,15 @@ class LiveTvUserStore @Inject constructor(
         private val LAST_FILTER = stringPreferencesKey("last_filter")
         private val LAST_VIEW = stringPreferencesKey("last_view")
         private val ENABLED = booleanPreferencesKey("enabled")
+        private val PREVIEW_ON_FOCUS = booleanPreferencesKey("preview_on_focus")
         private val RECENTS_SERIALIZER = ListSerializer(RecentChannel.serializer())
 
         internal fun decode(prefs: Preferences): LiveTvUserState = LiveTvUserState(
             favorites = decodeFavorites(prefs[FAVORITES]),
             recents = decodeRecents(prefs[RECENTS]),
             lastFilter = prefs[LAST_FILTER],
-            lastView = prefs[LAST_VIEW]
+            lastView = prefs[LAST_VIEW],
+            previewOnFocus = prefs[PREVIEW_ON_FOCUS] ?: true
         )
 
         /** Junk or a missing value reads as empty; repeats and blanks dropped, the cap held. */

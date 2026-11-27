@@ -5,6 +5,8 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.LocaleCache
 import com.nuvio.tv.R
+import com.nuvio.tv.core.scout.ScoutRowItem
+import com.nuvio.tv.data.mdblist.isMdbListHomeRow
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.ContentType
@@ -29,7 +31,9 @@ internal data class ModernHomePresentationInput(
     val showFullReleaseDate: Boolean,
     val localeTag: String,
     /** Home's hero items, shown as one "Featured" row when there is no other row. */
-    val heroItems: List<MetaPreview> = emptyList()
+    val heroItems: List<MetaPreview> = emptyList(),
+    /** Spec 100: Picked for you, right below Continue Watching. */
+    val scoutPicks: List<ScoutRowItem> = emptyList()
 )
 
 internal fun buildModernHomePresentation(
@@ -64,6 +68,10 @@ internal fun buildModernHomePresentation(
             ),
             context = localizedContext
         )?.let { add(it) }
+
+        if (input.scoutPicks.isNotEmpty()) {
+            add(scoutRow(input, localizedContext.getString(R.string.home_scout_row)))
+        }
 
         // Upcoming row (SPLIT_UPCOMING mode)
         cachedContinueWatchingRow(
@@ -109,16 +117,19 @@ internal fun buildModernHomePresentation(
                     } else {
                         val rowItemOccurrenceCounts = mutableMapOf<String, Int>()
                         val rowItemCache = cache.catalogItemCache.getOrPut(rowKey) { mutableMapOf() }
+                        // D1: an MDBList list mixes films and shows (no type suffix) and always names MDBList.
+                        val mdbList = row.isMdbListHomeRow()
                         HeroCarouselRow(
                             key = rowKey,
                             title = catalogRowTitle(
                                 catalogName = row.catalogName,
                                 apiType = row.apiType,
-                                showCatalogTypeSuffix = input.showCatalogTypeSuffix,
+                                showCatalogTypeSuffix = input.showCatalogTypeSuffix && !mdbList,
                                 strTypeMovie = strTypeMovie,
                                 strTypeSeries = strTypeSeries
                             ),
-                            titleSuffix = catalogRowTitleSuffix(row.addonName, input.showAddonName),
+                            titleSuffix = catalogRowTitleSuffix(row.addonName, input.showAddonName || mdbList),
+                            mdbList = mdbList,
                             globalRowIndex = index,
                             catalogId = row.catalogId,
                             addonId = row.addonId,
@@ -126,6 +137,7 @@ internal fun buildModernHomePresentation(
                             supportsSkip = row.supportsSkip,
                             hasMore = row.hasMore,
                             isLoading = row.isLoading,
+                            currentPage = row.currentPage,
                             items = row.items.mapIndexed { itemIndex, item ->
                                 val occurrence = rowItemOccurrenceCounts.getOrDefault(item.id, 0)
                                 rowItemOccurrenceCounts[item.id] = occurrence + 1
@@ -249,7 +261,8 @@ internal fun buildModernHomePresentation(
                             )
                         )
                     }.asStable()
-                    val placeholderTitle = if (input.showCatalogTypeSuffix) {
+                    val mdbList = isMdbListHomeRow(homeRow.addonId, homeRow.addonBaseUrl, homeRow.catalogId)
+                    val placeholderTitle = if (input.showCatalogTypeSuffix && !mdbList) {
                         homeRow.displayTitle
                     } else {
                         homeRow.catalogName.replaceFirstChar { it.uppercase() }
@@ -257,7 +270,8 @@ internal fun buildModernHomePresentation(
                     val placeholderRow = HeroCarouselRow(
                         key = stableRowKey,
                         title = placeholderTitle,
-                        titleSuffix = catalogRowTitleSuffix(homeRow.addonName, input.showAddonName),
+                        titleSuffix = catalogRowTitleSuffix(homeRow.addonName, input.showAddonName || mdbList),
+                        mdbList = mdbList,
                         globalRowIndex = index,
                         catalogId = homeRow.catalogId,
                         addonId = homeRow.addonId,
@@ -345,6 +359,42 @@ private fun cachedContinueWatchingRow(
     slot.inputs = inputs
     slot.row = row
     return row
+}
+
+/** Picked for you (Spec 100): its picks as catalog cards, each hero carrying its reason (D2). */
+private fun scoutRow(input: ModernHomePresentationInput, title: String): HeroCarouselRow {
+    val source = CatalogRow(
+        addonId = MODERN_SCOUT_ROW_KEY,
+        addonName = "",
+        addonBaseUrl = "",
+        catalogId = MODERN_SCOUT_ROW_KEY,
+        catalogName = title,
+        type = ContentType.UNKNOWN,
+        items = input.scoutPicks.map { it.meta },
+        hasMore = false
+    )
+    val occurrences = mutableMapOf<String, Int>()
+    return HeroCarouselRow(
+        key = MODERN_SCOUT_ROW_KEY,
+        title = title,
+        globalRowIndex = -1,
+        items = input.scoutPicks.map { pick ->
+            val occurrence = occurrences.getOrDefault(pick.meta.id, 0)
+            occurrences[pick.meta.id] = occurrence + 1
+            val item = buildCatalogItem(
+                item = pick.meta,
+                row = source,
+                useLandscapePosters = input.useLandscapePosters,
+                occurrence = occurrence,
+                showFullReleaseDate = input.showFullReleaseDate
+            )
+            // A movie and a show can share a TMDB id: their focus keys must still differ.
+            val payload = (item.payload as ModernPayload.Catalog).let {
+                if (occurrence == 0) it else it.copy(focusKey = "${it.focusKey}#$occurrence")
+            }
+            item.copy(heroPreview = item.heroPreview.copy(pickReason = pick.reason), payload = payload)
+        }.asStable()
+    )
 }
 
 /** Hero items as one row, for a Home with nothing else to show (Marquee spec, Home states). */

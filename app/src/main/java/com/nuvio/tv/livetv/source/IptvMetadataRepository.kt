@@ -9,6 +9,7 @@ import com.nuvio.tv.livetv.data.IptvFeedDto
 import com.nuvio.tv.livetv.data.IptvMetadata
 import com.nuvio.tv.livetv.data.IptvMetadataBuilder
 import com.nuvio.tv.livetv.data.JsonFile
+import com.nuvio.tv.livetv.data.LiveCompact
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ import javax.inject.Singleton
  * each), stream-decoded element by element, joined into [IptvMetadata] and cached in
  * `filesDir/livetv/iptv-meta.json`. Refetched when older than [MAX_AGE_MS]; a failed fetch keeps
  * the previous metadata. D11: this decode is the expensive step, so it runs rarely and off main.
+ * The held metadata shares equal values ([LiveCompact], Spec 143).
  */
 @Singleton
 class IptvMetadataRepository internal constructor(
@@ -87,8 +89,11 @@ class IptvMetadataRepository internal constructor(
             }
             // Counted rows, not built.channels: nsfw blocklist stubs would make an empty list look full.
             if (rows == 0) return false
-            withContext(io) { file.write(built) }
-            _metadata.value = built
+            // Both off main: refreshIfStale runs on its caller's dispatcher (the screen's, Main).
+            _metadata.value = withContext(io) {
+                file.write(built)
+                LiveCompact.metadata(built)
+            }
             return true
         } catch (e: IOException) {
             Log.w(TAG, "iptv-org metadata refresh failed: ${e.javaClass.simpleName}")
@@ -112,9 +117,20 @@ class IptvMetadataRepository internal constructor(
     private suspend fun <T> fetchList(name: String, serializer: KSerializer<T>): List<T> =
         fetchList(name, serializer) { it.toList() }
 
+    /**
+     * Spec 146: lets the held metadata go; [load] reads it from disk again. A refresh running meanwhile
+     * would publish over it, so the caller keeps refreshes out ([LiveSourceManager.unload]).
+     */
+    internal suspend fun unload() = withContext(io) {
+        loadMutex.withLock {
+            loaded = false
+            _metadata.value = null
+        }
+    }
+
     private fun ensureLoaded() {
         if (loaded) return
-        _metadata.value = file.read()
+        _metadata.value = file.read()?.let(LiveCompact::metadata)
         loaded = true
     }
 

@@ -24,9 +24,10 @@ import com.nuvio.tv.core.player.MemoryBudget
  * DEVICE REALITY (2026-08-29 meminfo): the reference Shield is the
  * 2 GB model — MemTotal 1,987,624 kB ≈ 1.9 GiB — so it reads the <2.3 GB
  * RAM rung (safe 250 / warning 325), NOT the <3.2 GB rung the preset was
- * first sized against. There the applier's pre-commit re-check clamps the
- * target to 150 MB (246 MB total, still SAFE); [effectiveTargetMb]
- * previews that clamp so the card advertises what apply writes. On
+ * first sized against. There the RAM tier's 100 MB target ceiling binds
+ * (Spec 147 D4; the safe-limit clamp alone would give 150 MB): every read
+ * of the stored 200 is 100 (196 MB total); [effectiveTargetMb]
+ * previews that so the card advertises what apply leaves. On
  * ≥3.2 GB-class devices the values land unclamped at 200/296, inside the
  * 350/450 tier.
  *
@@ -49,39 +50,38 @@ object ShieldPreset {
 
     /**
      * Seconds of the reference REMUX that `mb` buffers — the card's
-     * "≈N s of 4K" suffix. 200 MB → ≈25 s; a clamped 150 MB → ≈19 s.
+     * "≈N s of 4K" suffix. 200 MB → ≈25 s; the 2 GB tier's 100 MB → ≈12 s.
      */
     fun secondsOfReference4k(mb: Int): Int = mb * 8 / REFERENCE_REMUX_MBPS
 
     /**
-     * The target buffer apply actually leaves in place on a device whose
-     * RAM-tier safe limit is [safeLimitMb]: the pinned 200 MB unless that
-     * limit cannot fit it above the parallel overhead, in which case it
-     * clamps to the largest 25 MB step that fits — the SAME clamp helper
-     * ([MemoryBudget.maxSafeTargetMb]) the applier's pre-commit re-check
-     * (DeviceAssessmentApplier.apply) enforces, so the card advertises
-     * what apply writes.
+     * The target buffer the player gets after apply on a device whose
+     * RAM-tier safe limit is [safeLimitMb] and target ceiling [tierMaxMb]:
+     * the pinned 200 MB unless that limit cannot fit it above the parallel
+     * overhead (largest 25 MB step that fits, the SAME helper
+     * [MemoryBudget.maxSafeTargetMb] the applier's pre-commit re-check uses)
+     * or the tier's ceiling is lower, so the card advertises what apply leaves.
      */
-    fun effectiveTargetMb(safeLimitMb: Int): Int =
+    fun effectiveTargetMb(safeLimitMb: Int, tierMaxMb: Int = MemoryBudget.tierMaxTargetMb): Int =
         minOf(
             TARGET_BUFFER_MB,
-            MemoryBudget.maxSafeTargetMb(safeLimitMb, ESTIMATED_PARALLEL_OVERHEAD_MB)
+            MemoryBudget.maxSafeTargetMb(safeLimitMb, ESTIMATED_PARALLEL_OVERHEAD_MB, tierMaxMb)
         )
 
     /** Estimated native footprint at [effectiveTargetMb]: target + parallel overhead. */
-    fun effectiveEstimatedNativeMb(safeLimitMb: Int): Int =
-        effectiveTargetMb(safeLimitMb) + ESTIMATED_PARALLEL_OVERHEAD_MB
+    fun effectiveEstimatedNativeMb(safeLimitMb: Int, tierMaxMb: Int = MemoryBudget.tierMaxTargetMb): Int =
+        effectiveTargetMb(safeLimitMb, tierMaxMb) + ESTIMATED_PARALLEL_OVERHEAD_MB
 
     /**
      * Written count on a device whose RAM-tier safe limit is [safeLimitMb]:
-     * touchedCount + the profile trio, plus the applier's clamp step when
-     * this tier can't fit the pinned target above the parallel overhead
-     * (the clamp fires iff [effectiveTargetMb] drops below the pinned
-     * target — apply always writes the plan's 200 first, then clamps).
+     * touchedCount + the profile trio, plus the applier's clamp step. Apply
+     * writes the plan's 200, then its re-check reads it back (capped at
+     * [tierMaxMb]) and clamps only when that read exceeds [effectiveTargetMb];
+     * on the 2 GB tier both are 100, so no clamp step (Spec 147 D4).
      */
-    fun expectedWriteCount(safeLimitMb: Int): Int =
+    fun expectedWriteCount(safeLimitMb: Int, tierMaxMb: Int = MemoryBudget.tierMaxTargetMb): Int =
         plan.touchedCount + 3 +
-            if (effectiveTargetMb(safeLimitMb) < TARGET_BUFFER_MB) 1 else 0
+            if (MemoryBudget.tierCappedTargetMb(TARGET_BUFFER_MB, tierMaxMb) > effectiveTargetMb(safeLimitMb, tierMaxMb)) 1 else 0
 
     val plan = AssessmentApplyPlan(
         nuvioPerformanceModeEnabled = true,
@@ -129,7 +129,7 @@ object ShieldPreset {
      * values: DeviceSetupFormula copies them from [plan].
      */
     fun overlay(config: PlaybackConfig, limits: DeviceLimits): PlaybackConfig = config.copy(
-        targetBufferMb = effectiveTargetMb(limits.safeMb),
+        targetBufferMb = effectiveTargetMb(limits.safeMb, limits.tierMaxTargetMb),
         minBufferMs = profile.minBufferMs,
         maxBufferMs = MAX_BUFFER_MS,
         bufferForPlaybackMs = profile.initialBufferMs,

@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.cast
 
+import com.nuvio.tv.data.repository.noContentFilter
 import androidx.lifecycle.SavedStateHandle
 import com.nuvio.tv.MainDispatcherRule
 import io.mockk.mockk
@@ -49,6 +50,7 @@ class CastDetailViewModelNavArgsTest {
         watchProgressRepository = mockk(relaxed = true),
         watchedSeriesStateHolder = mockk(relaxed = true),
         posterOptions = mockk(relaxed = true),
+        contentFilter = noContentFilter(),
         savedStateHandle = SavedStateHandle(args)
     )
 }

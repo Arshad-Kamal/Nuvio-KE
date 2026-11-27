@@ -15,6 +15,7 @@ import com.nuvio.tv.livetv.source.SourceKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -242,6 +243,17 @@ class LiveTvModelTest {
         val channels = listOf(ch("a", "x1").copy(tvgId = "g1"), ch("a", "x2"))
         val guideSources = LiveTvModel.guideCountries(listOf(src("a"), src("guide", SourceKind.XMLTV, country = "in")))
         assertEquals(listOf("guide" to "in"), guideSources)
+        // An Xtream login's own guide counts (Spec 109 S2.2), country null: by tvg-id only, never by name.
+        val withLogin = LiveTvModel.guideCountries(
+            listOf(src("a"), src("login", SourceKind.XTREAM, country = "in"), src("guide", SourceKind.XMLTV, country = "in"))
+        )
+        assertEquals(listOf("login" to null, "guide" to "in"), withLogin)
+        val byLogin = LiveTvModel.guideRefs(channels, withLogin, mapOf("login" to snapshot), emptyMap())
+        assertEquals(EpgRef("login", "g1"), byLogin["x1"])
+        // A channel with no tvg-id whose name and country fit: an XMLTV guide of its country matches it by name, the login's never.
+        val named = listOf(ch("a", "n1", country = "in").copy(name = "x1"))
+        assertEquals(EpgRef("guide", "g1"), LiveTvModel.guideRefs(named, guideSources, mapOf("guide" to snapshot), emptyMap())["n1"])
+        assertNull(LiveTvModel.guideRefs(named, withLogin, mapOf("login" to snapshot), emptyMap())["n1"])
         val refs = LiveTvModel.guideRefs(channels, guideSources, mapOf("guide" to snapshot), emptyMap())
         assertEquals(EpgRef("guide", "g1"), refs["x1"])
         assertNull(refs["x2"])
@@ -401,5 +413,29 @@ class LiveTvModelTest {
         assertEquals("SJ", LiveTvModel.monogram("Star Jalsha"))
         assertEquals("WIO", LiveTvModel.monogram("wion"))
         assertEquals("24", LiveTvModel.monogram(" 24x7 "))
+    }
+
+    @Test
+    fun `equal channel tags share one instance and unmatched channels are not copied (Spec 143 P2)`() {
+        val all = listOf(
+            ch("a", "a1", groups = listOf("News"), country = "uk"),
+            ch("a", "a2", groups = listOf("News"), country = "uk"),
+            ch("a", "a3", groups = listOf("Sport"), country = "uk")
+        )
+        val lineup = LiveTvModel.lineup(all, listOf("a"), meta = null, hidden = emptySet())
+        assertSame(lineup.tags.getValue("a1"), lineup.tags.getValue("a2"))
+        assertEquals(setOf("sport"), lineup.tags.getValue("a3").categories)
+        all.forEach { assertSame(it, lineup.channel(it.key)) }
+    }
+
+    @Test
+    fun `tags with the same values in another order are not shared, so each keeps its order (Spec 143)`() {
+        val all = listOf(
+            ch("a", "a1", groups = listOf("News", "Sports"), country = "uk"),
+            ch("a", "a2", groups = listOf("Sports", "News"), country = "uk")
+        )
+        val lineup = LiveTvModel.lineup(all, listOf("a"), meta = null, hidden = emptySet())
+        assertEquals(listOf("news", "sports"), lineup.tags.getValue("a1").categories.toList())
+        assertEquals(listOf("sports", "news"), lineup.tags.getValue("a2").categories.toList())
     }
 }

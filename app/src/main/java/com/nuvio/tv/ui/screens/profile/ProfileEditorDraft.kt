@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.nuvio.tv.data.remote.supabase.AvatarCatalogItem
+import com.nuvio.tv.domain.contentfilter.ContentFilterSettings
 import com.nuvio.tv.domain.model.ContentRatingCap
 import com.nuvio.tv.domain.model.LocalLookSets
 import com.nuvio.tv.domain.model.LookAvatar
@@ -21,6 +22,7 @@ import com.nuvio.tv.ui.components.AvatarTile
 import com.nuvio.tv.ui.components.LocalLookLibrary
 import com.nuvio.tv.ui.components.ProfileBackgroundPick
 import com.nuvio.tv.ui.components.toArt
+import java.util.UUID
 
 /** The editor's effective avatar pick (Spec 44 Design "Editor draft"). */
 internal sealed interface EditorAvatarPick {
@@ -53,11 +55,16 @@ internal sealed interface EditorAvatarPick {
  * - Rating limit (Spec 64 K2): the profile's cap, [originalRatingCap] at open (none for a new
  *   profile; null = no limit); [ratingCapChanged] counts toward [hasChanges] (the save itself
  *   writes it wherever it is editable, [ratingCapEditFor]).
+ * - Content filters (Spec 117 P9): the profile's settings, [originalContentFilters] at open (empty for
+ *   a new profile; null = they could not be read, then nothing changes them and the save writes
+ *   nothing); [contentFiltersChanged] counts toward [hasChanges] (the save writes them where
+ *   editable, [contentFilterEditFor]).
  */
 internal class ProfileEditorDraft private constructor(
     val original: UserProfile?,
     val originalLiveTvEnabled: Boolean,
     val originalRatingCap: ContentRatingCap?,
+    val originalContentFilters: ContentFilterSettings?,
     private val openedLocalAvatar: ProfileLookPick?,
     private val openedLocalBackground: ProfileLookPick?
 ) {
@@ -94,6 +101,12 @@ internal class ProfileEditorDraft private constructor(
 
     val ratingCapChanged: Boolean get() = ratingCap != originalRatingCap
 
+    /** The draft's content filters (empty when unreadable; [originalContentFilters] tells). */
+    var contentFilters by mutableStateOf(originalContentFilters ?: ContentFilterSettings())
+        private set
+
+    val contentFiltersChanged: Boolean get() = originalContentFilters != null && contentFilters != originalContentFilters
+
     /** The tile the grid's focus is on, or null (focus elsewhere). */
     var focusedTile by mutableStateOf<AvatarTile?>(null)
         private set
@@ -127,11 +140,12 @@ internal class ProfileEditorDraft private constructor(
     /**
      * Anything to lose on Back: on create a typed name or a picked avatar; on edit any field changed
      * (a stored blank background URL counts as none, as the draft starts it); a TV-only pick
-     * changed; the Live TV switch; the rating limit.
+     * changed; the Live TV switch; the rating limit; the content filters.
      */
     val hasChanges: Boolean
         get() = liveTvChanged ||
             ratingCapChanged ||
+            contentFiltersChanged ||
             localAvatar != openedLocalAvatar ||
             localBackground != openedLocalBackground ||
             if (original == null) {
@@ -216,6 +230,27 @@ internal class ProfileEditorDraft private constructor(
 
     fun updateRatingCap(cap: ContentRatingCap?) {
         ratingCap = cap
+    }
+
+    /** Flips pack [packId] (a built-in or own pack id) on or off; nothing when the filters could not be read. */
+    fun togglePack(packId: String) {
+        if (originalContentFilters == null) return
+        val enabled = contentFilters.enabledPacks
+        contentFilters = contentFilters.copy(enabledPacks = if (packId in enabled) enabled - packId else enabled + packId)
+    }
+
+    /** Changes the content filters by [change] (My words, own packs: OwnPackEditing.kt); nothing when they could not be read. */
+    fun editContentFilters(change: (ContentFilterSettings) -> ContentFilterSettings) {
+        if (originalContentFilters == null) return
+        contentFilters = change(contentFilters)
+    }
+
+    /** Adds own pack [name] (switched on); its id, or null when nothing was made (blank name, filters unreadable). */
+    fun createOwnPack(name: String): String? {
+        if (originalContentFilters == null) return null
+        val (next, id) = contentFilters.withNewOwnPack(name, newId = UUID.randomUUID().toString())
+        contentFilters = next
+        return id
     }
 
     fun focusTile(tile: AvatarTile?) {
@@ -332,7 +367,7 @@ internal class ProfileEditorDraft private constructor(
         const val NAME_MAX = 20
         const val DEFAULT_COLOR = "#1E88E5"
 
-        fun create(): ProfileEditorDraft = ProfileEditorDraft(null, true, null, null, null)
+        fun create(): ProfileEditorDraft = ProfileEditorDraft(null, true, null, ContentFilterSettings(), null, null)
 
         /** An edit of [profile]; its look entry's picks open selected only while they apply ([sets]). */
         fun edit(
@@ -342,9 +377,11 @@ internal class ProfileEditorDraft private constructor(
             ratingCap: ContentRatingCap?,
             look: ProfileLookEntry?,
             // No default: without the current My photos a photo pick would open as Synced and the save would clear it.
-            sets: LocalLookSets
+            sets: LocalLookSets,
+            // No default: an edit opened on empty filters would save over the stored ones. Null = unreadable.
+            contentFilters: ContentFilterSettings?
         ): ProfileEditorDraft = ProfileEditorDraft(
-            profile, liveTvEnabled, ratingCap, look.activeAvatar(profile, sets), look.activeBackground(profile, sets)
+            profile, liveTvEnabled, ratingCap, contentFilters, look.activeAvatar(profile, sets), look.activeBackground(profile, sets)
         )
     }
 }

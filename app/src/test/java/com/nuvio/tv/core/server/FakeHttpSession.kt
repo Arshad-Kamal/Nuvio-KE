@@ -70,6 +70,7 @@ internal class FakeGetSession(
  * A raw-body request (PhotoUploadServer, TmdbKeyServer): [declaredLength] null sends no Content-Length,
  * [kind] null no `kind` query parameter (the key page takes none), and [failAfter] makes the body stream throw after that many bytes (a
  * phone dropping off the Wi-Fi). [stream] shows how much of the body the server left unread.
+ * [extraParameters] are further query parameters (SubtitleFontServer's `name`).
  */
 internal class FakeUploadSession(
     private val uri: String,
@@ -79,7 +80,8 @@ internal class FakeUploadSession(
     private val declaredLength: String? = body.size.toString(),
     private val host: String = FAKE_HOST,
     private val origin: String? = null,
-    failAfter: Int? = null
+    failAfter: Int? = null,
+    private val extraParameters: Map<String, String> = emptyMap()
 ) : NanoHTTPD.IHTTPSession {
     val stream: InputStream = if (failAfter == null) {
         ByteArrayInputStream(body)
@@ -101,8 +103,11 @@ internal class FakeUploadSession(
     @Deprecated("Deprecated in NanoHTTPD")
     override fun getParms(): Map<String, String> = emptyMap()
     override fun getParameters(): Map<String, List<String>> =
-        kind?.let { mapOf("kind" to listOf(it)) }.orEmpty()
-    override fun getQueryParameterString(): String? = kind?.let { "kind=$it" }
+        kind?.let { mapOf("kind" to listOf(it)) }.orEmpty() + extraParameters.mapValues { listOf(it.value) }
+    override fun getQueryParameterString(): String? =
+        (listOfNotNull(kind?.let { "kind=$it" }) + extraParameters.map { (key, value) ->
+            "$key=${java.net.URLEncoder.encode(value, "UTF-8")}"
+        }).joinToString("&").ifEmpty { null }
     override fun getUri(): String = uri
     @Deprecated("Deprecated in NanoHTTPD")
     override fun parseBody(files: MutableMap<String, String>) = error("parseBody should not be used")

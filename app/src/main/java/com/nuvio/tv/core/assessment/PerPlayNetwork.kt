@@ -85,6 +85,7 @@ fun perPlayNetwork(
 fun playbackDeviceLimits(context: Context): DeviceLimits = DeviceLimits(
     safeMb = NuvioExoPlayerPerformanceHelper.getSafeNativeMemoryLimitMb(context),
     tierMaxChunkMb = MemoryBudget.tierMaxChunkMb,
+    tierMaxTargetMb = MemoryBudget.tierMaxTargetMb,
     perfModeSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O,
     afrSupported = null
 )

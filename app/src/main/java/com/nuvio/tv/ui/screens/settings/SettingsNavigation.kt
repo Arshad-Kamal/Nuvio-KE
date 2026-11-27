@@ -1,7 +1,9 @@
 package com.nuvio.tv.ui.screens.settings
 
 import androidx.navigation.NavController
+import com.nuvio.tv.core.tracking.TrackingProviderId
 import com.nuvio.tv.ui.navigation.Screen
+import com.nuvio.tv.ui.screens.settings.trackers.trackerRowKey
 
 /** The rail's categories, in rail order (approved sandbox `u11-settings-marquee` v6). */
 internal enum class SettingsCategory {
@@ -11,20 +13,28 @@ internal enum class SettingsCategory {
     LAYOUT,
     CONTENT_DISCOVERY,
     INTEGRATION,
+    TRACKERS,
     PLAYBACK,
+    BACKUP,
     ABOUT,
     ADVANCED,
     DEBUG
 }
 
-/** Account and Profiles belong to the primary profile; Debug exists only in debug builds. */
+/**
+ * Account, Profiles and Backup (it covers every profile, Spec 101 D8) belong to the primary profile;
+ * Debug exists only in debug builds; Trackers
+ * (every profile) only in a build that can sign in to one (Spec 104 D6, mockup A6).
+ */
 internal fun visibleSettingsCategories(
     isPrimaryProfile: Boolean,
-    isDebugBuild: Boolean
+    isDebugBuild: Boolean,
+    hasTrackers: Boolean
 ): List<SettingsCategory> = SettingsCategory.entries.filter { category ->
     when (category) {
-        SettingsCategory.ACCOUNT, SettingsCategory.PROFILES -> isPrimaryProfile
+        SettingsCategory.ACCOUNT, SettingsCategory.PROFILES, SettingsCategory.BACKUP -> isPrimaryProfile
         SettingsCategory.DEBUG -> isDebugBuild
+        SettingsCategory.TRACKERS -> hasTrackers
         else -> true
     }
 }
@@ -63,6 +73,13 @@ internal enum class SettingsEntry(
 
     /** Integrations › TMDB API key with its panel open: a no-key page's Add a TMDB key (Spec 52 T1). */
     TMDB_KEY(SettingsReturnTarget(SettingsCategory.INTEGRATION, TMDB_KEY_ROW_KEY), null, opensPanel = true),
+
+    /** Trackers › MDBList with its account panel open: Integrations' connected "Ratings from" (Spec 105 D28). */
+    MDBLIST_ACCOUNT(
+        SettingsReturnTarget(SettingsCategory.TRACKERS, trackerRowKey(TrackingProviderId.MDBLIST)),
+        null,
+        opensPanel = true
+    ),
 
     /** About › Update available with the update panel open: the top bar's Update pill (Spec 52 T2). */
     UPDATE(SettingsReturnTarget(SettingsCategory.ABOUT, ABOUT_UPDATE_ROW_KEY), null, opensPanel = true),

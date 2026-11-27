@@ -26,17 +26,23 @@ import com.nuvio.tv.ui.theme.NuvioTheme
  * The detail source line (Marquee spec §Screens Detail "Source line"): the autoplay-prefetch
  * signal restyled. READY = `success` dot + "Ready" + tech badges, or the [accent] dot + "Last
  * played" when the winner is the source played last (P10, data-additions st2); SEARCHING = spinner + "Finding
- * best source"; null (MANUAL, nothing found, caught up) renders nothing. The caller reserves
+ * best source"; null (MANUAL, nothing found, caught up) renders nothing but [listsChip] (Spec 105 C1, D23). The caller reserves
  * the row's height so the actions below never jump.
  */
 @Composable
-internal fun DetailSourceLine(signal: SourcePrefetchSignal?, accent: () -> Color, modifier: Modifier = Modifier) {
-    if (signal == null || signal.phase == SourcePrefetchPhase.EMPTY) return
+internal fun DetailSourceLine(
+    signal: SourcePrefetchSignal?,
+    accent: () -> Color,
+    modifier: Modifier = Modifier,
+    listsChip: Int? = null
+) {
+    val phase = signal?.phase?.takeIf { it != SourcePrefetchPhase.EMPTY }
+    if (phase == null && listsChip == null) return
     val marquee = NuvioTheme.marquee
     val detail = marquee.detail
     val caption = NuvioTheme.textStyles.caption
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        when (signal.phase) {
+        when (phase) {
             SourcePrefetchPhase.SEARCHING -> {
                 MarqueeSpinner()
                 Spacer(modifier = Modifier.width(detail.sourceIconGap))
@@ -48,7 +54,8 @@ internal fun DetailSourceLine(signal: SourcePrefetchSignal?, accent: () -> Color
                 )
             }
             SourcePrefetchPhase.READY -> {
-                val lastPlayed = signal.lastPlayed
+                val ready = checkNotNull(signal) // phase is only set from a signal
+                val lastPlayed = ready.lastPlayed
                 ReadyDot(if (lastPlayed) accent else null)
                 Spacer(modifier = Modifier.width(detail.sourceIconGap))
                 Text(
@@ -57,19 +64,25 @@ internal fun DetailSourceLine(signal: SourcePrefetchSignal?, accent: () -> Color
                     color = if (lastPlayed) accent() else marquee.readyText,
                     maxLines = 1
                 )
-                val facts = signal.facts
+                val facts = ready.facts
                 if (facts != null) {
                     Spacer(modifier = Modifier.width(detail.sourceLabelGap))
                     MarqueeSourceBadges(
                         facts = facts,
-                        fusionBadges = signal.badges,
+                        fusionBadges = ready.badges,
                         gap = detail.sourceBadgeGap,
                         modifier = Modifier.weight(1f, fill = false),
                         showSize = true
                     )
                 }
             }
-            SourcePrefetchPhase.EMPTY -> Unit
+            SourcePrefetchPhase.EMPTY, null -> Unit
+        }
+        // Spec 105 C1: ON N LISTS ends the line; alone at its start when there is no signal (D23). Unweighted, so the
+        // badges before it shed their tail first.
+        if (listsChip != null) {
+            if (phase != null) Spacer(modifier = Modifier.width(detail.sourceLabelGap))
+            MdbListListsChip(count = listsChip)
         }
     }
 }

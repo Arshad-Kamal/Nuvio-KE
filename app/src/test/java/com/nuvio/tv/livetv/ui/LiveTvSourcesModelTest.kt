@@ -9,6 +9,8 @@ import com.nuvio.tv.livetv.source.HeaderGuides
 import com.nuvio.tv.livetv.source.LiveSource
 import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.source.XtreamAccountInfo
+import com.nuvio.tv.livetv.source.XtreamAdapter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -161,6 +163,46 @@ class LiveTvSourcesModelTest {
         assertEquals(SourceHealth.Failed, m.health(src("a", refreshed = null, error = "HTTP 404"), 0, false))
         assertEquals(SourceHealth.Lost(2), m.health(src("a"), 2, false))
         assertEquals(SourceHealth.Ok, m.health(src("a"), 0, false))
+    }
+
+    @Test
+    fun `an Xtream account's end takes its place in the health precedence (Spec 109 D11, D12)`() {
+        val m = LiveTvSourcesModel
+        val utc = ZoneOffset.UTC
+        val now = LocalDateTime.of(2026, 11, 22, 20, 0).toInstant(utc).toEpochMilli()
+        fun ends(year: Int, month: Int, day: Int, hour: Int = 12) = LocalDateTime.of(year, month, day, hour, 0).toInstant(utc).toEpochMilli()
+        fun login(endsMs: Long?, error: String? = null, refreshed: Long? = 1L) =
+            src("x", SourceKind.XTREAM, refreshed = refreshed, error = error).copy(account = XtreamAccountInfo(expiresAtMs = endsMs))
+        // Calendar days in the zone: later today is 0, tomorrow morning 1, 7 days on still warns, 8 does not.
+        assertEquals(SourceHealth.ExpiresIn(0), m.health(login(ends(2026, 11, 22, 23)), 0, false, now, utc))
+        assertEquals(SourceHealth.ExpiresIn(1), m.health(login(ends(2026, 11, 23, 1)), 0, false, now, utc))
+        assertEquals(SourceHealth.ExpiresIn(7), m.health(login(ends(2026, 11, 29)), 3, false, now, utc))
+        assertEquals(SourceHealth.Lost(3), m.health(login(ends(2026, 11, 30)), 3, false, now, utc))
+        assertEquals(SourceHealth.Ok, m.health(login(null), 0, false, now, utc))
+        // The server's refusal, or a date already passed, reads as expired; only Refreshing outranks it.
+        assertEquals(SourceHealth.Expired, m.health(login(ends(2026, 11, 22, 8), error = XtreamAdapter.EXPIRED), 2, false, now, utc))
+        assertEquals(SourceHealth.Expired, m.health(login(null, error = XtreamAdapter.EXPIRED), 0, false, now, utc))
+        assertEquals(SourceHealth.Expired, m.health(login(ends(2026, 11, 22, 8)), 0, false, now, utc))
+        assertEquals(SourceHealth.Refreshing, m.health(login(ends(2026, 11, 22, 8), error = XtreamAdapter.EXPIRED), 0, true, now, utc))
+        // A failed refresh and Waiting outrank the warning.
+        assertEquals(SourceHealth.Failed, m.health(login(ends(2026, 11, 25), error = "HTTP 500"), 0, false, now, utc))
+        assertEquals(SourceHealth.Waiting, m.health(login(ends(2026, 11, 25), refreshed = null), 0, false, now, utc))
+        // A passed date outranks a failure, a partial guide and lost channels too.
+        assertEquals(SourceHealth.Expired, m.health(login(ends(2026, 11, 22, 8), error = "HTTP 500"), 0, false, now, utc))
+        assertEquals(SourceHealth.Expired, m.health(login(ends(2026, 11, 22, 8), error = LiveSourceManager.GUIDE_INCOMPLETE), 0, false, now, utc))
+        assertEquals(SourceHealth.Expired, m.health(login(ends(2026, 11, 22, 8)), 4, false, now, utc))
+        // Days count in the zone given: at UTC+5 "now" (20:00 UTC on the 22nd) is already the 23rd, the end's day.
+        val east = ZoneOffset.ofHours(5)
+        assertEquals(SourceHealth.ExpiresIn(1), m.health(login(ends(2026, 11, 23)), 0, false, now, utc))
+        assertEquals(SourceHealth.ExpiresIn(0), m.health(login(ends(2026, 11, 23)), 0, false, now, east))
+        // rows() passes its clock through, and marks a row whose date has passed (its line says "expired").
+        val rows = m.rows(
+            listOf(login(ends(2026, 11, 25)), login(ends(2026, 11, 22, 8)).copy(id = "y"), login(ends(2026, 12, 1), error = XtreamAdapter.EXPIRED).copy(id = "z")),
+            emptyList(), emptyMap(), emptySet(), now, utc
+        )
+        assertEquals(listOf(SourceHealth.ExpiresIn(3), SourceHealth.Expired, SourceHealth.Expired), rows.map { it.health })
+        // The server's refusal with a date still ahead is expired, not "ended" (its line keeps "expires <date>").
+        assertEquals(listOf(false, true, false), rows.map { it.ended })
     }
 
     @Test

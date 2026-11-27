@@ -1,11 +1,13 @@
 package com.nuvio.tv.core.player
 
 import android.util.Log
+import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.ParserException
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import com.nuvio.tv.core.player.PlayerStartupWatchdogPolicy.StartupLoadHold
 import java.net.SocketTimeoutException
 
 /**
@@ -49,6 +51,27 @@ internal class PlayerLoadErrorHandlingPolicy(
     private var rateLimitLastHitMs = 0L
     private var rateLimitStreakStartMs = 0L
 
+    /**
+     * Spec 138: which errors on a load URI must not end the start yet, set by the player
+     * ([PlayerStartupWatchdogPolicy.torrentStartLoadHold]). D2: read timeouts while a torrent
+     * start's watchdog judges it (TorrServer answers only once the first piece is in, and media3
+     * resets the error count only on extracted samples, so seven 15 s timeouts would end the start
+     * at ~2 min). F1: every error while the watchdog's box is on screen, retried after
+     * [HELD_ERROR_RETRY_DELAY_MS] ahead of the fail-fast arms. While the last error was held and its
+     * URI still holds, the retry count is uncapped; an unheld error on it, or the hold ending,
+     * applies it again.
+     */
+    @Volatile
+    internal var startupLoadHold: (Uri) -> StartupLoadHold = { StartupLoadHold.NONE }
+
+    @Volatile
+    private var heldUri: Uri? = null
+
+    /** Spec 138: forgets a held error (a new torrent start installs its hold). */
+    internal fun clearHeldError() {
+        heldUri = null
+    }
+
     internal companion object {
         private const val TAG = "NuvioLoadErrPolicy"
 
@@ -63,9 +86,26 @@ internal class PlayerLoadErrorHandlingPolicy(
         // (Upstream's planned Build 2 replaces this fixed ceiling with a
         // buffer-aware trigger; not yet shipped upstream, not pre-built here.)
         internal const val RATE_LIMIT_STREAK_CEILING_MS = 120_000L
+
+        // Spec 138 F1: retry pace under the watchdog's box (as slow as the timeout ladder's last
+        // step); the box's 20 s grace stop ends the loads.
+        internal const val HELD_ERROR_RETRY_DELAY_MS = 3_000L
     }
 
     override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
+        val timeout = loadErrorInfo.exception.findCause<SocketTimeoutException>() != null
+        // Spec 138: only consecutive held errors stay uncapped; an unheld error on the held URI
+        // ends the hold (another load's error, a sidecar subtitle, leaves it).
+        val uri = loadErrorInfo.loadEventInfo.dataSpec.uri
+        val hold = startupLoadHold(uri)
+        val holdsAll = hold == StartupLoadHold.ALL_ERRORS
+        heldUri = when {
+            holdsAll || (timeout && hold == StartupLoadHold.TIMEOUTS) -> uri
+            uri == heldUri -> null
+            else -> heldUri
+        }
+        // Spec 138 F1: under the watchdog's box no error ends the start, a fail-fast one included.
+        if (holdsAll) return HELD_ERROR_RETRY_DELAY_MS
         val httpException = loadErrorInfo.exception.findCause<HttpDataSource.InvalidResponseCodeException>()
         if (httpException != null && httpException.responseCode in DEAD_LINK_HTTP_RESPONSE_CODES) {
             return C.TIME_UNSET
@@ -127,7 +167,6 @@ internal class PlayerLoadErrorHandlingPolicy(
         if (loadErrorInfo.exception.findCause<InvalidRangeResponseException>() != null) {
             return C.TIME_UNSET
         }
-        val timeout = loadErrorInfo.exception.findCause<SocketTimeoutException>() != null
         return if (timeout) {
             when (loadErrorInfo.errorCount) {
                 1 -> 750L
@@ -153,6 +192,10 @@ internal class PlayerLoadErrorHandlingPolicy(
         }
         if (streakActive) {
             return Int.MAX_VALUE
+        }
+        heldUri?.let { uri ->
+            if (startupLoadHold(uri) != StartupLoadHold.NONE) return Int.MAX_VALUE
+            heldUri = null
         }
         return super.getMinimumLoadableRetryCount(dataType)
     }

@@ -6,6 +6,15 @@ import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.profile.testRatingCap
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.remote.api.TmdbApi
+import com.nuvio.tv.data.repository.noContentFilter
+import com.nuvio.tv.data.repository.GateFixture
+import com.nuvio.tv.data.repository.CatalogContentFilter
+import com.nuvio.tv.core.contentfilter.ActiveContentFilter
+import kotlinx.coroutines.flow.toList
+import com.nuvio.tv.core.contentfilter.TagState
+import com.nuvio.tv.core.di.NetworkModule
+import com.nuvio.tv.domain.contentfilter.FilterPack
+import com.nuvio.tv.domain.contentfilter.PackWord
 import com.nuvio.tv.data.remote.api.TmdbDiscoverResponse
 import com.nuvio.tv.data.remote.api.TmdbDiscoverResult
 import com.nuvio.tv.data.remote.api.TmdbCollectionResponse
@@ -41,7 +50,7 @@ class TmdbCollectionSourceResolverTest {
 
     @Test
     fun `parseTmdbId accepts ids and tmdb urls`() {
-        val resolver = TmdbCollectionSourceResolver(context, mockk(relaxed = true), settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, mockk(relaxed = true), settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
 
         assertEquals(123, resolver.parseTmdbId("123"))
         assertEquals(456, resolver.parseTmdbId("https://www.themoviedb.org/list/456-marvel"))
@@ -95,7 +104,7 @@ class TmdbCollectionSourceResolverTest {
                 totalPages = 3
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
         val result = resolver.resolve(
             TmdbCollectionSource(
                 sourceType = TmdbCollectionSourceType.LIST,
@@ -124,7 +133,7 @@ class TmdbCollectionSourceResolverTest {
     fun `with no key a source resolves to the typed no-key error and nothing is requested`() = runTest {
         every { context.getString(R.string.tmdb_needs_key) } returns "Needs a TMDB key"
         val api = mockk<TmdbApi>() // strict: any call fails the test
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, { "" }, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, { "" }, testRatingCap(), noContentFilter())
 
         val sources = listOf(
             TmdbCollectionSource(sourceType = TmdbCollectionSourceType.LIST, title = "List", tmdbId = 44),
@@ -149,7 +158,7 @@ class TmdbCollectionSourceResolverTest {
     fun `a capped profile gets an empty last page and nothing is requested`() = runTest {
         val api = mockk<TmdbApi>() // strict: any call fails the test
         val resolver = TmdbCollectionSourceResolver(
-            context, api, settings, TEST_TMDB_KEYS, testRatingCap(ContentRatingCap.TEENS)
+            context, api, settings, TEST_TMDB_KEYS, testRatingCap(ContentRatingCap.TEENS), noContentFilter()
         )
         val source = TmdbCollectionSource(sourceType = TmdbCollectionSourceType.PERSON, title = "Person", tmdbId = 7)
 
@@ -168,7 +177,7 @@ class TmdbCollectionSourceResolverTest {
                 name = "Weekend Watchlist"
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
 
         val metadata = resolver.listImportMetadata(44)
 
@@ -186,7 +195,7 @@ class TmdbCollectionSourceResolverTest {
                 backdropPath = "/collection-backdrop.jpg"
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
 
         val metadata = resolver.collectionImportMetadata(10)
 
@@ -204,7 +213,7 @@ class TmdbCollectionSourceResolverTest {
                 logoPath = "/marvel.png"
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
 
         val metadata = resolver.companyImportMetadata(420)
 
@@ -222,7 +231,7 @@ class TmdbCollectionSourceResolverTest {
                 logoPath = "/apple.png"
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
 
         val metadata = resolver.networkImportMetadata(2552)
 
@@ -252,7 +261,7 @@ class TmdbCollectionSourceResolverTest {
                 )
             )
         )
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
         val result = resolver.resolve(
             TmdbCollectionSource(
                 sourceType = TmdbCollectionSourceType.DISCOVER,
@@ -308,7 +317,7 @@ class TmdbCollectionSourceResolverTest {
                 )
             )
         }
-        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap())
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
         val result = resolver.resolve(
             TmdbCollectionSource(
                 sourceType = TmdbCollectionSourceType.DISCOVER,
@@ -342,4 +351,106 @@ class TmdbCollectionSourceResolverTest {
         assertEquals("2020-01-01", result.data.items.single().released)
         assertEquals("https://image.tmdb.org/t/p/w500/filtered.jpg", result.data.items.single().poster)
     }
+
+    // Spec 117 S5 (P6): the content filter's gate on TMDB list sources.
+
+    private val horror = FilterPack("p5", words = listOf(PackWord("zombie")))
+
+    private fun listPage(page: Int, totalPages: Int, vararg names: String) = Response.success(
+        TmdbListDetailsResponse(
+            id = 44, name = "List", page = page, totalPages = totalPages,
+            items = names.mapIndexed { i, name -> TmdbListItem(id = page * 10 + i, title = name, mediaType = "movie") }
+        )
+    )
+
+    private fun listSource() = TmdbCollectionSource(sourceType = TmdbCollectionSourceType.LIST, title = "List", tmdbId = 44)
+
+    @Test
+    fun `a load-more page the packs empty advances to the next page that shows something`() = runTest {
+        val api = mockk<TmdbApi>()
+        coEvery { api.getListDetails(44, any(), "en", 2) } returns listPage(2, 5, "Zombie One")
+        coEvery { api.getListDetails(44, any(), "en", 3) } returns listPage(3, 5, "Zombie Two", "Paddington")
+        val gate = GateFixture(listOf(horror))
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), gate.contentFilter)
+
+        val row = (resolver.resolve(listSource(), page = 2).first { it !is NetworkResult.Loading } as NetworkResult.Success).data
+
+        assertEquals(listOf("Paddington"), row.items.map { it.name })
+        assertEquals("the next load-more asks for page 4", 3, row.currentPage)
+        assertTrue(row.hasMore)
+    }
+
+    @Test
+    fun `page 1 is filtered but never advanced`() = runTest {
+        val api = mockk<TmdbApi>() // page 2 not stubbed: a request for it fails the test
+        coEvery { api.getListDetails(44, any(), "en", 1) } returns listPage(1, 5, "Zombie One")
+        val gate = GateFixture(listOf(horror))
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), gate.contentFilter)
+
+        val row = (resolver.resolve(listSource()).first { it !is NetworkResult.Loading } as NetworkResult.Success).data
+
+        assertTrue(row.items.isEmpty())
+        assertEquals(1, row.currentPage)
+    }
+
+    @Test
+    fun `a title still waiting for its tags is hidden after the wait`() = runTest {
+        val api = mockk<TmdbApi>()
+        coEvery { api.getListDetails(44, any(), "en", 1) } returns listPage(1, 1, "Paddington", "Toy Story")
+        val gate = GateFixture(listOf(horror))
+        gate.states["tmdb:11"] = TagState.Undecided
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), gate.contentFilter)
+
+        val row = (resolver.resolve(listSource()).first { it !is NetworkResult.Loading } as NetworkResult.Success).data
+
+        assertEquals(listOf("tmdb:10"), row.items.map { it.id })
+        assertEquals(listOf(listOf("tmdb:11")), gate.waits.map { it.first })
+    }
+
+    @Test
+    fun `a broken pack file fails closed - an error, never an unfiltered row`() = runTest {
+        val api = mockk<TmdbApi>()
+        coEvery { api.getListDetails(44, any(), "en", 1) } returns listPage(1, 1, "Paddington")
+        val broken = CatalogContentFilter(
+            mockk<ActiveContentFilter> { coEvery { current() } throws IllegalStateException("broken pack file") },
+            mockk(),
+            { 0L }
+        )
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), broken)
+
+        val results = resolver.resolve(listSource()).toList()
+
+        assertTrue(results.last() is NetworkResult.Error)
+        assertTrue(results.none { it is NetworkResult.Success })
+    }
+
+    @Test
+    fun `list rows carry TMDB genre ids and the adult flag into the preview`() = runTest {
+        val json = NetworkModule.provideWireJson()
+        val discover = json.decodeFromString<TmdbDiscoverResponse>(
+            """{"page":1,"total_pages":1,"results":[{"id":5,"title":"X","genre_ids":[27,53],"adult":true}]}"""
+        )
+        val list = json.decodeFromString<TmdbListDetailsResponse>(
+            """{"id":44,"items":[{"id":6,"title":"Y","media_type":"movie","genre_ids":[18],"adult":true}]}"""
+        )
+        val api = mockk<TmdbApi>()
+        coEvery {
+            api.discoverMovies(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns Response.success(discover)
+        coEvery { api.getListDetails(44, any(), "en", 1) } returns Response.success(list)
+        val resolver = TmdbCollectionSourceResolver(context, api, settings, TEST_TMDB_KEYS, testRatingCap(), noContentFilter())
+
+        val fromDiscover = (resolver.resolve(TmdbCollectionSource(sourceType = TmdbCollectionSourceType.DISCOVER, title = "D"))
+            .first { it is NetworkResult.Success } as NetworkResult.Success).data.items.single()
+        val fromList = (resolver.resolve(listSource()).first { it is NetworkResult.Success } as NetworkResult.Success)
+            .data.items.single()
+
+        assertEquals(listOf(27, 53), fromDiscover.tmdbGenreIds)
+        assertTrue(fromDiscover.tmdbAdult)
+        assertEquals(listOf(18), fromList.tmdbGenreIds)
+        assertTrue(fromList.tmdbAdult)
+    }
 }
+

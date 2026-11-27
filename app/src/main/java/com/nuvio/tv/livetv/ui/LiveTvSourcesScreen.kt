@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,7 +53,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
@@ -61,6 +68,8 @@ import com.nuvio.tv.livetv.source.PackScanRecord
 import com.nuvio.tv.livetv.source.PackScanner
 import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.source.XtreamAccountInfo
+import com.nuvio.tv.livetv.source.XtreamAdapter
 import com.nuvio.tv.ui.components.PanelEyebrow
 import com.nuvio.tv.ui.components.PlayerPanelRow
 import com.nuvio.tv.ui.components.marquee.FACT_SEPARATOR
@@ -133,6 +142,7 @@ fun LiveTvSourcesScreen(
     val packOffer by viewModel.packOffer.collectAsState()
     val scan by viewModel.scan.collectAsState()
     val scanFacts by viewModel.scanFacts.collectAsState()
+    val edit by viewModel.editLogin.collectAsState()
     // Spec 73 S3b: which scan panel shows ("" none, "pick", "world", "progress"); the countries the
     // list opens with; the ended scan's result panel.
     var scanPanel by rememberSaveable { mutableStateOf(if (openScan) SCAN_PICK else "") }
@@ -179,6 +189,7 @@ fun LiveTvSourcesScreen(
     }
 
     val openAddDialog = {
+        viewModel.closeEdit()
         viewModel.openAdd()
         addOpen = true
     }
@@ -221,6 +232,7 @@ fun LiveTvSourcesScreen(
                 }
                 // D14: the ended event only opens the result panel; the progress panel follows the state.
                 is SourcesEvent.ScanEnded -> scanResult = event.record
+                is SourcesEvent.Edited -> focusTargets.pending = event.id
                 SourcesEvent.RenameFailed -> toast?.show(renameFailed)
                 SourcesEvent.RemoveFailed -> toast?.show(removeFailed)
                 SourcesEvent.UnhideFailed -> toast?.show(unhideFailed)
@@ -347,8 +359,16 @@ fun LiveTvSourcesScreen(
                         timeFormat = timeFormat,
                         numbers = numbers,
                         onRefresh = { viewModel.refresh(row.source.id) },
-                        onRename = { renaming = row },
-                        onRemove = { removing = row },
+                        // Each drops an Edit login still loading, so two panels never open together.
+                        onRename = {
+                            viewModel.closeEdit()
+                            renaming = row
+                        },
+                        onRemove = {
+                            viewModel.closeEdit()
+                            removing = row
+                        },
+                        onEditLogin = { viewModel.openEdit(row.source.id) },
                         onChooseGuides = header?.let { { openChooser(it.sourceId, it.sourceId) } },
                         pack = if (isPack) PackRowScan(
                             line = packScanPhrase(scan, scanFacts, timeFormat, numbers),
@@ -368,6 +388,21 @@ fun LiveTvSourcesScreen(
             }
         }
         MarqueeBreadcrumb(listOf(stringResource(R.string.nav_live_tv), stringResource(R.string.live_tv_sources)))
+    }
+
+    edit?.let { open ->
+        val close = {
+            viewModel.closeEdit()
+            focusTargets.pending = open.sourceId
+        }
+        EditLoginPanel(
+            viewModel = viewModel,
+            edit = open,
+            // D13 b: the row's name as it is now.
+            name = ui.rows.firstOrNull { it.source.id == open.sourceId }?.source?.name ?: "",
+            numbers = numbers,
+            onDismiss = close
+        )
     }
 
     if (addOpen) {
@@ -541,8 +576,12 @@ fun LiveTvSourcesScreen(
         MarqueeConfirmPanel(
             eyebrow = stringResource(R.string.live_tv_src_remove_eyebrow, row.source.name),
             body = stringResource(
-                if (row.source.kind == SourceKind.XMLTV) R.string.live_tv_src_remove_guide_body
-                else R.string.live_tv_src_remove_channels_body
+                when (row.source.kind) {
+                    SourceKind.XMLTV -> R.string.live_tv_src_remove_guide_body
+                    // D16: the login, its channels and its guide.
+                    SourceKind.XTREAM -> R.string.live_tv_src_remove_login_body
+                    else -> R.string.live_tv_src_remove_channels_body
+                }
             ),
             confirmLabel = stringResource(R.string.live_tv_src_remove),
             cancelLabel = stringResource(R.string.action_cancel),
@@ -592,6 +631,7 @@ private fun SourceListRow(
     onRename: () -> Unit,
     onRemove: () -> Unit,
     onChooseGuides: (() -> Unit)?,
+    onEditLogin: () -> Unit = {},
     pack: PackRowScan? = null
 ) {
     val marquee = NuvioTheme.marquee
@@ -605,6 +645,10 @@ private fun SourceListRow(
         actions = {
             pack?.let { CollectionRowAction(label = stringResource(R.string.live_tv_scan_again), onClick = it.onScanAgain) }
             CollectionRowAction(label = stringResource(R.string.live_tv_src_refresh), onClick = onRefresh)
+            // Spec 109 stage 7: Refresh, Edit login, Rename, Remove.
+            if (source.kind == SourceKind.XTREAM) {
+                CollectionRowAction(label = stringResource(R.string.live_tv_src_edit_login), onClick = onEditLogin)
+            }
             if (onChooseGuides != null) {
                 CollectionRowAction(label = stringResource(R.string.live_tv_header_choose), onClick = onChooseGuides)
             }
@@ -622,6 +666,7 @@ private fun SourceListRow(
                     SourceKind.STREMIO -> R.string.live_tv_type_addon
                     SourceKind.XMLTV -> R.string.live_tv_type_guide
                     SourceKind.PACK -> R.string.live_tv_type_pack
+                    SourceKind.XTREAM -> R.string.live_tv_type_xtream
                 }
             )
         )
@@ -642,12 +687,16 @@ private fun SourceListRow(
             val error = source.lastError
             if (focusWithin && error != null) {
                 Text(
-                    text = stringResource(R.string.live_tv_src_last_error, error),
+                    text = expiredReason(row) ?: stringResource(R.string.live_tv_src_last_error, error),
                     style = NuvioTheme.textStyles.caption,
                     color = healthColor(row.health),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+            } else if (focusWithin && source.kind == SourceKind.XTREAM) {
+                xtreamFocusLine(row, numbers)?.let { (text, color) ->
+                    Text(text = text, style = NuvioTheme.textStyles.caption, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         val status = pack?.status
@@ -1055,6 +1104,16 @@ private fun sourceLine(row: SourceRow, timeFormat: DateFormat, numbers: NumberFo
             listOf(stringResource(R.string.live_tv_src_built_in), channels, row.preview.joinToString(", ").ifEmpty { null })
         source.kind == SourceKind.M3U -> listOf(stringResource(R.string.live_tv_src_m3u), channels, refreshed)
         source.kind == SourceKind.STREMIO -> listOf(stringResource(R.string.live_tv_src_addon), channels, refreshed)
+        // Spec 109 stages 6, 8, 9: no "guide for" while none was read (D10); no expiry part without a date.
+        source.kind == SourceKind.XTREAM -> listOf(
+            stringResource(R.string.live_tv_src_xtream),
+            channels,
+            source.account?.guideChannels?.let { stringResource(R.string.live_tv_xtream_guide_for, numbers.format(it)) },
+            source.account?.expiresAtMs?.let {
+                stringResource(if (row.ended) R.string.live_tv_xtream_expired else R.string.live_tv_xtream_expires, xtreamDate(it))
+            },
+            refreshed
+        )
         // Spec 73 D6, stage 9: every pack channel, listed or waiting for a scan (the scan's part: [PackRowScan.line]).
         source.kind == SourceKind.PACK -> listOf(channels, refreshed)
         else -> listOf(
@@ -1084,11 +1143,48 @@ internal fun liveTvAgePhrase(age: RefreshAge, timeFormat: DateFormat): String = 
     else stringResource(R.string.live_tv_ago_days, age.count)
 }
 
+/** An Xtream date as the sign-in check line writes it (Spec 109 D12). */
+@Composable
+private fun xtreamDate(ms: Long): String {
+    val dates = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    return dates.format(Date(ms))
+}
+
+/**
+ * Stage 9's reason for a login the server called expired, with its date once that date has
+ * passed; null otherwise (the generic reason shows: a future date is no "expired on").
+ */
+@Composable
+private fun expiredReason(row: SourceRow): String? {
+    if (row.source.lastError != XtreamAdapter.EXPIRED || !row.ended) return null
+    val endsMs = row.source.account?.expiresAtMs ?: return null
+    return stringResource(R.string.live_tv_xtream_expired_on, xtreamDate(endsMs))
+}
+
+/**
+ * A healthy Xtream row's focused line: stage 8's renewal sentence (amber) while the account ends
+ * within the warning days, else stage 6's facts, "trial" last (D18); null when there are none.
+ */
+@Composable
+private fun xtreamFocusLine(row: SourceRow, numbers: NumberFormat): Pair<String, Color>? {
+    val account = row.source.account ?: return null
+    val endsMs = account.expiresAtMs
+    if (row.health is SourceHealth.ExpiresIn && endsMs != null) {
+        return stringResource(R.string.live_tv_xtream_ends_on, xtreamDate(endsMs)) to NuvioTheme.marquee.liveTv.warn
+    }
+    val facts = listOfNotNull(
+        account.maxConnections?.let { pluralStringResource(R.plurals.live_tv_xtream_connections_at_once, it, numbers.format(it)) },
+        account.categories.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.live_tv_xtream_categories, it, numbers.format(it)) },
+        stringResource(R.string.live_tv_xtream_trial).takeIf { account.trial }
+    )
+    return facts.takeIf { it.isNotEmpty() }?.let { it.joinToString(FACT_SEPARATOR) to NuvioTheme.marquee.onImage2 }
+}
+
 @Composable
 private fun healthColor(health: SourceHealth) = when (health) {
     SourceHealth.Ok -> NuvioTheme.marquee.readyText
-    is SourceHealth.Lost, SourceHealth.Partial -> NuvioTheme.marquee.liveTv.warn
-    SourceHealth.Failed -> NuvioPrimitives.errorOnImage
+    is SourceHealth.Lost, SourceHealth.Partial, is SourceHealth.ExpiresIn -> NuvioTheme.marquee.liveTv.warn
+    SourceHealth.Failed, SourceHealth.Expired -> NuvioPrimitives.errorOnImage
     SourceHealth.Waiting, SourceHealth.Refreshing -> NuvioTheme.marquee.onImage3
 }
 
@@ -1102,6 +1198,13 @@ private fun HealthLabel(health: SourceHealth) {
             SourceHealth.Failed -> stringResource(R.string.live_tv_health_failed)
             SourceHealth.Waiting -> stringResource(R.string.live_tv_health_waiting)
             SourceHealth.Refreshing -> stringResource(R.string.live_tv_health_refreshing)
+            SourceHealth.Expired -> stringResource(R.string.live_tv_health_expired)
+            // D12: "EXPIRES TODAY", "EXPIRES IN 1 DAY", "EXPIRES IN n DAYS".
+            is SourceHealth.ExpiresIn -> if (health.days == 0) {
+                stringResource(R.string.live_tv_health_expires_today)
+            } else {
+                pluralStringResource(R.plurals.live_tv_health_expires_in, health.days, health.days)
+            }
         },
         style = NuvioTheme.textStyles.techBadge,
         color = healthColor(health),
@@ -1110,17 +1213,26 @@ private fun HealthLabel(health: SourceHealth) {
 }
 
 /**
- * Stage 15: one URL field (OK opens the keyboard; its Done runs the check and moves to Add), the
- * check's line (type and count, or the refusal reason), Cancel / Add. Add stays dimmed until the
- * check passes. Back or Cancel calls [onDismiss].
+ * Stage 15 with Spec 109's tabs (mockup `spec-109-xtream-logins` stages 1-5, D4 Q1): Link and
+ * Xtream login above the body. Link: one URL field (OK opens the keyboard; its Done runs the check
+ * and moves to Add). Xtream login: Server, Username, Password; Done moves to the next field, and
+ * on Password signs in and moves to Add. Every field is 40 dp, labelled inside. Then the check's line (type and
+ * count, or the refusal reason), Cancel / Add. Add stays dimmed until the check passes. A pasted
+ * get.php link that signs in as Xtream (stage 11) shows the offer line and Cancel / Add as playlist /
+ * Add as Xtream login (the last focused, as Add; Add as playlist left out for a link already stored as
+ * a playlist). Focus opens on the URL field; Up reaches the tabs. Back or Cancel calls [onDismiss].
  */
 @Composable
 private fun AddSourcePanel(viewModel: LiveTvSourcesViewModel, numbers: NumberFormat, onDismiss: () -> Unit) {
     val live = NuvioTheme.marquee.liveTv
     val stream = NuvioTheme.marquee.stream
     val url by viewModel.addUrl.collectAsState()
+    val tab by viewModel.addTab.collectAsState()
+    val xtream by viewModel.xtreamFields.collectAsState()
     val check by viewModel.addCheck.collectAsState()
     val fieldFocus = remember { FocusRequester() }
+    val userFocus = remember { FocusRequester() }
+    val passFocus = remember { FocusRequester() }
     val addFocus = remember { FocusRequester() }
     MarqueeCentredPanel(
         onDismissRequest = onDismiss,
@@ -1129,36 +1241,76 @@ private fun AddSourcePanel(viewModel: LiveTvSourcesViewModel, numbers: NumberFor
         initialFocus = fieldFocus
     ) {
         PanelEyebrow(text = stringResource(R.string.live_tv_add_eyebrow))
+        AddTabs(tab, viewModel::selectAddTab)
         Text(
-            text = stringResource(R.string.live_tv_add_body),
+            text = stringResource(if (tab == AddTab.XTREAM) R.string.live_tv_add_xtream_body else R.string.live_tv_add_body),
             style = NuvioTheme.textStyles.panelBody,
             color = stream.dialogBody,
             modifier = Modifier.padding(horizontal = stream.dialogTextInset)
         )
-        // A URL reads left to right in RTL locales too.
+        // A URL, server or login reads left to right in RTL locales too.
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Box(modifier = Modifier.padding(horizontal = stream.dialogTextInset)) {
-                MarqueeNameField(
-                    value = url,
-                    onValueChange = viewModel::onAddUrlChange,
-                    maxLength = URL_MAX,
-                    placeholder = stringResource(R.string.live_tv_add_placeholder),
-                    focusRequester = fieldFocus,
-                    onDone = {
-                        viewModel.checkAdd()
-                        addFocus.requestFocus()
-                    },
-                    keyboardType = KeyboardType.Uri,
-                    showCounter = false
-                )
+            Column(
+                modifier = Modifier.padding(horizontal = stream.dialogTextInset),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+            ) {
+                if (tab == AddTab.LINK) {
+                    LabelledField(
+                        label = stringResource(R.string.live_tv_add_url),
+                        value = url,
+                        onValueChange = viewModel::onAddUrlChange,
+                        maxLength = URL_MAX,
+                        placeholder = stringResource(R.string.live_tv_add_placeholder),
+                        focusRequester = fieldFocus,
+                        onDone = {
+                            viewModel.checkAdd()
+                            addFocus.requestFocus()
+                        },
+                        keyboardType = KeyboardType.Uri
+                    )
+                } else {
+                    XtreamLoginFields(
+                        fields = xtream,
+                        onChange = viewModel::onXtreamChange,
+                        serverFocus = fieldFocus,
+                        userFocus = userFocus,
+                        passFocus = passFocus,
+                        onServerDone = { userFocus.requestFocus() },
+                        onUserDone = { passFocus.requestFocus() },
+                        onPasswordDone = {
+                            viewModel.checkXtream()
+                            addFocus.requestFocus()
+                        }
+                    )
+                }
             }
         }
-        AddCheckLine(check, numbers)
+        // Stage 11: a pasted get.php link that signed in as Xtream is offered as a login or a playlist.
+        val offer = tab == AddTab.LINK && (check as? AddCheck.Ready)?.checked?.source?.kind == SourceKind.XTREAM
+        // A link already stored as a playlist is offered as a login only (D25: Add as playlist would be "Already added").
+        val stored by viewModel.linkStored.collectAsState()
+        AddCheckLine(check, numbers, signingInTo = xtream.server.takeIf { tab == AddTab.XTREAM }, linkOffer = offer)
         MarqueePanelActions {
             MarqueeGlassTextButton(label = stringResource(R.string.action_cancel), onClick = onDismiss)
+            if (offer && !stored) {
+                MarqueeGlassTextButton(
+                    label = stringResource(R.string.live_tv_add_as_playlist),
+                    // Focus moves to the last button first: this one leaves as the playlist check starts.
+                    onClick = {
+                        addFocus.requestFocus()
+                        viewModel.addAsPlaylist()
+                    }
+                )
+            }
             val ready = check is AddCheck.Ready
             MarqueeGlassTextButton(
-                label = stringResource(if (check == AddCheck.Adding) R.string.live_tv_adding else R.string.live_tv_add),
+                label = stringResource(
+                    when {
+                        check == AddCheck.Adding -> R.string.live_tv_adding
+                        offer -> R.string.live_tv_add_as_xtream
+                        else -> R.string.live_tv_add
+                    }
+                ),
                 // Dimmed but focusable until the check passes, so Done can land here.
                 onClick = { if (ready) viewModel.confirmAdd() },
                 restingLabelColor = if (ready) NuvioPrimitives.white else NuvioTheme.marquee.onImage3,
@@ -1168,13 +1320,261 @@ private fun AddSourcePanel(viewModel: LiveTvSourcesViewModel, numbers: NumberFor
     }
 }
 
-/** `.lvdet`: what the check found (green with a tick), the refusal reason, or "Checking…". */
+/**
+ * The Add source tabs (`.x9tabs`, approved D4): 30 dp pills ([CollectionRowAction]'s height and
+ * text), white .08 with a .72 label, the selected one white .18 with a white label, focused white
+ * with a black label; OK selects one (focus stays on it).
+ */
 @Composable
-private fun AddCheckLine(check: AddCheck, numbers: NumberFormat) {
+private fun AddTabs(selected: AddTab, onSelect: (AddTab) -> Unit) {
+    Row(
+        modifier = Modifier.padding(horizontal = NuvioTheme.marquee.stream.dialogTextInset),
+        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+    ) {
+        AddTab.entries.forEach { tab ->
+            val on = tab == selected
+            Button(
+                onClick = { onSelect(tab) },
+                modifier = Modifier.height(NuvioTheme.marquee.collections.actionHeight),
+                shape = ButtonDefaults.shape(shape = CircleShape),
+                colors = ButtonDefaults.colors(
+                    containerColor = if (on) TAB_FILL_ON else TAB_FILL,
+                    contentColor = if (on) NuvioPrimitives.white else TAB_LABEL,
+                    focusedContainerColor = NuvioPrimitives.white,
+                    focusedContentColor = NuvioPrimitives.black,
+                    pressedContainerColor = NuvioPrimitives.white,
+                    pressedContentColor = NuvioPrimitives.black
+                ),
+                scale = ButtonDefaults.scale(focusedScale = 1f, pressedScale = 1f),
+                contentPadding = PaddingValues(horizontal = TAB_PADDING)
+            ) {
+                Text(
+                    text = stringResource(if (tab == AddTab.XTREAM) R.string.live_tv_add_tab_xtream else R.string.live_tv_add_tab_link),
+                    style = NuvioTheme.textStyles.panelPill,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Xtream login fields (`.x9f`, stages 2 and 10): Server, Username, Password, each 40 dp with its
+ * label inside; the callers decide where each Done goes. [passwordKept] (Edit login with a stored
+ * login, D13): an empty Password shows dots and "unchanged" until one is typed.
+ */
+@Composable
+private fun XtreamLoginFields(
+    fields: XtreamFields,
+    onChange: (XtreamFields) -> Unit,
+    serverFocus: FocusRequester,
+    userFocus: FocusRequester,
+    passFocus: FocusRequester,
+    onServerDone: () -> Unit,
+    onUserDone: () -> Unit,
+    onPasswordDone: () -> Unit,
+    passwordKept: Boolean = false
+) {
+    LabelledField(
+        label = stringResource(R.string.live_tv_xtream_server),
+        value = fields.server,
+        onValueChange = { onChange(fields.copy(server = it)) },
+        maxLength = URL_MAX,
+        placeholder = stringResource(R.string.live_tv_xtream_server_placeholder),
+        focusRequester = serverFocus,
+        onDone = onServerDone,
+        keyboardType = KeyboardType.Uri
+    )
+    LabelledField(
+        label = stringResource(R.string.live_tv_xtream_username),
+        value = fields.username,
+        onValueChange = { onChange(fields.copy(username = it)) },
+        maxLength = LOGIN_MAX,
+        placeholder = stringResource(R.string.live_tv_xtream_username),
+        focusRequester = userFocus,
+        onDone = onUserDone
+    )
+    val kept = passwordKept && fields.password.isEmpty()
+    LabelledField(
+        label = stringResource(R.string.live_tv_xtream_password),
+        value = fields.password,
+        onValueChange = { onChange(fields.copy(password = it)) },
+        maxLength = LOGIN_MAX,
+        // `.pw`: white dots, 2 px apart, standing for the stored password (never read here).
+        placeholder = if (kept) KEPT_DOTS else stringResource(R.string.live_tv_xtream_password),
+        placeholderStyle = if (kept) {
+            NuvioTheme.textStyles.profileField.copy(fontSize = 14.sp, letterSpacing = 2.sp, color = NuvioPrimitives.white)
+        } else {
+            null
+        },
+        focusRequester = passFocus,
+        onDone = onPasswordDone,
+        masked = true,
+        trailing = if (kept) {
+            {
+                Text(
+                    text = stringResource(R.string.live_tv_xtream_unchanged),
+                    style = NuvioTheme.textStyles.profileLine,
+                    color = KEPT_LABEL,
+                    maxLines = 1
+                )
+            }
+        } else {
+            null
+        }
+    )
+}
+
+/** The unchanged password's stand-in and its `.kept` label colour (white .45). */
+private const val KEPT_DOTS = "••••••••••"
+private val KEPT_LABEL = Color.White.copy(alpha = 0.45f)
+
+/**
+ * Edit login (stage 10, D13): the eyebrow names the row as it is now ([name]); the Xtream fields
+ * with the saved server and username, focus on Server. Done on a field whose value changed runs
+ * the check and moves to Save; on an unchanged one, to the next field. Save: nothing changed
+ * closes, a passed check saves, otherwise checks then saves in one press. Back or Cancel calls
+ * [onDismiss].
+ */
+@Composable
+private fun EditLoginPanel(
+    viewModel: LiveTvSourcesViewModel,
+    edit: EditLogin,
+    name: String,
+    numbers: NumberFormat,
+    onDismiss: () -> Unit
+) {
+    val live = NuvioTheme.marquee.liveTv
+    val stream = NuvioTheme.marquee.stream
+    val check by viewModel.editCheck.collectAsState()
+    val serverFocus = remember { FocusRequester() }
+    val userFocus = remember { FocusRequester() }
+    val passFocus = remember { FocusRequester() }
+    val saveFocus = remember { FocusRequester() }
+    val fields = edit.fields
+    val doneOn = { changed: Boolean, next: FocusRequester ->
+        if (changed) {
+            viewModel.checkEdit()
+            saveFocus.requestFocus()
+        } else {
+            next.requestFocus()
+        }
+    }
+    MarqueeCentredPanel(
+        onDismissRequest = onDismiss,
+        veil = live.addVeil,
+        width = live.addPanelWidth,
+        initialFocus = serverFocus
+    ) {
+        PanelEyebrow(text = stringResource(R.string.live_tv_edit_login_eyebrow, name))
+        Text(
+            text = stringResource(R.string.live_tv_edit_login_body),
+            style = NuvioTheme.textStyles.panelBody,
+            color = stream.dialogBody,
+            modifier = Modifier.padding(horizontal = stream.dialogTextInset)
+        )
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Column(
+                modifier = Modifier.padding(horizontal = stream.dialogTextInset),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+            ) {
+                XtreamLoginFields(
+                    fields = fields,
+                    onChange = viewModel::onEditChange,
+                    serverFocus = serverFocus,
+                    userFocus = userFocus,
+                    passFocus = passFocus,
+                    onServerDone = { doneOn(fields.server != edit.initial.server, userFocus) },
+                    onUserDone = { doneOn(fields.username != edit.initial.username, passFocus) },
+                    onPasswordDone = { doneOn(fields.password.isNotEmpty(), saveFocus) },
+                    passwordKept = edit.stored
+                )
+            }
+        }
+        AddCheckLine(check, numbers, signingInTo = fields.server)
+        MarqueePanelActions {
+            MarqueeGlassTextButton(label = stringResource(R.string.action_cancel), onClick = onDismiss)
+            MarqueeGlassTextButton(
+                label = stringResource(if (check == AddCheck.Adding) R.string.live_tv_saving else R.string.action_save),
+                onClick = viewModel::saveEdit,
+                modifier = Modifier.focusRequester(saveFocus)
+            )
+        }
+    }
+}
+
+/** `.x9tab` values (mockup `spec-109-xtream-logins` v1). */
+private val TAB_FILL = Color.White.copy(alpha = 0.08f)
+private val TAB_FILL_ON = Color.White.copy(alpha = 0.18f)
+private val TAB_LABEL = Color.White.copy(alpha = 0.72f)
+private val TAB_PADDING = 14.dp
+
+/** One Add source field (`.x9f`, 40 dp): its [label] inside at the start, 14 sp text, no counter. */
+@Composable
+private fun LabelledField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    maxLength: Int,
+    placeholder: String,
+    focusRequester: FocusRequester,
+    onDone: () -> Unit,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    masked: Boolean = false,
+    placeholderStyle: TextStyle? = null,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    MarqueeNameField(
+        value = value,
+        onValueChange = onValueChange,
+        maxLength = maxLength,
+        placeholder = placeholder,
+        focusRequester = focusRequester,
+        onDone = onDone,
+        keyboardType = keyboardType,
+        showCounter = false,
+        leading = {
+            Text(
+                text = label,
+                style = NuvioTheme.textStyles.caption,
+                color = NuvioTheme.marquee.onImage3,
+                maxLines = 1,
+                modifier = Modifier.width(FIELD_LABEL_WIDTH)
+            )
+        },
+        masked = masked,
+        placeholderStyle = placeholderStyle,
+        trailing = trailing,
+        height = NuvioTheme.marquee.collections.fieldHeight,
+        textStyle = NuvioTheme.textStyles.profileField.copy(fontSize = 14.sp)
+    )
+}
+
+/** The field labels' column (`.x9f i`). */
+private val FIELD_LABEL_WIDTH = 84.dp
+
+/** Longest username or password the Xtream fields take. */
+private const val LOGIN_MAX = 256
+
+/**
+ * `.lvdet`: what the check found (green with a tick), the refusal reason, or "Checking…" (an
+ * Xtream sign-in: "Signing in to <host>…", [signingInTo] being the typed server). [linkOffer]: a
+ * pasted link passed as an Xtream login (stage 11): the offer line, white .8 with no tick.
+ */
+@Composable
+private fun AddCheckLine(check: AddCheck, numbers: NumberFormat, signingInTo: String? = null, linkOffer: Boolean = false) {
     val marquee = NuvioTheme.marquee
     val (text, color) = when (check) {
         AddCheck.Idle, AddCheck.Adding -> return
-        AddCheck.Checking -> stringResource(R.string.live_tv_add_checking) to marquee.onImage2
+        is AddCheck.Ready if linkOffer ->
+            stringResource(R.string.live_tv_add_offer_xtream, numbers.format(check.checked.listed)) to
+                marquee.stream.dialogBody
+        AddCheck.Checking -> if (signingInTo != null) {
+            val host = XtreamAdapter.serverBase(signingInTo)?.toHttpUrlOrNull()?.host ?: signingInTo.trim()
+            stringResource(R.string.live_tv_add_signing_in, host) to marquee.onImage2
+        } else {
+            stringResource(R.string.live_tv_add_checking) to marquee.onImage2
+        }
         is AddCheck.Refused -> check.reason to NuvioPrimitives.errorOnImage
         is AddCheck.Ready -> {
             val listed = numbers.format(check.checked.listed)
@@ -1189,6 +1589,7 @@ private fun AddCheckLine(check: AddCheck, numbers: NumberFormat) {
                 SourceKind.STREMIO -> stringResource(R.string.live_tv_add_ready_addon, listed)
                 // The pack is added by Add pack, never through a URL check.
                 SourceKind.PACK -> stringResource(R.string.live_tv_add_ready_m3u, listed)
+                SourceKind.XTREAM -> xtreamCheckLine(check.checked.source.account, check.checked.listed, numbers)
             } to marquee.readyText
         }
     }
@@ -1197,7 +1598,7 @@ private fun AddCheckLine(check: AddCheck, numbers: NumberFormat) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
     ) {
-        if (check is AddCheck.Ready) {
+        if (check is AddCheck.Ready && !linkOffer) {
             Icon(
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
@@ -1207,6 +1608,23 @@ private fun AddCheckLine(check: AddCheck, numbers: NumberFormat) {
         }
         Text(text = text, style = NuvioTheme.textStyles.caption, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
+}
+
+/**
+ * A passed Xtream check (mockup stage 3): "Xtream · 4,812 channels in 38 categories · expires
+ * 1 Mar 2027 · 2 connections" ("no expiry" when the server sends none; "trial" last for a trial).
+ */
+@Composable
+private fun xtreamCheckLine(account: XtreamAccountInfo?, listed: Int, numbers: NumberFormat): String {
+    val categories = account?.categories ?: 0
+    return listOfNotNull(
+        stringResource(R.string.live_tv_src_xtream),
+        pluralStringResource(R.plurals.live_tv_xtream_in_categories, categories, numbers.format(listed), numbers.format(categories)),
+        account?.expiresAtMs?.let { stringResource(R.string.live_tv_xtream_expires, xtreamDate(it)) }
+            ?: stringResource(R.string.live_tv_xtream_no_expiry),
+        account?.maxConnections?.let { pluralStringResource(R.plurals.live_tv_xtream_connections, it, numbers.format(it)) },
+        stringResource(R.string.live_tv_xtream_trial).takeIf { account?.trial == true }
+    ).joinToString(FACT_SEPARATOR)
 }
 
 /**

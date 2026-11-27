@@ -195,6 +195,102 @@ class HomeCatalogOrderingTest {
         assertFalse(HomeCatalogOrdering.isDisabled(entry, emptySet()))
     }
 
+    // ---- Spec 105 S5a: MDBList rows ----
+
+    @Test
+    fun `an MDBList row not saved yet goes first, a saved one holds its slot, in both modes`() {
+        val a1 = entry("a1_k", "Addon One")
+        val b1 = entry("b1_k", "Addon Two")
+        val lists = listOf(entry("mdblist_watchlist", "MDBList"), entry("mdblist_7", "MDBList"))
+        for (follow in listOf(false, true)) {
+            assertEquals(
+                listOf("mdblist_watchlist", "a1_k", "mdblist_7", "b1_k"),
+                HomeCatalogOrdering.effectiveOrder(
+                    addonEntries = listOf(a1, b1),
+                    collectionEntries = emptyList(),
+                    savedOrderKeys = listOf("a1_k", "mdblist_7", "b1_k"),
+                    followAddonsOrder = follow,
+                    mdbListEntries = lists
+                )
+            )
+        }
+        // No saved order: new lists first, then the default order.
+        assertEquals(
+            listOf("mdblist_watchlist", "mdblist_7", "a1_k", "b1_k"),
+            HomeCatalogOrdering.effectiveOrder(listOf(a1, b1), emptyList(), emptyList(), followAddonsOrder = true, mdbListEntries = lists)
+        )
+    }
+
+    @Test
+    fun `follow mode never leaves an MDBList row inside an addon block`() {
+        val a1 = entry("a1_movie", "Addon One")
+        val a2 = entry("a1_series", "Addon One")
+        assertEquals(
+            listOf("a1_movie", "a1_series", "mdblist_7"),
+            HomeCatalogOrdering.effectiveOrder(
+                addonEntries = listOf(a1, a2),
+                collectionEntries = emptyList(),
+                savedOrderKeys = listOf("a1_movie", "mdblist_7", "a1_series"),
+                followAddonsOrder = true,
+                mdbListEntries = listOf(entry("mdblist_7", "MDBList"))
+            )
+        )
+    }
+
+    @Test
+    fun `only MDBList's own key forms are MDBList keys`() {
+        listOf("mdblist_watchlist", "mdblist_7", "mdblist_ext_12").forEach { assertTrue(it, HomeCatalogOrdering.isMdbListKey(it)) }
+        // An addon whose id is "mdblist" makes addonId_type_catalogId keys.
+        listOf("mdblist_movie_top", "mdblist_", "mdblist_0", "mdblist_ext_", "collection_7").forEach {
+            assertFalse(it, HomeCatalogOrdering.isMdbListKey(it))
+        }
+    }
+
+    @Test
+    fun `follow mode moves jump over MDBList rows as over collections`() {
+        val order = listOf("a1_m", "a1_s", "mdblist_7", "b1_m")
+        val owner = mapOf("a1_m" to "A", "a1_s" to "A", "b1_m" to "B")::get
+        assertEquals(3, HomeCatalogOrdering.collectionBlockJumpIndex(order, 2, 1, owner))
+        assertEquals(0, HomeCatalogOrdering.collectionBlockJumpIndex(order, 2, -1, owner))
+    }
+
+    @Test
+    fun `arriving MDBList keys join the front, past ten hidden, and a known key is never re-admitted`() {
+        assertNull(HomeCatalogOrdering.admitMdbListKeys(listOf("mdblist_1", "a"), emptySet(), listOf("mdblist_1")))
+        val few = HomeCatalogOrdering.admitMdbListKeys(listOf("a", "mdblist_1"), setOf("a"), listOf("mdblist_1", "mdblist_2"))!!
+        assertEquals(listOf("mdblist_2", "a", "mdblist_1"), few.orderKeys)
+        assertEquals(setOf("a"), few.disabledKeys)
+        val arriving = listOf("mdblist_watchlist") + (1..12).map { "mdblist_$it" }
+        val many = HomeCatalogOrdering.admitMdbListKeys(emptyList(), emptySet(), arriving)!!
+        assertEquals(arriving, many.orderKeys)
+        assertEquals(arriving.drop(10).toSet(), many.disabledKeys)
+    }
+
+    @Test
+    fun `an order written without MDBList keys gets them back after the key they followed`() {
+        val local = listOf("mdblist_watchlist", "a", "mdblist_1", "mdblist_2", "b", "gone", "mdblist_3")
+        assertEquals(
+            // mdblist_3 followed b (the last key before it that the new order still has).
+            listOf("mdblist_watchlist", "b", "mdblist_3", "a", "mdblist_1", "mdblist_2", "c"),
+            HomeCatalogOrdering.keepLocalMdbListKeys(local, listOf("b", "a", "c"))
+        )
+        // A key the incoming order names keeps the incoming place; the others follow it.
+        assertEquals(
+            listOf("mdblist_watchlist", "mdblist_1", "mdblist_2", "mdblist_3", "a"),
+            HomeCatalogOrdering.keepLocalMdbListKeys(local, listOf("mdblist_1", "a"))
+        )
+        assertEquals(listOf("x"), HomeCatalogOrdering.keepLocalMdbListKeys(listOf("y"), listOf("x")))
+    }
+
+    @Test
+    fun `hidden MDBList keys survive a write that does not name them`() {
+        assertEquals(
+            setOf("a", "mdblist_2"),
+            HomeCatalogOrdering.keepLocalMdbListDisabled(setOf("mdblist_2", "b"), listOf("a", "b"), listOf("a"))
+        )
+        assertEquals(setOf("a"), HomeCatalogOrdering.keepLocalMdbListDisabled(setOf("mdblist_2"), listOf("mdblist_2"), listOf("a")))
+    }
+
     private fun entry(key: String, addonName: String = "Addon"): HomeCatalogOrdering.CatalogEntry =
         HomeCatalogOrdering.CatalogEntry(
             key = key,

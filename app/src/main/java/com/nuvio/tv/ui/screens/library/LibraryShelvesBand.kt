@@ -24,6 +24,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.LibraryEntry
+import com.nuvio.tv.core.tracking.TrackingListStatus
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.marquee.FACT_SEPARATOR
 import com.nuvio.tv.ui.screens.detail.formatDayMonth
@@ -35,6 +36,7 @@ import com.nuvio.tv.ui.screens.home.MarqueeBandFocus
 import com.nuvio.tv.ui.screens.home.MarqueeRowSection
 import com.nuvio.tv.ui.screens.home.MarqueeRowTile
 import com.nuvio.tv.ui.screens.home.ModernCarouselItem
+import com.nuvio.tv.ui.screens.home.RowLoadMoreEntry
 import com.nuvio.tv.ui.screens.home.catalogCarouselItem
 import com.nuvio.tv.ui.screens.home.isWatchedTitle
 import com.nuvio.tv.ui.screens.search.MarqueeHeroSettle
@@ -65,6 +67,17 @@ internal data class LibraryShelfRow(
     val isHidden: Boolean get() = restoreKeys.isNotEmpty()
 }
 
+/** A tracker list's name (Simkl's, Spec 106 G1): the shelf title and the hero eyebrow's list. */
+internal fun libraryTrackerListLabel(context: Context, list: TrackingListStatus): String = context.getString(
+    when (list) {
+        TrackingListStatus.WATCHING -> R.string.library_list_watching
+        TrackingListStatus.PLAN_TO_WATCH -> R.string.library_list_plan_to_watch
+        TrackingListStatus.ON_HOLD -> R.string.library_list_on_hold
+        TrackingListStatus.COMPLETED -> R.string.library_list_completed
+        TrackingListStatus.DROPPED -> R.string.library_list_dropped
+    }
+)
+
 /**
  * [shelves] as Marquee rows: the shelf title with its count as the row's small suffix (Recently
  * added: "N this month"), one card per title keyed by shelf + title. Cards build vertical; the band
@@ -80,6 +93,7 @@ internal fun libraryShelfRows(context: Context, shelves: List<LibraryShelf>): Li
             LibraryShelfKind.SERIES -> context.getString(R.string.type_series_plural)
             LibraryShelfKind.GENRE -> localizedGenreLabel(context, shelf.genre.orEmpty())
             LibraryShelfKind.WATCHED -> context.getString(R.string.library_shelf_watched)
+            LibraryShelfKind.TRACKER_LIST -> shelf.trackerList?.let { libraryTrackerListLabel(context, it) }.orEmpty()
         }
         val suffix = if (shelf.kind == LibraryShelfKind.RECENTLY_ADDED) {
             context.getString(R.string.library_shelf_recent_count, count)
@@ -271,7 +285,7 @@ internal class LibraryShelvesBand(
     val focusedItemByRowRef = StableRef<MutableMap<String, Int>>(focusedItemByRow)
     val rowListStatesRef = StableRef<MutableMap<String, LazyListState>>(rowListStates)
     // Shelves never load more; MarqueeRowSection still takes the map.
-    val noLoadMoreTotals = StableRef<MutableMap<String, Int>>(mutableMapOf())
+    val noLoadMoreEntries = StableRef<MutableMap<String, RowLoadMoreEntry>>(mutableMapOf())
     val rowFocusRequesters = mutableMapOf<String, FocusRequester>()
     val itemFocusRequestersByRow = mutableMapOf<String, StableRef<MutableMap<Int, FocusRequester>>>()
 
@@ -468,7 +482,7 @@ internal fun LazyListScope.libraryShelfItems(
             focusStateCatalogRowScrollIndex = band.savedRowScroll(rowKey),
             focusedItemByRow = band.focusedItemByRowRef,
             rowListStates = band.rowListStatesRef,
-            loadMoreRequestedTotals = band.noLoadMoreTotals,
+            loadMoreEntries = band.noLoadMoreEntries,
             isVerticalRowsScrollingState = band.isScrolling,
             focus = band.focus,
             onRowItemFocused = band.onCardFocused,

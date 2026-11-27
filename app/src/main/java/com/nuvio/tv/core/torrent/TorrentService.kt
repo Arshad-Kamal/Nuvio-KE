@@ -48,6 +48,9 @@ class TorrentService @Inject constructor(
     private val _state = MutableStateFlow<TorrentState>(TorrentState.Idle)
     val state: StateFlow<TorrentState> = _state.asStateFlow()
 
+    /** The local TorrServer's port ([TorrServerBinary.serverPort]). */
+    val serverPort: Int get() = binary.serverPort
+
     // Guards the session and teardown bookkeeping below. Never held across a suspension.
     private val lock = Any()
 

@@ -135,6 +135,7 @@ class DeviceAssessmentEngineRowsTest {
         safeLimitMb = 1000,
         warningLimitMb = 1200,
         tierMaxChunkMb = 32,
+        tierMaxTargetMb = Int.MAX_VALUE,
         display = display4k,
         policy = policyDvDisplay
     )
@@ -440,6 +441,16 @@ class DeviceAssessmentEngineRowsTest {
         .onEach { it.isAccessible = true }
 
     // ── tests ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the buffer recommendation stays under the RAM tier's target ceiling`() {
+        // Spec 147 D4: safe 250 beside the 4 x 8 MB pipe fits 200; the 2 GB tier's ceiling is 100.
+        val twoGb = device.copy(safeLimitMb = 250, warningLimitMb = 325, ramLabel = "2 GB")
+        val uncapped = DeviceAssessmentEngine.bufferBasis(base.copy(device = twoGb), defaults)
+        val capped = DeviceAssessmentEngine.bufferBasis(base.copy(device = twoGb.copy(tierMaxTargetMb = 100)), defaults)
+        assertEquals(200, uncapped.recTargetMb)
+        assertEquals(100, capped.recTargetMb)
+    }
 
     @Test
     fun `assemble output matches the golden for every scenario`() {

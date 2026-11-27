@@ -26,6 +26,7 @@ import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.PackSummary
 import com.nuvio.tv.livetv.source.SourceFetcher
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.ui.search.LiveChannelSearch
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -46,6 +47,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -75,8 +77,10 @@ class LiveTvViewModelTest {
     private val sources = MutableStateFlow(
         listOf(LiveSource("a", SourceKind.M3U, "My playlist", "https://example.org/a.m3u", 0L))
     )
+    private val unloads = MutableStateFlow(0)
     private val manager = mockk<LiveSourceManager>().also {
         every { it.sources } returns sources
+        every { it.unloads } returns unloads
         coEvery { it.loadChannels() } just runs
         coEvery { it.loadGuides() } coAnswers { guidesGate.await() }
         coEvery { it.refreshStale() } just runs
@@ -193,6 +197,114 @@ class LiveTvViewModelTest {
             assertTrue(ui.rows.single().lost && ui.rows.single().favorite)
             assertEquals(1, ui.counts[LiveTvFilter.Recents])
             assertEquals("a3", vm.focusedKey.value)
+        }
+
+    @Test
+    fun `back from removing the focused channel's source, the preview does not tune it`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            // Spec 147 F27: the lineup's sharing stops while the screen is away, so it still holds the channel.
+            seedChannels()
+            val vm = viewModel(subscribe = false)
+            vm.resumePreview()
+            val screen = launch { vm.uiState.collect {} }
+            runCurrent()
+            vm.onRowFocused(a1)
+            advanceTimeBy(700)
+            verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+
+            vm.stopPreview()
+            screen.cancel()
+            advanceTimeBy(6_000)
+            runCurrent()
+            channels.removeSource("a") // what LiveSourceManager.remove does, then the record goes
+            sources.value = emptyList()
+            assertNotNull(vm.channel("a1")) // the lineup is stale: what made the field bug possible
+            vm.resumePreview()
+            runCurrent()
+            verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+            // OK, a zap, Right on the stale row: refused, so nothing opens on an untuned channel.
+            assertFalse(vm.tuneNow(a1))
+            assertNull(vm.zap(1))
+            assertNull(vm.openSchedule(a1))
+            vm.onRowFocused(a1)
+            advanceTimeBy(700)
+            verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+        }
+
+    @Test
+    fun `an unload while the screen is away drops the rows, and its return reads the stores again`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            coEvery { manager.loadChannels() } coAnswers { channels.load() }
+            val vm = viewModel(subscribe = false)
+            vm.resumePreview()
+            var screen = launch { vm.uiState.collect {} }
+            runCurrent()
+            assertEquals(listOf("a1", "a3"), vm.uiState.value.rows.map { it.channel.key })
+            vm.onRowFocused(a1)
+            advanceTimeBy(700)
+            verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+
+            vm.stopPreview()
+            screen.cancel()
+            advanceTimeBy(6_000)
+            runCurrent()
+            assertFalse(vm.uiState.value.loading) // a plain return shows the rows at once (D5)
+
+            channels.unload()
+            unloads.value = 1
+            runCurrent()
+            assertTrue(vm.uiState.value.loading)
+            assertTrue(vm.uiState.value.rows.isEmpty())
+            assertNull(vm.channel("a1"))
+
+            coVerify(exactly = 1) { manager.loadChannels() } // not read again while away
+            vm.resumePreview()
+            screen = launch { vm.uiState.collect {} }
+            runCurrent()
+            coVerify(exactly = 2) { manager.loadChannels() }
+            coVerify(exactly = 1) { manager.refreshStale() } // first read only
+            assertFalse(vm.uiState.value.loading)
+            assertEquals(listOf("a1", "a3"), vm.uiState.value.rows.map { it.channel.key })
+            // The preview comes back on the focused channel once the rows are read again.
+            verify(exactly = 2) { player.tune(match { it.key == "a1" }) }
+            screen.cancel()
+        }
+
+    @Test
+    fun `an unload during the first read waits for the screen, then reads again and refreshes`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            guidesGate = CompletableDeferred()
+            val vm = viewModel()
+            coVerify(exactly = 1) { manager.loadChannels() }
+            unloads.value = 1
+            runCurrent()
+            // The movie that unloaded is on screen: nothing is read until Live TV shows again.
+            coVerify(exactly = 1) { manager.loadChannels() }
+            coVerify(exactly = 0) { manager.refreshStale() }
+            guidesGate.complete(Unit)
+            vm.resumePreview()
+            runCurrent()
+            coVerify(exactly = 2) { manager.loadChannels() }
+            coVerify(exactly = 1) { manager.refreshStale() }
+            assertFalse(vm.uiState.value.loading)
+        }
+
+    @Test
+    fun `an unload while the screen shows reads the stores again at once`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            coEvery { manager.loadChannels() } coAnswers { channels.load() }
+            val vm = viewModel()
+            vm.resumePreview()
+            runCurrent()
+            channels.unload()
+            unloads.value = 1
+            runCurrent()
+            coVerify(exactly = 2) { manager.loadChannels() }
+            assertFalse(vm.uiState.value.loading)
+            assertEquals(listOf("a1", "a3"), vm.uiState.value.rows.map { it.channel.key })
         }
 
     @Test
@@ -497,11 +609,11 @@ class LiveTvViewModelTest {
         return guided
     }
 
-    /** Guide "g" with [title] airing on One.us now. */
-    private suspend fun putGuide(title: String) {
+    /** Guide [id] (default "g") with [title] airing on One.us now. */
+    private suspend fun putGuide(title: String, id: String = "g") {
         val now = System.currentTimeMillis()
         guides.put(
-            "g",
+            id,
             EpgSnapshot(
                 channels = mapOf("One.us" to EpgChannel("One.us", listOf("One"), null)),
                 programmes = mapOf("One.us" to listOf(EpgProgramme(now - 600_000, now + 1_200_000, title))),
@@ -509,6 +621,44 @@ class LiveTvViewModelTest {
             )
         )
     }
+
+    @Test
+    fun `an Xtream login's own guide counts as a guide source - its rows wait for it, then show it`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            // Spec 109 S2.2: the login is the only source; its xmltv.php guide is cached under its id.
+            sources.value = listOf(LiveSource("a", SourceKind.XTREAM, "tv.example.net", "http://tv.example.net:8080", 0L))
+            val guided = ch("a1").copy(tvgId = "One.us")
+            channels.replaceSource("a", listOf(guided, a3))
+            putGuide("Airing", id = "a")
+            guidesGate = CompletableDeferred()
+            val vm = viewModel()
+            vm.selectFilter(LiveTvFilter.ALL)
+            runCurrent()
+            assertEquals(listOf(guided.key, a3.key), vm.uiState.value.rows.map { it.channel.key })
+            assertTrue(vm.uiState.value.rows.all { it.guideLoading })
+            guidesGate.complete(Unit)
+            runCurrent()
+            val rows = vm.uiState.value.rows.associateBy { it.channel.key }
+            assertEquals("Airing", rows.getValue(guided.key).now?.title)
+            assertFalse(rows.getValue(a3.key).guideLoading)
+        }
+
+    @Test
+    fun `an Xtream login with no guide cached waits for the guide read, then says No guide`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            sources.value = listOf(LiveSource("a", SourceKind.XTREAM, "tv.example.net", "http://tv.example.net:8080", 0L))
+            val guided = ch("a1").copy(tvgId = "One.us")
+            channels.replaceSource("a", listOf(guided, a3))
+            guidesGate = CompletableDeferred()
+            val vm = viewModel()
+            vm.selectFilter(LiveTvFilter.ALL)
+            runCurrent()
+            assertEquals(listOf(guided.key, a3.key), vm.uiState.value.rows.map { it.channel.key })
+            assertTrue(vm.uiState.value.rows.all { it.guideLoading })
+            guidesGate.complete(Unit)
+            runCurrent()
+            assertTrue(vm.uiState.value.rows.all { !it.guideLoading && !it.hasGuide })
+        }
 
     @Test
     fun `rows show before the guides are read, saying the guide is loading, and gain now and next once matched`() =
@@ -601,5 +751,385 @@ class LiveTvViewModelTest {
         assertTrue(seen.isNotEmpty())
         assertTrue(seen.none { ui -> ui.loading || ui.rows.any { it.guideLoading } })
         assertEquals("Airing", seen.last().rows.single { it.channel.key == guided.key }.now?.title)
+    }
+
+    @Test
+    fun `search lists every listable channel whatever the filter, and closing brings the filter's rows back`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.setLastFilter("sports")
+            val vm = viewModel()
+            assertEquals(listOf("a1"), vm.uiState.value.rows.map { it.channel.key })
+
+            vm.setSearchQuery("a3") // closed: ignored
+            runCurrent()
+            assertNull(vm.uiState.value.search)
+
+            vm.openSearch()
+            runCurrent()
+            assertEquals("", vm.uiState.value.search?.query)
+            assertFalse(vm.uiState.value.search!!.pending)
+            assertTrue(vm.uiState.value.rows.isEmpty()) // nothing typed yet
+            assertEquals(2, vm.uiState.value.search!!.total) // "Searching all 2 channels": lost a2 is not listable
+
+            vm.setSearchQuery("a3") // outside Sports
+            runCurrent()
+            assertEquals(listOf("a3"), vm.uiState.value.rows.map { it.channel.key })
+
+            vm.setSearchQuery("A") // both listed channels; lost a2 is not searched
+            runCurrent()
+            assertEquals(listOf("a1", "a3"), vm.uiState.value.rows.map { it.channel.key })
+            // Zapping moves within the results (D15), not the Sports filter (a1 alone).
+            tuneState.value = LiveTuneState.Playing(a1)
+            assertEquals("a3", vm.zap(+1))
+
+            val a3Number = vm.number("a3")!!
+            assertEquals("2", a3Number) // lost a2 moved to its source's end
+            vm.setSearchQuery(a3Number)
+            runCurrent()
+            val search = vm.uiState.value.search!!
+            assertEquals(LiveChannelSearch.Tier.NUMBER_EXACT, search.hit("a3")?.tier)
+            assertEquals(listOf("a3"), vm.uiState.value.rows.map { it.channel.key })
+
+            // Zapping stays within the results.
+            tuneState.value = LiveTuneState.Playing(a3)
+            assertNull(vm.zap(+1))
+
+            vm.closeSearch()
+            runCurrent()
+            assertNull(vm.uiState.value.search)
+            assertEquals(listOf("a1"), vm.uiState.value.rows.map { it.channel.key })
+        }
+
+    @Test
+    fun `with Preview on focus off a resting focus tunes nothing, OK still does, and the choice is kept`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            val vm = viewModel()
+            assertTrue(vm.previewOnFocus.value)
+            vm.togglePreviewOnFocus() // -> false
+            runCurrent()
+            assertFalse(vm.previewOnFocus.value)
+            assertFalse(userStore.state.first().previewOnFocus)
+            settleOpen(vm)
+
+            vm.onRowFocused(a3)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals("a3", vm.focusedKey.value) // the info block still follows focus
+            verify(exactly = 0) { player.tune(match { it.key == "a3" }) }
+            assertTrue(vm.tuneNow(a3))
+            verify(exactly = 1) { player.tune(match { it.key == "a3" }) }
+            tuneState.value = LiveTuneState.Playing(a3)
+
+            vm.togglePreviewOnFocus() // -> true
+            runCurrent()
+            vm.onRowFocused(a1)
+            advanceTimeBy(700)
+            runCurrent()
+            verify(exactly = 2) { player.tune(match { it.key == "a1" }) } // the open's, then this rest's
+        }
+
+    /** The open's first rest (on a1) tunes whatever the setting; later rests are the ones under test. */
+    private fun TestScope.settleOpen(vm: LiveTvViewModel) {
+        vm.onRowFocused(a1)
+        advanceTimeBy(700)
+        runCurrent()
+        verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+        tuneState.value = LiveTuneState.Playing(a1)
+    }
+
+    @Test
+    fun `a focus that lands before the Off is stored still never tunes`() = runTest(mainDispatcherRule.dispatcher) {
+        seedChannels()
+        val vm = viewModel()
+        settleOpen(vm)
+        vm.togglePreviewOnFocus() // -> false, not yet written when focus lands: the rest re-checks
+        vm.onRowFocused(a3)
+        advanceTimeBy(1_000)
+        runCurrent()
+        verify(exactly = 0) { player.tune(match { it.key == "a3" }) }
+    }
+
+    @Test
+    fun `search rows follow rank, not number order`() = runTest(mainDispatcherRule.dispatcher) {
+        val zee = Channel(key = "b1", sourceId = "a", name = "Zee News", streams = listOf(LiveStream("https://example.org/b1.m3u8")))
+        val news = Channel(key = "b2", sourceId = "a", name = "News 24", streams = listOf(LiveStream("https://example.org/b2.m3u8")))
+        channels.replaceSource("a", listOf(zee, news))
+        val vm = viewModel()
+        vm.openSearch()
+        vm.setSearchQuery("news")
+        runCurrent()
+        assertEquals(listOf("b2", "b1"), vm.uiState.value.rows.map { it.channel.key })
+        assertFalse(vm.uiState.value.search!!.pending)
+    }
+
+    @Test
+    fun `the guide grid lays out the search results`() = runTest(mainDispatcherRule.dispatcher) {
+        val guided = seedGuided()
+        val vm = viewModel()
+        vm.selectView(LiveTvView.GUIDE)
+        vm.openSearch()
+        vm.setSearchQuery("a3")
+        runCurrent()
+        assertTrue(vm.uiState.value.guide!!.row(guided.key).isEmpty()) // the guided channel is not a result
+        vm.setSearchQuery(guided.key)
+        runCurrent()
+        assertTrue(vm.uiState.value.guide!!.row(guided.key).isNotEmpty())
+    }
+
+    @Test
+    fun `open search follows lineup changes, and a filter picked meanwhile shows on close`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            val vm = viewModel()
+            vm.openSearch()
+            vm.setSearchQuery("a")
+            runCurrent()
+            assertEquals(listOf("a1", "a3"), vm.uiState.value.rows.map { it.channel.key })
+
+            val seen = mutableListOf<LiveTvUiState>()
+            backgroundScope.launch { vm.uiState.collect { seen += it } }
+            runCurrent()
+            seen.clear()
+            vm.hideChannel("a3") // the index is made again from the new lineup
+            runCurrent()
+            // No frame shows the hidden channel, and a1 stays listed throughout (pending or not).
+            assertTrue(seen.any { it.search?.pending == true }) // the frame before the index is made again
+            assertTrue(seen.filter { it.search?.pending == true }.all { it.search!!.total == 1 }) // pending frames count the new lineup
+            assertTrue(seen.none { ui -> ui.rows.any { it.channel.key == "a3" } })
+            assertTrue(seen.all { ui -> ui.rows.any { it.channel.key == "a1" } })
+            assertFalse(vm.uiState.value.search!!.pending)
+            assertEquals(listOf("a1"), vm.uiState.value.rows.map { it.channel.key })
+            assertNull(vm.uiState.value.search?.hit("a3"))
+
+            // A filter picked while search is open shows once search closes.
+            vm.selectFilter(LiveTvFilter.Favorites)
+            runCurrent()
+            assertEquals(listOf("a1"), vm.uiState.value.rows.map { it.channel.key })
+            vm.closeSearch()
+            runCurrent()
+            assertEquals(LiveTvFilter.Favorites, vm.uiState.value.filter)
+            assertTrue(vm.uiState.value.rows.isEmpty())
+        }
+
+    @Test
+    fun `with Preview on focus off the screen's return plays the focused row, as with it on`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            val vm = viewModel()
+            vm.togglePreviewOnFocus() // -> false
+            runCurrent()
+            vm.resumePreview()
+            assertTrue(vm.tuneNow(a1))
+            tuneState.value = LiveTuneState.Playing(a1)
+            vm.onRowFocused(a3)
+            advanceTimeBy(1_000)
+            runCurrent()
+            verify(exactly = 0) { player.tune(match { it.key == "a3" }) }
+            vm.stopPreview()
+            tuneState.value = LiveTuneState.Idle
+            vm.resumePreview() // D13: the focused row, not a remembered channel
+            verify(exactly = 1) { player.tune(match { it.key == "a3" }) }
+        }
+
+    @Test
+    fun `turning Preview on focus back on lets the next rest tune`() = runTest(mainDispatcherRule.dispatcher) {
+        seedChannels()
+        userStore.setPreviewOnFocus(false)
+        val vm = viewModel()
+        assertFalse(vm.previewOnFocus.value) // the stored Off is read
+        settleOpen(vm)
+        vm.togglePreviewOnFocus() // -> true, not yet stored when focus lands: the rest reads it at its end
+        vm.onRowFocused(a3)
+        advanceTimeBy(700)
+        runCurrent()
+        verify(exactly = 1) { player.tune(match { it.key == "a3" }) }
+    }
+
+    /**
+     * A cold open (Spec 111 Q1, 2026-11-23): the screen resumes before the channels are read (LiveTvScreen's
+     * start effect runs first), then rests on the row its initial focus picks (the seeded focus when the
+     * rows list it, else the first row). Nothing tunes before that rest, which tunes [expected] once
+     * whatever the setting; a later rest tunes only with Preview on focus on.
+     */
+    private fun TestScope.coldOpen(previewOn: Boolean, focused: String, expected: String) {
+        val gate = CompletableDeferred<Unit>()
+        coEvery { manager.loadChannels() } coAnswers { gate.await() }
+        val vm = viewModel()
+        vm.resumePreview()
+        runCurrent()
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(focused, vm.focusedKey.value) // the last-watched channel, seeded
+        assertEquals(previewOn, vm.previewOnFocus.value)
+        advanceTimeBy(1_000)
+        runCurrent()
+        verify(exactly = 0) { player.tune(any()) } // never the raw last-watched key
+
+        val rows = vm.uiState.value.rows
+        val first = rows.firstOrNull { it.channel.key == focused } ?: rows.first()
+        assertEquals(expected, first.channel.key)
+        vm.onRowFocused(first.channel)
+        advanceTimeBy(700)
+        runCurrent()
+        verify(exactly = 1) { player.tune(any()) }
+        verify(exactly = 1) { player.tune(match { it.key == expected }) }
+        tuneState.value = LiveTuneState.Playing(first.channel)
+
+        val next = if (expected == "a1") a3 else a1
+        vm.onRowFocused(next)
+        advanceTimeBy(1_000)
+        runCurrent()
+        verify(exactly = if (previewOn) 1 else 0) { player.tune(match { it.key == next.key }) }
+    }
+
+    @Test
+    fun `with Preview on focus off a cold open plays the last-watched row once the screen rests on it`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.recordWatched("a3", 1)
+            userStore.setPreviewOnFocus(false)
+            coldOpen(previewOn = false, focused = "a3", expected = "a3")
+        }
+
+    @Test
+    fun `with Preview on focus on a cold open leaves the first tune to the focused row's rest`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.recordWatched("a3", 1)
+            coldOpen(previewOn = true, focused = "a3", expected = "a3")
+        }
+
+    @Test
+    fun `with Preview on focus off a cold open on Favorites plays the first favorite, not the unlisted last-watched`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.toggleFavorite("a1")
+            userStore.toggleFavorite("a3")
+            userStore.recordWatched("a1", 1)
+            userStore.toggleFavorite("a1") // a1 last watched, no longer a favorite: Favorites opens on a3
+            userStore.setPreviewOnFocus(false)
+            coldOpen(previewOn = false, focused = "a1", expected = "a3")
+        }
+
+    @Test
+    fun `with Preview on focus off a cold open on a saved filter plays its first row, not the unlisted last-watched`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.setLastFilter("sports")
+            userStore.recordWatched("a3", 1)
+            userStore.setPreviewOnFocus(false)
+            coldOpen(previewOn = false, focused = "a3", expected = "a1")
+        }
+
+    @Test
+    fun `with Preview on focus off a cold open left while loading resumes no unlisted last-watched`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.setLastFilter("sports")
+            userStore.recordWatched("a3", 1)
+            userStore.setPreviewOnFocus(false)
+            val gate = CompletableDeferred<Unit>()
+            coEvery { manager.loadChannels() } coAnswers { gate.await() }
+            val vm = viewModel()
+            vm.resumePreview()
+            vm.stopPreview() // left during the skeleton
+            gate.complete(Unit)
+            runCurrent()
+            assertEquals("a3", vm.focusedKey.value)
+            vm.resumePreview() // back: Sports does not list a3
+            runCurrent()
+            verify(exactly = 0) { player.tune(any()) }
+            vm.onRowFocused(a1) // the screen's first focus
+            advanceTimeBy(700)
+            runCurrent()
+            verify(exactly = 1) { player.tune(any()) }
+            verify(exactly = 1) { player.tune(match { it.key == "a1" }) }
+        }
+
+    @Test
+    fun `with Preview on focus off a first focus that cannot tune passes the open tune to the next rest, once`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.setPreviewOnFocus(false)
+            val vm = viewModel()
+            val lost = ch("a2").copy(lostAtMs = 1L)
+            vm.onRowFocused(lost) // a lost first row never tunes
+            advanceTimeBy(1_000)
+            runCurrent()
+            verify(exactly = 0) { player.tune(any()) }
+            vm.onRowFocused(a3)
+            advanceTimeBy(700)
+            runCurrent()
+            verify(exactly = 1) { player.tune(match { it.key == "a3" }) }
+            tuneState.value = LiveTuneState.Playing(a3)
+            vm.onRowFocused(a1)
+            advanceTimeBy(1_000)
+            runCurrent()
+            verify(exactly = 0) { player.tune(match { it.key == "a1" }) }
+        }
+
+    @Test
+    fun `with Preview on focus off a cold open with a lost last-watched plays the first row`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            seedChannels()
+            userStore.recordWatched("a2", 1) // a2 is lost: All does not list it
+            userStore.setPreviewOnFocus(false)
+            coldOpen(previewOn = false, focused = "a2", expected = "a1")
+        }
+
+    @Test
+    fun `a pending number match re-ranks or drops out once its channel is renumbered`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            fun numbered(chno: String) =
+                Channel(key = "b1", sourceId = "a", name = "Alpha 5", channelNumber = chno, streams = listOf(LiveStream("https://example.org/b1.m3u8")))
+            channels.replaceSource("a", listOf(numbered("5")))
+            val vm = viewModel()
+            vm.openSearch()
+            vm.setSearchQuery("5")
+            runCurrent()
+            assertEquals(LiveChannelSearch.Tier.NUMBER_EXACT, vm.uiState.value.search?.hit("b1")?.tier)
+
+            val seen = mutableListOf<LiveTvUiState>()
+            backgroundScope.launch { vm.uiState.collect { seen += it } }
+            runCurrent()
+            seen.clear()
+            channels.replaceSource("a", listOf(numbered("7")))
+            runCurrent()
+            assertTrue(seen.any { it.search?.pending == true })
+            // Every frame after the renumber, pending ones included, has b1 by its name, never its old number.
+            val tiers = seen.mapNotNull { it.search?.hit("b1")?.tier }
+            assertTrue(tiers.isNotEmpty())
+            assertTrue(tiers.all { it == LiveChannelSearch.Tier.WORD_START })
+
+            seen.clear()
+            vm.setSearchQuery("55") // matched nothing before: a renumber to 55 only shows once the index is made again
+            runCurrent()
+            channels.replaceSource("a", listOf(numbered("55")))
+            runCurrent()
+            val pending = seen.filter { it.search?.pending == true }
+            assertTrue(pending.isNotEmpty())
+            assertTrue(pending.all { it.search!!.hits.isEmpty() })
+            assertEquals(LiveChannelSearch.Tier.NUMBER_EXACT, vm.uiState.value.search?.hit("b1")?.tier)
+        }
+
+    @Test
+    fun `open search stays open and pending while an unload's reread waits`() = runTest(mainDispatcherRule.dispatcher) {
+        seedChannels()
+        val vm = viewModel() // the screen is not started: the reread waits for it
+        vm.openSearch()
+        vm.setSearchQuery("a")
+        runCurrent()
+        assertFalse(vm.uiState.value.search!!.pending)
+        channels.unload()
+        unloads.value = 1
+        runCurrent()
+        val ui = vm.uiState.value
+        assertTrue(ui.loading)
+        assertEquals("a", ui.search?.query)
+        assertTrue(ui.search!!.pending)
+        assertTrue(ui.search!!.hits.isEmpty())
+        assertEquals(0, ui.search!!.total) // no count while the stores are read again
     }
 }

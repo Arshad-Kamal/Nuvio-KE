@@ -717,13 +717,15 @@ private fun PlayerRuntimeController.openExternalStreamInBrowser(
 }
 
 /**
- * [resetFailoverBudget]: true for a user-picked source (fresh dead-source
- * failover budget); the automatic failover (advanceToNextLiveSource) passes
- * false so its MAX_DEAD_SOURCE_FAILOVERS count survives the switch.
+ * [handPicked]: the user chose this source (Spec 131 D4), so its failure stops at the error box.
+ * [resetFailoverBudget]: true for a Sources-panel pick, a Retry's switch and the like (fresh
+ * dead-source failover budget); the automatic failover (advanceToNextLiveSource), the box's Next
+ * source and the link refresh pass false so the MAX_DEAD_SOURCE_FAILOVERS count survives the switch.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 internal fun PlayerRuntimeController.switchToSourceStream(
     stream: Stream,
+    handPicked: Boolean,
     resetFailoverBudget: Boolean = true
 ) {
     if (rejectedForP2pOff(stream)) return
@@ -735,7 +737,7 @@ internal fun PlayerRuntimeController.switchToSourceStream(
     }
 
     if (stream.isTorrent()) {
-        switchToTorrentSourceStream(stream, resetFailoverBudget)
+        switchToTorrentSourceStream(stream, handPicked, resetFailoverBudget)
         return
     }
 
@@ -747,6 +749,7 @@ internal fun PlayerRuntimeController.switchToSourceStream(
     // Spec 75 D4: a start from the player's own list had no Stream-screen search of its own; cleared
     // only once this switch really replaces the stream (the torrent switches clear it after their guard).
     stepSourcesFoundMs = null
+    currentStreamHandPicked = handPicked
 
     // Stop any active torrent before switching to HTTP stream
     stopTorrentStream()
@@ -854,10 +857,12 @@ internal fun PlayerRuntimeController.selectEpisodesSeason(season: Int) {
 @androidx.annotation.OptIn(UnstableApi::class)
 private fun PlayerRuntimeController.switchToTorrentSourceStream(
     stream: Stream,
+    handPicked: Boolean,
     resetFailoverBudget: Boolean
 ) {
     val infoHash = stream.getEffectiveInfoHash() ?: return
     stepSourcesFoundMs = null // Spec 75 D4, as switchToSourceStream
+    currentStreamHandPicked = handPicked
     sourceStreamsScope?.cancel()
     sourceStreamsScope = null
     sourceStreamsJob = null
@@ -908,10 +913,12 @@ private fun PlayerRuntimeController.switchToTorrentSourceStream(
 private fun PlayerRuntimeController.switchToTorrentEpisodeStream(
     stream: Stream,
     forcedTargetVideo: Video?,
-    isAutoPlay: Boolean
+    isAutoPlay: Boolean,
+    handPicked: Boolean
 ) {
     val infoHash = stream.getEffectiveInfoHash() ?: return
     stepSourcesFoundMs = null // Spec 75 D4, as switchToSourceStream
+    currentStreamHandPicked = handPicked
     consecutiveAutoPlayCount = nextConsecutiveAutoPlayCount(
         currentCount = consecutiveAutoPlayCount,
         isAutoPlay = isAutoPlay
@@ -1133,10 +1140,12 @@ internal fun PlayerRuntimeController.reloadEpisodeStreams() {
     }
 }
 
+/** [handPicked]: the Episodes panel's stream row (Spec 131 D4); an automatic episode pick is not. */
 internal fun PlayerRuntimeController.switchToEpisodeStream(
     stream: Stream,
     forcedTargetVideo: Video? = null,
-    isAutoPlay: Boolean = false
+    isAutoPlay: Boolean = false,
+    handPicked: Boolean
 ) {
     if (rejectedForP2pOff(stream)) return
     if (openExternalStreamInBrowser(stream = stream, fromEpisodePanel = true)) {
@@ -1144,7 +1153,7 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     }
 
     if (stream.isTorrent()) {
-        switchToTorrentEpisodeStream(stream, forcedTargetVideo, isAutoPlay)
+        switchToTorrentEpisodeStream(stream, forcedTargetVideo, isAutoPlay, handPicked)
         return
     }
 
@@ -1154,6 +1163,7 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
         return
     }
     stepSourcesFoundMs = null // Spec 75 D4, as switchToSourceStream
+    currentStreamHandPicked = handPicked
 
     consecutiveAutoPlayCount = nextConsecutiveAutoPlayCount(
         currentCount = consecutiveAutoPlayCount,
@@ -1290,6 +1300,9 @@ private fun PlayerRuntimeController.applyEpisodeSwitchState(
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
     currentEpisodeTitle = targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
 
+    // The HTTP switch reuses the stopped player, which keeps the old episode's position until its first tick: the
+    // timeline starts empty for the new episode, as after a release (Spec 104 S2e: the scrobble start reads it).
+    resetPlaybackTimeline()
     _uiState.update {
         it.copy(
             isBuffering = true,
@@ -1468,7 +1481,8 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
             switchToEpisodeStream(
                 stream = streamToPlay,
                 forcedTargetVideo = nextVideo,
-                isAutoPlay = !userInitiated
+                isAutoPlay = !userInitiated,
+                handPicked = false
             )
         } catch (e: CancellationException) {
             throw e
@@ -1514,7 +1528,7 @@ internal fun PlayerRuntimeController.playPreviousEpisode() {
                     // As Next: the episode's own runtime, set only once it is really switching.
                     target.runtime?.let { expectedRuntimeMinutes = it }
                     _uiState.update { it.copy(previousEpisodeSearch = null, playbackEnded = false) }
-                    switchToEpisodeStream(stream = pick.stream, forcedTargetVideo = target, isAutoPlay = false)
+                    switchToEpisodeStream(stream = pick.stream, forcedTargetVideo = target, isAutoPlay = false, handPicked = false)
                 }
                 is EpisodeStreamPick.Picker -> {
                     // As Next: no Next card over the sources panel.

@@ -718,7 +718,7 @@
     <string name="settings_p2p_title">P2P-streaming</string>
     <string name="settings_p2p_subtitle">Tillåt peer-to-peer (torrent)-strömmar</string>
     <string name="settings_p2p_hide_stats_title">Dölj torrent-statistik</string>
-    <string name="settings_p2p_hide_stats_subtitle">Dölj buffer, seeds, peers och nedladdningshastighet under laddning och uppspelning</string>
+    <string name="settings_p2p_hide_stats_subtitle">Dölj buffer, seeds, peers och nedladdningshastighet under uppspelning</string>
 
     <!-- PlayerScreen -->
     <string name="player_loading_preparing">Förbereder ström…</string>

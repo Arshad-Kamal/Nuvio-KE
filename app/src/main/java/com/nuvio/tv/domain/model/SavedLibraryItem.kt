@@ -34,4 +34,35 @@ data class SavedLibraryItem(
             genres = genres
         )
     }
+
+    fun toLibraryEntry(): LibraryEntry = LibraryEntry(
+        id = id,
+        type = type,
+        name = name,
+        poster = poster,
+        posterShape = posterShape,
+        background = background,
+        logo = logo,
+        description = description,
+        releaseInfo = releaseInfo,
+        imdbRating = imdbRating,
+        genres = genres,
+        addonBaseUrl = addonBaseUrl,
+        listedAt = addedAt
+    )
 }
+
+fun LibraryEntryInput.toSavedLibraryItem(): SavedLibraryItem = SavedLibraryItem(
+    id = itemId,
+    type = itemType,
+    name = title,
+    poster = poster,
+    posterShape = posterShape,
+    background = background,
+    description = description,
+    releaseInfo = releaseInfo,
+    imdbRating = imdbRating,
+    genres = genres,
+    addonBaseUrl = addonBaseUrl,
+    logo = logo
+)

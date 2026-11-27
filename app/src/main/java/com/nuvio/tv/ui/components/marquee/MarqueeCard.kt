@@ -176,20 +176,51 @@ internal fun MarqueeActionTile(
     }
 }
 
-/** Bottom scrim + `cardTitle` bottom-left (12 dp inset, 14 dp from the bottom). */
+/**
+ * Bottom scrim + `cardTitle` bottom-left (12 dp inset, 14 dp from the bottom). With [filterHits]
+ * (Spec 122 D1) the filter band takes the foot and the title, then [progress] (when given), sit above it.
+ */
 @Composable
-internal fun BoxScope.MarqueeCardTitle(text: String) {
+internal fun BoxScope.MarqueeCardTitle(
+    text: String,
+    filterHits: List<String> = emptyList(),
+    progress: (@Composable () -> Unit)? = null
+) {
     Box(modifier = Modifier.matchParentSize().background(CARD_SCRIM))
-    Text(
-        text = text,
-        style = NuvioTheme.textStyles.cardLabel,
-        color = NuvioTheme.colors.TextPrimary,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .align(Alignment.BottomStart)
-            .padding(start = 12.dp, end = 12.dp, bottom = 14.dp)
-    )
+    val title: @Composable (Modifier) -> Unit = { modifier ->
+        Text(
+            text = text,
+            style = NuvioTheme.textStyles.cardLabel,
+            color = NuvioTheme.colors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = modifier
+        )
+    }
+    if (filterHits.isEmpty()) {
+        title(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 14.dp))
+    } else {
+        MarqueeCardBandFoot(filterHits, progress) {
+            title(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp))
+        }
+    }
+}
+
+/**
+ * Spec 122 D1 + 117 S6: a card foot with the filter band at the bottom and, stacked above it, [above]
+ * (a landscape card's title) and [progress], so a Continue Watching bar never paints over the band.
+ */
+@Composable
+internal fun BoxScope.MarqueeCardBandFoot(
+    filterHits: List<String>,
+    progress: (@Composable () -> Unit)? = null,
+    above: @Composable () -> Unit = {}
+) {
+    Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
+        above()
+        progress?.invoke()
+        FilterHitBandRow(filterHits)
+    }
 }
 
 /**
@@ -305,10 +336,21 @@ internal fun BoxScope.MarqueeCardTick(
 /** Progress bar inset [inset] from the sides and [bottom] from the bottom; [fill] is the played part. */
 @Composable
 internal fun BoxScope.MarqueeCardProgress(fraction: Float, fill: Color, inset: Dp = 12.dp, bottom: Dp = 7.dp) {
+    MarqueeCardProgressBar(fraction, fill, inset, bottom, Modifier.align(Alignment.BottomStart))
+}
+
+/** [MarqueeCardProgress] for a caller that places it (above a filter band, [MarqueeCardBandFoot]). */
+@Composable
+internal fun MarqueeCardProgressBar(
+    fraction: Float,
+    fill: Color,
+    inset: Dp = 12.dp,
+    bottom: Dp = 7.dp,
+    modifier: Modifier = Modifier
+) {
     val barHeight = NuvioTheme.marquee.progressHeight
     Box(
-        modifier = Modifier
-            .align(Alignment.BottomStart)
+        modifier = modifier
             .padding(start = inset, end = inset, bottom = bottom)
             .fillMaxWidth()
             .height(barHeight)

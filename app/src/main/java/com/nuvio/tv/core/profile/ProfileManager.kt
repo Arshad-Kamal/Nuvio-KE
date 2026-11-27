@@ -3,6 +3,7 @@ package com.nuvio.tv.core.profile
 import android.content.Context
 import com.nuvio.tv.R
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
+import com.nuvio.tv.data.local.ProfileContentFilterStore
 import com.nuvio.tv.data.local.ProfileDataStore
 import com.nuvio.tv.data.local.ProfileDataStoreFactory
 import com.nuvio.tv.domain.model.UserProfile
@@ -23,7 +24,8 @@ import javax.inject.Singleton
 class ProfileManager @Inject constructor(
     private val profileDataStore: ProfileDataStore,
     private val factory: ProfileDataStoreFactory,
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val contentFilterStore: ProfileContentFilterStore
 ) {
     companion object {
         const val MAX_PROFILES = 6
@@ -123,6 +125,8 @@ class ProfileManager @Inject constructor(
     suspend fun deleteProfile(id: Int): Boolean {
         if (id == 1) return false
         if (profiles.value.none { it.id == id }) return false
+        // Spec 122: the primary must not keep previewing this id (a later profile may reuse it).
+        contentFilterStore.clearPreviewOf(id)
         deleteProfileData(id)
         profileDataStore.deleteProfile(id)
         return true

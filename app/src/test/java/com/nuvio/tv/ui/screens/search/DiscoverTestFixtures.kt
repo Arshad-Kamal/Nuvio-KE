@@ -57,7 +57,8 @@ internal class RecordingCatalogRepository(
         skip: Int,
         skipStep: Int,
         extraArgs: Map<String, String>,
-        supportsSkip: Boolean
+        supportsSkip: Boolean,
+        packGate: Boolean
     ): Flow<NetworkResult<CatalogRow>> = flow {
         requests += DiscoverRequest(catalogId, skip, extraArgs)
         emit(NetworkResult.Loading)

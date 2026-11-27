@@ -243,6 +243,7 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                                 (playingNow && !cacheBuffering && playerDuration > 0L)
                             if (firstFrameReady) {
                                 hasRenderedFirstFrame = true
+                                prefetchAutoSyncIndex() // Spec 108 Q5
                                 cancelStartupWatchdog()
                                 clearFailoverNoticeAfterFirstFrame()
                                 val clickToFirstFrameMs = launchStartedAtElapsedMs
@@ -857,8 +858,9 @@ internal fun PlayerRuntimeController.saveWatchProgressInternal(position: Long, d
         ) {
             WatchProgressSaveAction.MARK_COMPLETED -> {
                 hasMarkedCurrentEpisodeCompleted = true
-                // The repository also prunes this episode's (or movie's) Watch Next row.
-                watchProgressRepository.markAsCompleted(progress)
+                // The repository also prunes this episode's (or movie's) Watch Next row. Not sent to trackers as a
+                // mark: the play's own scrobble reports it (Spec 104 S2b).
+                watchProgressRepository.markAsCompleted(progress, broadcastToTrackers = false)
                 // Once per stream (the flag above): Library's "Watched 2×" (Spec 27e).
                 watchCountDataStore.recordCompletedPlay(parentContentId, parentContentType)
             }
@@ -982,12 +984,12 @@ internal fun PlayerRuntimeController.setSubtitleDelayMs(targetMs: Int, showOverl
             )
         }
     } else {
+        // Silent change (AutoSync's delay reset): the controls stay as they are (upstream daad73db5).
         hideSubtitleDelayOverlayJob?.cancel()
         _uiState.update {
             it.copy(
                 subtitleDelayMs = newDelayMs,
-                showSubtitleDelayOverlay = false,
-                showControls = true
+                showSubtitleDelayOverlay = false
             )
         }
     }
@@ -1275,7 +1277,8 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             pendingAddonSubtitleLanguage = null
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
-            resetSubtitleAutoSyncState()
+            resetSubtitleManualSyncState()
+            cancelAutomaticSubtitleSync() // Spec 108
             rememberInternalSubtitleSelection(event.index)
             selectSubtitleTrack(event.index)
             _uiState.update {
@@ -1293,7 +1296,8 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             pendingAddonSubtitleLanguage = null
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
-            resetSubtitleAutoSyncState()
+            resetSubtitleManualSyncState()
+            cancelAutomaticSubtitleSync() // Spec 108
             rememberSubtitleDisabled()
             disableSubtitles()
             _uiState.update {
@@ -1311,6 +1315,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             trackSelection.autoSubtitleSelected = true
             rememberAddonSubtitleSelection(event.subtitle)
             selectAddonSubtitle(event.subtitle)
+            runSelectedAutomaticSubtitleSync(event.subtitle) // Spec 108
             _uiState.update {
                 it.copy(
                     showSubtitleOverlay = true,
@@ -1390,14 +1395,15 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         PlayerEvent.OnDismissSubtitleTimingDialog -> {
             dismissSubtitleTimingDialog()
         }
-        PlayerEvent.OnCaptureSubtitleAutoSyncTime -> {
-            captureSubtitleAutoSyncTime()
+        PlayerEvent.OnCaptureSubtitleManualSyncTime -> {
+            captureSubtitleManualSyncTime()
         }
-        is PlayerEvent.OnApplySubtitleAutoSyncCue -> {
-            applySubtitleAutoSyncCue(event.cueStartTimeMs)
+        is PlayerEvent.OnApplySubtitleManualSyncCue -> {
+            applySubtitleManualSyncCue(event.cueStartTimeMs)
         }
-        PlayerEvent.OnReloadSubtitleAutoSyncCues -> {
-            reloadSubtitleAutoSyncCues()
+        PlayerEvent.OnAutoSyncNoFitNoticeShown -> consumeAutoSyncNoFitNotice()
+        PlayerEvent.OnReloadSubtitleManualSyncCues -> {
+            reloadSubtitleManualSyncCues()
         }
         PlayerEvent.OnShowSubtitleDelayOverlay -> {
             showSubtitleDelayOverlay()
@@ -1502,7 +1508,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             filterEpisodeList(event.filter)
         }
         is PlayerEvent.OnEpisodeStreamSelected -> {
-            switchToEpisodeStream(event.stream)
+            switchToEpisodeStream(event.stream, handPicked = true)
         }
         PlayerEvent.OnShowSourcesPanel -> {
             showSourcesPanel()
@@ -1520,7 +1526,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             filterSourceList(event.filter)
         }
         is PlayerEvent.OnSourceStreamSelected -> {
-            switchToSourceStream(event.stream)
+            switchToSourceStream(event.stream, handPicked = true)
         }
         is PlayerEvent.OnPreferSource -> {
             preferSource(event.stream)

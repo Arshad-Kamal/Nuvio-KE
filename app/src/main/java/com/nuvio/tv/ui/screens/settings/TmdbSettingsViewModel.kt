@@ -2,6 +2,8 @@ package com.nuvio.tv.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.core.scout.ScoutPicksRepository
 import com.nuvio.tv.core.tmdb.TmdbApiKeyProvider
 import com.nuvio.tv.core.tmdb.TmdbKeyCheck
 import com.nuvio.tv.core.tmdb.TmdbKeyEntry
@@ -11,7 +13,11 @@ import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.trailer.TrailerService
 import com.nuvio.tv.domain.model.TmdbSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,12 +34,20 @@ class TmdbSettingsViewModel @Inject constructor(
     private val trailerService: TrailerService,
     private val keyProvider: TmdbApiKeyProvider,
     private val keyEntry: TmdbKeyEntry,
-    phoneStarter: TmdbKeyServerStarter
+    phoneStarter: TmdbKeyServerStarter,
+    private val scoutPicks: ScoutPicksRepository,
+    private val profileManager: ProfileManager
 ) : ViewModel() {
 
     /** Null until the active profile's stored values load: the pane renders rows only after. */
     private val _uiState = MutableStateFlow<TmdbSettings?>(null)
     val uiState: StateFlow<TmdbSettings?> = _uiState.asStateFlow()
+
+    /** The active profile's Picked for you switch (Spec 100 D4, On by default); null until read. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val scoutEnabled: StateFlow<Boolean?> = profileManager.activeProfileId
+        .flatMapLatest { scoutPicks.enabled(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** The device-wide key (null until its store's first read): the key row and the dimmed rows. */
     val keyState: StateFlow<TmdbKeyState?> = keyProvider.state
@@ -79,6 +93,10 @@ class TmdbSettingsViewModel @Inject constructor(
             is TmdbSettingsEvent.ToggleTrailers -> update { dataStore.setUseTrailers(event.enabled) }
             is TmdbSettingsEvent.ToggleMoreLikeThis -> update { dataStore.setUseMoreLikeThis(event.enabled) }
             is TmdbSettingsEvent.ToggleCollections -> update { dataStore.setUseCollections(event.enabled) }
+            is TmdbSettingsEvent.ToggleScout -> {
+                val profileId = profileManager.activeProfileId.value
+                update { scoutPicks.setEnabled(profileId, event.enabled) }
+            }
             TmdbSettingsEvent.OpenKeyPanel -> newPanelSession(TmdbKeyPanelState.OPEN)
             // Closing cancels a running check: nothing is saved unless TMDB had already said yes.
             TmdbSettingsEvent.CloseKeyPanel -> newPanelSession(null)
@@ -166,6 +184,7 @@ sealed class TmdbSettingsEvent {
     data class ToggleTrailers(val enabled: Boolean) : TmdbSettingsEvent()
     data class ToggleMoreLikeThis(val enabled: Boolean) : TmdbSettingsEvent()
     data class ToggleCollections(val enabled: Boolean) : TmdbSettingsEvent()
+    data class ToggleScout(val enabled: Boolean) : TmdbSettingsEvent()
     data object OpenKeyPanel : TmdbSettingsEvent()
     data object CloseKeyPanel : TmdbSettingsEvent()
     data class SubmitKey(val key: String) : TmdbSettingsEvent() {

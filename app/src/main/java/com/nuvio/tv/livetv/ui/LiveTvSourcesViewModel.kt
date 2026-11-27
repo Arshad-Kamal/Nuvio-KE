@@ -13,6 +13,7 @@ import com.nuvio.tv.livetv.source.PackScanStore
 import com.nuvio.tv.livetv.source.PackScanner
 import com.nuvio.tv.livetv.source.PackStore
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.source.StremioTvAdapter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,7 +53,26 @@ data class LiveTvSourcesUiState(
     val headers: List<HeaderSuggestion> = emptyList()
 )
 
-/** The Add source dialog's check (stage 15): Add is enabled only in [Ready]. */
+/** The Add source panel's tabs (Spec 109 D4 Q1): a URL, or an Xtream login. */
+enum class AddTab { LINK, XTREAM }
+
+/** The Xtream login tab's fields as typed (in memory only, never saved state: the password is one). */
+data class XtreamFields(val server: String = "", val username: String = "", val password: String = "") {
+    override fun toString(): String = "XtreamFields(server=$server)"
+}
+
+/**
+ * Edit login's form (Spec 109 S2.6, stage 10, D13) for Xtream source [sourceId]: [initial] as it
+ * opened (server, stored username, empty password), [fields] as typed. [stored] = a login is on
+ * this TV, so an empty password keeps it ("unchanged"); none (a restored list) opens with the
+ * username and password empty and needs both typed. In memory only, as [XtreamFields].
+ */
+data class EditLogin(val sourceId: String, val initial: XtreamFields, val fields: XtreamFields, val stored: Boolean) {
+    /** Save with nothing changed only closes (D13 c). */
+    val changed: Boolean get() = fields != initial
+}
+
+/** The Add source dialog's check (stage 15), shared by Edit login: Add / Save is enabled only in [Ready]. */
 sealed interface AddCheck {
     data object Idle : AddCheck
     data object Checking : AddCheck
@@ -64,6 +84,8 @@ sealed interface AddCheck {
 /** One-shot outcomes the route shows as a toast; [Added] also moves focus to the new row. */
 sealed interface SourcesEvent {
     data class Added(val id: String, val name: String) : SourcesEvent
+    /** Edit login saved [id]'s login: the panel closes, focus back on its row. */
+    data class Edited(val id: String) : SourcesEvent
     data object RenameFailed : SourcesEvent
     data object RemoveFailed : SourcesEvent
     data object UnhideFailed : SourcesEvent
@@ -108,9 +130,33 @@ class LiveTvSourcesViewModel @Inject constructor(
 
     private val _addUrl = MutableStateFlow("")
     val addUrl: StateFlow<String> = _addUrl.asStateFlow()
-    private val _addCheck = MutableStateFlow<AddCheck>(AddCheck.Idle)
-    val addCheck: StateFlow<AddCheck> = _addCheck.asStateFlow()
-    private var addJob: Job? = null
+
+    /**
+     * The typed link is already a stored source (as [LiveSourceManager.check] compares it): a pasted
+     * link that passed as an Xtream login then offers the login only, no Add as playlist (D25).
+     */
+    val linkStored: StateFlow<Boolean> = combine(_addUrl, sourceManager.sources) { url, sources ->
+        val link = StremioTvAdapter.normalizeUrl(url)
+        link.isNotEmpty() && sources.any { it.url == link }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), false)
+    private val _addTab = MutableStateFlow(AddTab.LINK)
+    val addTab: StateFlow<AddTab> = _addTab.asStateFlow()
+    private val _xtream = MutableStateFlow(XtreamFields())
+    val xtreamFields: StateFlow<XtreamFields> = _xtream.asStateFlow()
+    /** One dialog's check-then-store state and the job driving it: Add source's and Edit login's are apart. */
+    private class CheckSlot {
+        val state = MutableStateFlow<AddCheck>(AddCheck.Idle)
+        var job: Job? = null
+    }
+
+    private val add = CheckSlot()
+    val addCheck: StateFlow<AddCheck> = add.state.asStateFlow()
+    private val editing = CheckSlot()
+    val editCheck: StateFlow<AddCheck> = editing.state.asStateFlow()
+    /** A Save press's run (its check, then the save): a second press while it runs does nothing. */
+    private var saveJob: Job? = null
+    private val _edit = MutableStateFlow<EditLogin?>(null)
+    val editLogin: StateFlow<EditLogin?> = _edit.asStateFlow()
 
     private val events = Channel<SourcesEvent>(Channel.BUFFERED)
     val event: Flow<SourcesEvent> = events.receiveAsFlow()
@@ -238,6 +284,11 @@ class LiveTvSourcesViewModel @Inject constructor(
         viewModelScope.launch { refreshNow(id) }
     }
 
+    private fun refreshGuide(id: String) {
+        if (id in refreshing.value) return
+        viewModelScope.launch { refreshNow(id, guideOnly = true) }
+    }
+
     /** Refresh all: every source, one after another (each takes the manager's lock on its own). */
     fun refreshAll() {
         if (refreshAllJob?.isActive == true) return
@@ -248,10 +299,11 @@ class LiveTvSourcesViewModel @Inject constructor(
         }
     }
 
-    private suspend fun refreshNow(id: String) {
+    /** [guideOnly]: an Xtream login's guide alone ([LiveSourceManager.refreshGuide]), shown as Refreshing too. */
+    private suspend fun refreshNow(id: String, guideOnly: Boolean = false) {
         refreshing.update { it + id }
         try {
-            sourceManager.refresh(id)
+            if (guideOnly) sourceManager.refreshGuide(id) else sourceManager.refresh(id)
         } finally {
             refreshing.update { it - id }
         }
@@ -324,39 +376,98 @@ class LiveTvSourcesViewModel @Inject constructor(
         }
     }
 
-    /** The dialog opened: an empty field, nothing checked (an add still saving finishes first). */
+    /** The dialog opened: on Link, empty fields, nothing checked (an add still saving finishes first). */
     fun openAdd() {
-        if (resetCheck()) _addUrl.value = ""
+        if (resetCheck()) {
+            _addUrl.value = ""
+            _xtream.value = XtreamFields()
+            _addTab.value = AddTab.LINK
+        }
+    }
+
+    /** Another tab: its own fields stay; any check no longer applies (ignored while an add saves). */
+    fun selectAddTab(tab: AddTab) {
+        if (tab == _addTab.value || add.state.value == AddCheck.Adding) return
+        _addTab.value = tab
+        resetCheck()
+    }
+
+    /** An Xtream field changed: any check of the old login no longer applies (ignored while an add saves). */
+    fun onXtreamChange(fields: XtreamFields) {
+        if (fields == _xtream.value || add.state.value == AddCheck.Adding) return
+        _xtream.value = fields
+        resetCheck()
+    }
+
+    /** Signs in with the typed login (Password's IME Done, Spec 109 S1): Add is enabled once it passes. */
+    fun checkXtream() {
+        val fields = _xtream.value
+        runCheck { sourceManager.checkXtream(fields.server, fields.username, fields.password) }
     }
 
     /** The URL changed: any check of the old text no longer applies (ignored while an add saves). */
     fun onAddUrlChange(url: String) {
-        if (url == _addUrl.value || _addCheck.value == AddCheck.Adding) return
+        if (url == _addUrl.value || add.state.value == AddCheck.Adding) return
         _addUrl.value = url
         resetCheck()
     }
 
-    /** The dialog closed: a check still running is dropped with its data; an add still saving finishes. */
+    /**
+     * The dialog closed: a check still running is dropped with its data; an add still saving
+     * finishes (it holds its own copy of the login). The typed login goes either way: the password
+     * is not kept past the panel.
+     */
     fun closeAdd() {
+        _xtream.value = XtreamFields()
         resetCheck()
     }
 
-    /** Drops any check (running or passed) back to Idle; false, doing nothing, while an add saves. */
-    private fun resetCheck(): Boolean {
-        if (_addCheck.value == AddCheck.Adding) return false
-        addJob?.cancel()
-        _addCheck.value = AddCheck.Idle
+    /** Drops [slot]'s check (running or passed) back to Idle; false, doing nothing, while it saves. */
+    private fun resetCheck(slot: CheckSlot = add): Boolean {
+        if (slot.state.value == AddCheck.Adding) return false
+        slot.job?.cancel()
+        slot.state.value = AddCheck.Idle
         return true
     }
 
-    /** Checks the typed URL (IME Done, D16): Add is enabled once it passes. */
+    /**
+     * Checks the typed URL (IME Done, D16): Add is enabled once it passes. A `get.php` link with a
+     * login signs in as Xtream first ([LiveSourceManager.checkLink], Spec 109 D14).
+     */
     fun checkAdd() {
         val url = _addUrl.value.trim()
-        val state = _addCheck.value
-        if (url.isEmpty() || (state != AddCheck.Idle && state !is AddCheck.Refused)) return
-        _addCheck.value = AddCheck.Checking
-        addJob = viewModelScope.launch {
-            _addCheck.value = when (val result = sourceManager.check(url)) {
+        if (url.isEmpty()) return
+        runCheck { sourceManager.checkLink(url) }
+    }
+
+    /**
+     * Add as playlist (stage 11), offered while a pasted link passed as an Xtream login: checks the
+     * URL as a playlist, then adds it, in one press. The check can be dropped as any check (closing
+     * or editing); its refusal stays on the check line.
+     */
+    fun addAsPlaylist() {
+        val ready = add.state.value as? AddCheck.Ready ?: return
+        if (_addTab.value != AddTab.LINK || ready.checked.source.kind != SourceKind.XTREAM) return
+        val url = _addUrl.value.trim()
+        add.state.value = AddCheck.Checking
+        add.job = viewModelScope.launch {
+            when (val result = sourceManager.check(url)) {
+                is LiveSourceManager.CheckResult.Refused -> add.state.value = AddCheck.Refused(result.reason)
+                is LiveSourceManager.CheckResult.Ready -> {
+                    add.state.value = AddCheck.Ready(result.checked)
+                    confirmAdd()
+                }
+            }
+        }
+    }
+
+    /** Runs [check] in [slot] unless one runs or passed already (Idle or Refused only); Add is enabled once it passes. */
+    private fun runCheck(slot: CheckSlot = add, check: suspend () -> LiveSourceManager.CheckResult) {
+        val state = slot.state.value
+        if (state != AddCheck.Idle && state !is AddCheck.Refused) return
+        slot.state.value = AddCheck.Checking
+        slot.job = viewModelScope.launch {
+            slot.state.value = when (val result = check()) {
                 is LiveSourceManager.CheckResult.Refused -> AddCheck.Refused(result.reason)
                 is LiveSourceManager.CheckResult.Ready -> AddCheck.Ready(result.checked)
             }
@@ -365,18 +476,104 @@ class LiveTvSourcesViewModel @Inject constructor(
 
     /** Add (enabled only after a passed check): stores it; the route closes the dialog on [SourcesEvent.Added]. */
     fun confirmAdd() {
-        val pending = (_addCheck.value as? AddCheck.Ready)?.checked ?: return
-        _addCheck.value = AddCheck.Adding
-        addJob = viewModelScope.launch {
-            _addCheck.value = when (val result = sourceManager.add(pending)) {
+        val pending = (add.state.value as? AddCheck.Ready)?.checked ?: return
+        add.state.value = AddCheck.Adding
+        add.job = viewModelScope.launch {
+            add.state.value = when (val result = sourceManager.add(pending)) {
                 is LiveSourceManager.AddResult.Added -> {
                     _addUrl.value = ""
+                    _xtream.value = XtreamFields()
                     events.send(SourcesEvent.Added(result.source.id, result.source.name))
+                    // The login's guide is read now (the check stays quick and listed the channels; Spec 109 S2).
+                    if (result.source.kind == SourceKind.XTREAM) refreshGuide(result.source.id)
                     AddCheck.Idle
                 }
                 is LiveSourceManager.AddResult.Refused -> AddCheck.Refused(result.reason)
             }
         }
+    }
+
+    /**
+     * Opens Edit login on Xtream source [id] (D13 a): its server, and its stored username with the
+     * password marked unchanged; with no login on this TV, both empty. Ignored while an earlier
+     * edit's save runs; [closeEdit] drops a load still running (another panel opened first).
+     */
+    fun openEdit(id: String) {
+        val source = sourceManager.sources.value.firstOrNull { it.id == id && it.kind == SourceKind.XTREAM } ?: return
+        if (!resetEdit()) return
+        editing.job = viewModelScope.launch {
+            val username = sourceManager.xtreamUsername(id)
+            val fields = XtreamFields(server = source.url, username = username.orEmpty())
+            _edit.value = EditLogin(id, fields, fields, stored = username != null)
+        }
+    }
+
+    /** An Edit login field changed: any check (and a Save waiting on it) no longer applies; ignored while a save runs. */
+    fun onEditChange(fields: XtreamFields) {
+        val edit = _edit.value ?: return
+        if (fields == edit.fields || editing.state.value == AddCheck.Adding) return
+        _edit.value = edit.copy(fields = fields)
+        resetEdit()
+    }
+
+    /** Done on a changed field (stage 10): signs in with the edited login, storing nothing. */
+    fun checkEdit() {
+        val edit = _edit.value ?: return
+        runCheck(editing) { checkEdit(edit) }
+    }
+
+    /** An empty password keeps the stored one (the manager reads it; this screen never holds it). */
+    private suspend fun checkEdit(edit: EditLogin) = edit.fields.let {
+        sourceManager.checkXtreamEdit(edit.sourceId, it.server, it.username, it.password.ifEmpty { null })
+    }
+
+    /**
+     * Save (D13): nothing changed closes; a passed check saves; otherwise one press checks, then
+     * saves (a check Done started is waited for, not repeated). Presses while a Save runs do
+     * nothing. A refusal stays on the check line. Saved: the panel closes, focus goes back to its
+     * row ([SourcesEvent.Edited]) and the login's guide is read ([LiveSourceManager.refreshGuide]).
+     * A save that outlives its panel ([closeEdit]) still finishes, quietly.
+     */
+    fun saveEdit() {
+        val edit = _edit.value ?: return
+        if (saveJob?.isActive == true || editing.state.value == AddCheck.Adding) return
+        if (!edit.changed) {
+            closeEdit()
+            return
+        }
+        if (editing.state.value != AddCheck.Checking) runCheck(editing) { checkEdit(edit) }
+        val check = editing.job
+        saveJob = viewModelScope.launch {
+            check?.join()
+            val checked = (editing.state.value as? AddCheck.Ready)?.checked ?: return@launch
+            editing.state.value = AddCheck.Adding
+            val result = sourceManager.saveEdit(checked)
+            val open = _edit.value?.sourceId == edit.sourceId
+            editing.state.value = when (result) {
+                is LiveSourceManager.AddResult.Added -> {
+                    if (open) {
+                        _edit.value = null
+                        events.send(SourcesEvent.Edited(edit.sourceId))
+                    }
+                    refreshGuide(edit.sourceId)
+                    AddCheck.Idle
+                }
+                is LiveSourceManager.AddResult.Refused -> if (open) AddCheck.Refused(result.reason) else AddCheck.Idle
+            }
+        }
+    }
+
+    /** Edit login closed (or another panel opened): the typed login goes; a save already storing finishes. */
+    fun closeEdit() {
+        _edit.value = null
+        resetEdit()
+    }
+
+    /** [resetCheck] for Edit login, with a Save waiting on the dropped check; false while a save stores. */
+    private fun resetEdit(): Boolean {
+        if (editing.state.value == AddCheck.Adding) return false
+        saveJob?.cancel()
+        return resetCheck(editing)
     }
 
     private data class Suggestions(

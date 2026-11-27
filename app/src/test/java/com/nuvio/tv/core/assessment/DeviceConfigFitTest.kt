@@ -51,6 +51,7 @@ class DeviceConfigFitTest {
         manufacturer: String = "Google",
         model: String = "Chromecast",
         tierMaxChunkMb: Int = 16,
+        tierMaxTargetMb: Int = Int.MAX_VALUE,
         apiLevel: Int = 30,
         display: DisplayFacts = display4k
     ) = DeviceFacts(
@@ -61,12 +62,13 @@ class DeviceConfigFitTest {
         safeLimitMb = safe,
         warningLimitMb = warn,
         tierMaxChunkMb = tierMaxChunkMb,
+        tierMaxTargetMb = tierMaxTargetMb,
         display = display,
         policy = policy
     )
 
     /** The reference device: 2019 non-Pro Shield, 2 GB rung (safe 250 / warn 325). */
-    private val shield2gb = device(250, 325, "NVIDIA", "SHIELD Android TV")
+    private val shield2gb = device(250, 325, "NVIDIA", "SHIELD Android TV", tierMaxTargetMb = 100)
 
     /** Every RAM rung's safe / warn MB (NuvioExoPlayerPerformanceHelper RAM_TIERS). */
     private val tiers = listOf(
@@ -98,8 +100,8 @@ class DeviceConfigFitTest {
         frameRateMatching = FrameRateMatchingMode.START_STOP
     )
 
-    private fun limits(safe: Int, tierMaxChunkMb: Int = 32) =
-        DeviceLimits(safe, tierMaxChunkMb, perfModeSupported = true, afrSupported = true)
+    private fun limits(safe: Int, tierMaxChunkMb: Int = 32, tierMaxTargetMb: Int = Int.MAX_VALUE) =
+        DeviceLimits(safe, tierMaxChunkMb, tierMaxTargetMb, perfModeSupported = true, afrSupported = true)
 
     private fun PlaybackConfig.nativeMb() = targetBufferMb + parallelOverheadMb
 
@@ -108,10 +110,11 @@ class DeviceConfigFitTest {
     @Test
     fun `Shield setup on the 2 GB rung is today's applied preset`() {
         val setup = DeviceSetupFormula.setup(shield2gb, PlayerSettings())
-        // The preset as apply settles it: the applier's clamp takes 200 to 150 on safe 250.
-        assertEquals(ShieldPreset.plan.copy(targetBufferSizeMb = 150), setup.plan)
+        // The preset as the player gets it: the 2 GB tier's 100 MB ceiling (Spec 147 D4; the
+        // safe-limit clamp alone would give 150 on safe 250).
+        assertEquals(ShieldPreset.plan.copy(targetBufferSizeMb = 100), setup.plan)
         val p = setup.plan
-        assertEquals(150, p.targetBufferSizeMb)
+        assertEquals(100, p.targetBufferSizeMb)
         assertEquals(4, p.parallelConnectionCount)
         assertEquals(16_384, p.parallelChunkSizeKb)
         assertEquals(false, p.enableHttp2)
@@ -145,10 +148,12 @@ class DeviceConfigFitTest {
     @Test
     fun `Shield overlay passes the no-film fit gate unchanged on every RAM rung`() {
         for ((safe, warn) in tiers) {
-            val d = shield2gb.copy(safeLimitMb = safe, warningLimitMb = warn)
+            // The 1 / 1.5 / 2 GB rungs (safe <= 250) are the low-RAM tier, with its target ceiling.
+            val tierMax = if (safe <= 250) 100 else Int.MAX_VALUE
+            val d = shield2gb.copy(safeLimitMb = safe, warningLimitMb = warn, tierMaxTargetMb = tierMax)
             val overlaid = ShieldPreset.overlay(DeviceSetupFormula.formula(d, PlayerSettings()), d.limits())
             assertEquals("safe $safe", overlaid, fitPlaybackConfig(overlaid, d.limits(), filmMbps = null))
-            assertEquals(ShieldPreset.effectiveTargetMb(safe), overlaid.targetBufferMb)
+            assertEquals(ShieldPreset.effectiveTargetMb(safe, tierMax), overlaid.targetBufferMb)
         }
     }
 
@@ -350,7 +355,7 @@ class DeviceConfigFitTest {
 
     @Test
     fun `gate clamps perf mode, connections, tier chunk and AFR to the device`() {
-        val lim = DeviceLimits(1000, 16, perfModeSupported = false, afrSupported = false)
+        val lim = DeviceLimits(1000, 16, Int.MAX_VALUE, perfModeSupported = false, afrSupported = false)
         val fitted = fitPlaybackConfig(config(connections = 6, chunkKb = 32_768), lim, null)
         assertFalse(fitted.performanceMode)
         assertEquals(MemoryBudget.MAX_CONNECTIONS, fitted.connections)
@@ -359,5 +364,15 @@ class DeviceConfigFitTest {
         // Unknown AFR support keeps the mode.
         val unknown = lim.copy(afrSupported = null)
         assertEquals(FrameRateMatchingMode.START_STOP, fitPlaybackConfig(config(), unknown, null).frameRateMatching)
+    }
+
+    @Test
+    fun `gate caps the target at the RAM tier's ceiling and never raises one below it`() {
+        // Spec 147 D4: room for 950 on safe 1000, but the 2 GB tier's ceiling is 100.
+        val capped = limits(1000, tierMaxTargetMb = 100)
+        assertEquals(100, fitPlaybackConfig(config(target = 150), capped, null).targetBufferMb)
+        assertEquals(100, fitPlaybackConfig(config(target = 150), capped, filmMbps = 63.0).targetBufferMb)
+        assertEquals(75, fitPlaybackConfig(config(target = 75), capped, null).targetBufferMb)
+        assertEquals(150, fitPlaybackConfig(config(target = 150), limits(1000), null).targetBufferMb)
     }
 }

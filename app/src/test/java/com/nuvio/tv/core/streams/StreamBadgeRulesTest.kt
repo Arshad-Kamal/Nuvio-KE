@@ -32,6 +32,60 @@ class StreamBadgeRulesTest {
         assertEquals("Quality", import.groups[0].name)
     }
 
+    // Spec 130: the pre-fix parser rejected this real pack whole (95 patterns over 200 characters).
+    @Test
+    fun `imports FR Badges pack with long patterns and every pattern compiles`() {
+        val payload = checkNotNull(javaClass.getResource("/stream-badges/fr-badges.json")).readText()
+
+        val import = StreamBadgeRulesParser.parse(sourceUrl = "https://example.com/fr.json", payload = payload)
+
+        assertEquals(219, import.filters.size)
+        assertTrue(import.filters.count { it.pattern.length > 200 } >= 95)
+        val compiled = StreamBadgeMatcher.compile(StreamBadgeRules(imports = listOf(import)))
+        assertEquals(import.filters.count { it.isEnabled }, compiled.size)
+    }
+
+    // Spec 130 round 2: the warm's compile stops before the next pattern once told to.
+    @Test
+    fun `compileWhile stops when keepGoing turns false and compiles all otherwise`() {
+        val filters = (1..5).map { StreamBadgeFilter(name = "B$it", pattern = "Tag$it") }
+        val rules = StreamBadgeRules(imports = listOf(StreamBadgeImport(sourceUrl = "https://example.com/b.json", filters = filters)))
+        var asked = 0
+
+        val stopped = StreamBadgeMatcher.compileWhile(rules) { ++asked <= 2 }
+
+        assertEquals(null, stopped)
+        assertEquals(3, asked)
+        assertEquals(5, StreamBadgeMatcher.compileWhile(rules) { true }?.size)
+        assertEquals(5, StreamBadgeMatcher.compile(rules).size)
+    }
+
+    // Spec 130: Master-style packs (396 short filters) were rejected by the old 300-filter cap.
+    @Test
+    fun `imports pack with more than 300 filters`() {
+        val filters = (1..396).joinToString(",") { i -> """{"name":"Badge $i","pattern":"\\bTag$i\\b"}""" }
+
+        val import = StreamBadgeRulesParser.parse(
+            sourceUrl = "https://example.com/master.json",
+            payload = """{"filters":[$filters],"groups":[]}"""
+        )
+
+        assertEquals(396, import.filters.size)
+        assertEquals("\\bTag396\\b", import.filters.last().pattern)
+    }
+
+    @Test
+    fun `truncates an over-long badge name instead of rejecting the pack`() {
+        val longName = "N".repeat(10_000)
+
+        val import = StreamBadgeRulesParser.parse(
+            sourceUrl = "https://example.com/long.json",
+            payload = """{"filters":[{"name":"$longName","pattern":"DV"}]}"""
+        )
+
+        assertEquals(StreamBadgeRulesParser.MAX_BADGE_NAME_LENGTH, import.filters.single().name.length)
+    }
+
     @Test
     fun `normalizes imports with one active source and import limit`() {
         val rules = StreamBadgeRules(

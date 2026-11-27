@@ -10,7 +10,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  */
 internal object XtreamUrls {
     private val NUMERIC_ID = Regex("""\d+""")
-    private val NUMERIC_FILE = Regex("""\d+(\.[A-Za-z0-9]+)?""")
     private val LIVE_FILE = Regex("""\d+(\.(ts|m3u8))?""", RegexOption.IGNORE_CASE)
 
     /**
@@ -22,7 +21,26 @@ internal object XtreamUrls {
         if (!url.contains("/movie/") && !url.contains("/series/")) return false
         val segments = url.toHttpUrlOrNull()?.pathSegments ?: return false
         return segments.size == 4 && segments[0].let { it == "movie" || it == "series" } &&
-            hasAccount(segments, 1) && NUMERIC_FILE.matches(segments[3])
+            hasAccount(segments, 1) && isNumericFile(segments[3])
+    }
+
+    /**
+     * `[0-9]+(\.[A-Za-z0-9]+)?` scanned by hand (Spec 137 D9): [isVod] runs once per movie or series item of a
+     * full list (hundreds of thousands), and each Android `Regex` match leaves an ICU Matcher with native memory
+     * freed only by GC (Spec 115 S7). ASCII digits only, as the JVM's `\d`; Android's ICU `\d` also took other
+     * Unicode digits, which no Xtream id uses.
+     */
+    internal fun isNumericFile(segment: String): Boolean {
+        var i = 0
+        while (i < segment.length && segment[i] in '0'..'9') i++
+        if (i == 0) return false
+        if (i == segment.length) return true
+        if (segment[i] != '.' || i + 1 == segment.length) return false
+        for (j in i + 1 until segment.length) {
+            val c = segment[j]
+            if (c !in '0'..'9' && c !in 'a'..'z' && c !in 'A'..'Z') return false
+        }
+        return true
     }
 
     /**

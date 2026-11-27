@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.core.player.ParentalWarning
 import com.nuvio.tv.core.profile.ActiveRatingLimit
+import com.nuvio.tv.core.tracking.TrackingListStatus
 import com.nuvio.tv.domain.model.DetailImdbRatingsVisibility
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
@@ -15,7 +16,8 @@ import com.nuvio.tv.domain.model.HomeImdbRatingsVisibility
 internal const val LOCAL_LIBRARY_LIST_KEY = "local"
 
 enum class MoreLikeThisSource {
-    TMDB
+    TMDB,
+    SIMKL
 }
 
 data class MetaDetailsUiState(
@@ -45,6 +47,12 @@ data class MetaDetailsUiState(
     val pickerPending: Boolean = false,
     val pickerError: String? = null,
     val defaultLibraryTogglePending: Boolean = false,
+    /** Spec 106 F1-F2: the Simkl list picker (or its F1b confirm) while open. */
+    val simklPicker: SimklListPickerUi? = null,
+    /** Spec 105 S3b: MDBList's chip, Lists button and panel (C1-C3). */
+    val mdbList: DetailMdbListUi = DetailMdbListUi(),
+    /** Spec 105 S4: MDBList's ratings line (C1). */
+    val mdbListRatings: DetailMdbListRatingsUi = DetailMdbListRatingsUi(),
     val isMovieWatched: Boolean = false,
     val isMovieWatchedPending: Boolean = false,
     val watchedEpisodes: Set<Pair<Int, Int>> = emptySet(),
@@ -67,7 +75,9 @@ data class MetaDetailsUiState(
     /** Spec 64: the active profile's rating limit, read at each load start; null = no limit. */
     val ratingLimit: ActiveRatingLimit? = null,
     /** Spec 64 D13: set instead of [meta] when the title is outside [ratingLimit]. */
-    val ratingBlock: DetailRatingBlock? = null
+    val ratingBlock: DetailRatingBlock? = null,
+    /** Spec 117 P8: set instead of [meta] when the content filters hide the title or could not check it. */
+    val filterBlock: DetailFilterBlock? = null
 )
 
 /** What the About sheet loads when it first opens (Spec 26g); [metaId] names the title it is for. */
@@ -101,6 +111,14 @@ sealed class MetaDetailsEvent {
     data class OnPickerMembershipToggled(val listKey: String) : MetaDetailsEvent()
     data object OnPickerSave : MetaDetailsEvent()
     data object OnPickerDismiss : MetaDetailsEvent()
+    data class OnSimklListPicked(val list: TrackingListStatus) : MetaDetailsEvent()
+    data object OnSimklRemove : MetaDetailsEvent()
+    data object OnSimklRemoveConfirmed : MetaDetailsEvent()
+    data object OnSimklRemoveCancelled : MetaDetailsEvent()
+    data object OnSimklPickerDismiss : MetaDetailsEvent()
+    data object OnMdbListListsClick : MetaDetailsEvent()
+    data class OnMdbListRowToggled(val rowId: Long) : MetaDetailsEvent()
+    data object OnMdbListPanelDismiss : MetaDetailsEvent()
     data object OnClearMessage : MetaDetailsEvent()
     data object OnLifecyclePause : MetaDetailsEvent()
     data object OnLifecycleResume : MetaDetailsEvent()

@@ -37,7 +37,7 @@ class PlayerLibassCompatTest {
 
     @Test
     fun `the uri overload reaches the delegate's uri overload and still swaps Matroska`() {
-        val other = mockk<Extractor>()
+        val other = mockk<Extractor>(relaxed = true)
         val delegate = RecordingFactory(
             arrayOf(other, StockMatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED))
         )
@@ -69,6 +69,33 @@ class PlayerLibassCompatTest {
 
         assertTrue(swappedTransformer(true).isHdr10BaseLayerModeActive)
         assertFalse(swappedTransformer(false).isHdr10BaseLayerModeActive)
+    }
+
+    /** A wrapper like AutoSync's observer: forwards to [wrappedExtractor], rebuildable (747ce832b). */
+    private class Wrapper(override val wrappedExtractor: Extractor) :
+        RewrappableExtractor, Extractor by wrappedExtractor {
+        override fun getUnderlyingImplementation(): Extractor = wrappedExtractor.underlyingImplementation
+        override fun rewrap(inner: Extractor): Extractor = Wrapper(inner)
+    }
+
+    @Test
+    fun `the libass swap replaces only the innermost Matroska extractor and keeps its wrappers`() {
+        val factory = ExtractorsFactory {
+            arrayOf<Extractor>(Wrapper(Wrapper(StockMatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED))))
+        }
+
+        val swapped = factory.withAssMkvSupportCompat(mockk(relaxed = true), mockk(relaxed = true))
+            .createExtractors().single()
+
+        val inner = (swapped as Wrapper).wrappedExtractor as Wrapper
+        assertTrue(inner.wrappedExtractor is NuvioAssMatroskaExtractor)
+        assertTrue(swapped.underlyingImplementation is NuvioAssMatroskaExtractor)
+    }
+
+    @Test
+    fun `a plain extractor is replaced outright`() {
+        val replacement = mockk<Extractor>()
+        assertSame(replacement, mockk<Extractor>().replaceInnermostExtractor(replacement))
     }
 
     @Test

@@ -646,7 +646,7 @@
     <string name="settings_p2p_title">P2P-streaming</string>
     <string name="settings_p2p_subtitle">Tillad peer-to-peer (torrent)-streams</string>
     <string name="settings_p2p_hide_stats_title">Skjul torrent-statistik</string>
-    <string name="settings_p2p_hide_stats_subtitle">Skjul buffer, seeds, peers og downloadhastighed under indlæsning og afspilning</string>
+    <string name="settings_p2p_hide_stats_subtitle">Skjul buffer, seeds, peers og downloadhastighed under afspilning</string>
     <string name="stream_filter_all">Alle</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

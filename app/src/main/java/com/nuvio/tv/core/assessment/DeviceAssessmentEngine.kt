@@ -127,6 +127,8 @@ object DeviceAssessmentEngine {
         val warningLimitMb: Int,
         /** [MemoryBudget.tierMaxChunkMb] (RAM tier), passed in so tests choose it. */
         val tierMaxChunkMb: Int,
+        /** [MemoryBudget.tierMaxTargetMb] (RAM tier, Spec 147 D4), passed in so tests choose it. */
+        val tierMaxTargetMb: Int,
         val display: DisplayFacts,
         val policy: DolbyVisionBaseLayerPolicy.Result
     ) {
@@ -136,6 +138,7 @@ object DeviceAssessmentEngine {
         fun limits(): DeviceLimits = DeviceLimits(
             safeMb = safeLimitMb,
             tierMaxChunkMb = tierMaxChunkMb,
+            tierMaxTargetMb = tierMaxTargetMb,
             perfModeSupported = perfModeSupported,
             afrSupported = display.supportsFrameRateSwitching.takeIf { display.apiSupported }
         )
@@ -260,6 +263,7 @@ object DeviceAssessmentEngine {
             safeLimitMb = NuvioExoPlayerPerformanceHelper.getSafeNativeMemoryLimitMb(context),
             warningLimitMb = NuvioExoPlayerPerformanceHelper.getWarningNativeMemoryLimitMb(context),
             tierMaxChunkMb = MemoryBudget.tierMaxChunkMb,
+            tierMaxTargetMb = MemoryBudget.tierMaxTargetMb,
             display = DisplayFacts(
                 apiSupported = display.apiSupported,
                 supportsFrameRateSwitching = display.supportsFrameRateSwitching,
@@ -614,7 +618,7 @@ object DeviceAssessmentEngine {
                 MemoryBudget.parallelOverheadMb(settings.parallelConnectionCount, currentChunkMb(settings))
             else -> 0
         }
-        val recTargetMb = MemoryBudget.maxSafeTargetMb(f.device.safeLimitMb, overheadForTargetMb)
+        val recTargetMb = MemoryBudget.maxSafeTargetMb(f.device.safeLimitMb, overheadForTargetMb, f.device.tierMaxTargetMb)
             .coerceAtMost(PlayerSettings.LARGE_TARGET_BUFFER_MAX_MB)
         // Max buffer: byte-derived ceiling - seconds the recommended target can
         // actually hold at this title's bitrate.

@@ -1,6 +1,7 @@
 package com.nuvio.tv.core.player
 
 import com.nuvio.tv.R
+import com.nuvio.tv.core.torrent.TorrServerBinary
 
 /**
  * Startup watchdog decisions (T3, ysosrs 01b6b4bae + 859ecf718): whether a check
@@ -10,6 +11,137 @@ import com.nuvio.tv.R
  * classification stay pinnable.
  */
 object PlayerStartupWatchdogPolicy {
+
+    /**
+     * Spec 138 D1: a torrent start waits this long from arm with no swarm progress (a dead swarm
+     * then fails over), and up to [TORRENT_CEILING_MS] while the swarm shows progress. Same numbers
+     * as ysosrs 343b27591 `TorrentMetadataGiveUp` (idle 60 s, active 180 s).
+     */
+    const val TORRENT_IDLE_LIMIT_MS = 60_000L
+    const val TORRENT_CEILING_MS = 180_000L
+
+    /**
+     * Spec 138: TorrServer's view of a torrent start at one check. [cachedBytes] is its cache fill
+     * (`preloaded_bytes`), [downloadSpeed] bytes/s from peers over the last second.
+     */
+    data class SwarmSample(val cachedBytes: Long, val downloadSpeed: Long)
+
+    /**
+     * Spec 138: the swarm made progress since [last]: the cache grew, or bytes are coming in and the
+     * stats moved (a failed TorrServer poll keeps the last state, so an unchanged sample with a
+     * speed is a frozen one, not progress). The loopback bytes the player counts are no signal
+     * here: TorrServer hands over a piece only once it is complete, so a healthy swarm reads as
+     * silence between pieces.
+     */
+    fun swarmProgressed(sample: SwarmSample, last: SwarmSample?): Boolean =
+        swarmDelivered(sample, last) || (sample.downloadSpeed > 0L && sample != last)
+
+    /**
+     * Spec 138: the cache grew since [last]: data reached TorrServer for the player. Names the fire
+     * ([FireInput.networkBytesGrew]); a speed alone does not, as TorrServer's bounded read-ahead
+     * keeps a wedged decoder's swarm busy for a while.
+     */
+    fun swarmDelivered(sample: SwarmSample, last: SwarmSample?): Boolean =
+        last != null && sample.cachedBytes > last.cachedBytes
+
+    /** Spec 138 D4: swarm bytes over the window ([armed]: the first polled sample in the window) for the fire's measured speed. */
+    fun swarmBytesSince(sample: SwarmSample, armed: SwarmSample?): Long =
+        if (armed == null) 0L else (sample.cachedBytes - armed.cachedBytes).coerceAtLeast(0L)
+
+    /**
+     * Spec 138: the [shouldExtend] `swarmProgressed` argument for one check. Null (judged as any
+     * start) when this is not a torrent start, or its video format was refused: the swarm says
+     * nothing about a format the device cannot play. False with no stats for the stream.
+     */
+    fun torrentExtendSignal(
+        torrentStart: Boolean,
+        sample: SwarmSample?,
+        last: SwarmSample?,
+        fireReason: FireReason,
+    ): Boolean? = when {
+        !torrentStart || fireReason == FireReason.VideoTrackUnsupported -> null
+        sample == null -> false
+        else -> swarmProgressed(sample, last)
+    }
+
+    /**
+     * Spec 138: a window's baseline: the first polled sample. A window armed before TorrServer's first
+     * poll answered gets it at a later check, while its `last` stays null, so that sample's speed
+     * counts as progress ([swarmProgressed] with no last) instead of reading as a frozen repeat.
+     */
+    fun swarmBaseline(armed: SwarmSample?, sample: SwarmSample?): SwarmSample? = armed ?: sample
+
+    /**
+     * Spec 138 D4: the bytes a fire measures over its window: a torrent's swarm bytes (0 with no
+     * stats), else [loopbackBytes] (null = not measured, mpv).
+     */
+    fun fireWindowBytes(
+        torrentStart: Boolean,
+        sample: SwarmSample?,
+        armed: SwarmSample?,
+        loopbackBytes: Long?,
+    ): Long? = if (torrentStart) sample?.let { swarmBytesSince(it, armed) } ?: 0L else loopbackBytes
+
+    /** Spec 138: which load errors on a torrent start's URI do not count toward the fatal retry limit. */
+    enum class StartupLoadHold {
+        NONE,
+
+        /** D2: read timeouts only, while the watchdog judges the start. */
+        TIMEOUTS,
+
+        /** F1: every error, while the watchdog's own box is on screen. */
+        ALL_ERRORS,
+    }
+
+    /**
+     * Spec 138: the hold for a load of [host]:[port]. Only a TorrServer loopback load (its port is
+     * [torrServerPort], Spec 148) of the stream
+     * playing now ([isCurrentStream]) in a torrent start with no first frame is held.
+     *
+     * D2: while the startup watchdog job judges the start in the foreground ([watchdogJobActive], no
+     * error on screen), read timeouts ([StartupLoadHold.TIMEOUTS]: TorrServer answers only once the
+     * first piece is in). In the background the watchdog never reaches a verdict, so the hold would
+     * keep a paused loader retrying for ever. Another error on screen ends it.
+     *
+     * F1 (Shield window 2026-11-20): under the watchdog's own box ([errorIsWatchdogBox]), in the
+     * background too, every error ([StartupLoadHold.ALL_ERRORS]) while the job runs its grace: an
+     * error thrown first (TorrServer's own add-torrent timeout answers HTTP 500 ~15 s after a dead
+     * swarm's box) would reach onPlayerError, whose auto-retry clears the box and restarts the
+     * torrent. After the grace stop [keepsBoxOnLateError] takes over.
+     */
+    fun torrentStartLoadHold(
+        host: String?,
+        port: Int,
+        torrServerPort: Int,
+        isCurrentStream: Boolean,
+        torrentStream: Boolean,
+        renderedFirstFrame: Boolean,
+        watchdogJobActive: Boolean,
+        inBackground: Boolean,
+        errorShown: Boolean,
+        errorIsWatchdogBox: Boolean,
+    ): StartupLoadHold = when {
+        !torrentStream || !isCurrentStream || renderedFirstFrame -> StartupLoadHold.NONE
+        host != TorrServerBinary.HOST || port != torrServerPort -> StartupLoadHold.NONE
+        !watchdogJobActive -> StartupLoadHold.NONE
+        errorShown -> if (errorIsWatchdogBox) StartupLoadHold.ALL_ERRORS else StartupLoadHold.NONE
+        inBackground -> StartupLoadHold.NONE
+        else -> StartupLoadHold.TIMEOUTS
+    }
+
+    /**
+     * Spec 138 F1: a player error on a torrent start whose box's grace stop ended it ([graceStopped],
+     * reset at the next arm) is dropped and the box kept, before the recovery ladder: stop() only
+     * posts MSG_STOP, so a loader error thrown first survives the stop, and a later re-prepare without
+     * an arm (the subtitle media reload) fails on the normal retry count; either would otherwise reach
+     * the auto-retry, which clears the box and restarts the torrent. A first frame retracts the box.
+     */
+    fun keepsBoxOnLateError(
+        torrentStream: Boolean,
+        graceStopped: Boolean,
+        errorIsWatchdogBox: Boolean,
+        renderedFirstFrame: Boolean,
+    ): Boolean = torrentStream && graceStopped && errorIsWatchdogBox && !renderedFirstFrame
 
     /**
      * Extend instead of firing while buffered-ahead keeps growing and this check
@@ -26,15 +158,24 @@ object PlayerStartupWatchdogPolicy {
      *
      * [dataArriving] ([waitsForData]) extends on the same terms when the buffer is flat. Both
      * extensions share the ceiling.
+     *
+     * [swarmProgressed] is non-null for a torrent start (Spec 138 D1): it always extends before
+     * [TORRENT_IDLE_LIMIT_MS], and after that while the swarm or the buffer shows progress, up to
+     * [TORRENT_CEILING_MS] ([torrentExtendSignal]).
      */
     fun shouldExtend(
         elapsedMs: Long,
         bufferedAheadMs: Long,
         lastBufferedAheadMs: Long,
         dataArriving: Boolean = false,
+        swarmProgressed: Boolean? = null,
     ): Boolean {
-        return (bufferedAheadMs > lastBufferedAheadMs || dataArriving) &&
-            elapsedMs < PlayerRuntimeController.STARTUP_WATCHDOG_CEILING_MS
+        val growing = bufferedAheadMs > lastBufferedAheadMs || dataArriving
+        if (swarmProgressed == null) {
+            return growing && elapsedMs < PlayerRuntimeController.STARTUP_WATCHDOG_CEILING_MS
+        }
+        return elapsedMs < TORRENT_IDLE_LIMIT_MS ||
+            ((growing || swarmProgressed) && elapsedMs < TORRENT_CEILING_MS)
     }
 
     /**

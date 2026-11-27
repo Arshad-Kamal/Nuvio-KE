@@ -53,11 +53,31 @@ class DetailRatingGateTest {
         )
     }
 
-    private fun meta(ageRating: String?) = Meta(
+    @Test
+    fun `non-US ratings decide when the US rating is unknown, blocking as unrated (Spec 102 D4)`() {
+        val olderKidsBoards = mapOf("GB" to "PG", "DE" to "6", "KR" to "7")
+        assertNull(detailRatingBlock(meta("NR", olderKidsBoards), olderKids, fromTmdbFallback = false))
+        assertEquals(
+            DetailRatingBlock(title = "Tears of Steel", rating = null, limit = olderKids),
+            detailRatingBlock(meta(null, olderKidsBoards + ("FR" to "16")), olderKids, fromTmdbFallback = false)
+        )
+        // A known US code in the map is shown as the rating.
+        assertEquals(
+            DetailRatingBlock(title = "Tears of Steel", rating = "TV-MA", limit = olderKids),
+            detailRatingBlock(meta(null, olderKidsBoards + ("US" to "tv-ma")), olderKids, fromTmdbFallback = false)
+        )
+        // A TMDB fallback meta's map is ignored.
+        assertEquals(
+            DetailRatingBlock(title = "Tears of Steel", rating = null, limit = olderKids),
+            detailRatingBlock(meta(null, olderKidsBoards), olderKids, fromTmdbFallback = true)
+        )
+    }
+
+    private fun meta(ageRating: String?, nonUs: Map<String, String> = emptyMap()) = Meta(
         id = "tt1", type = ContentType.MOVIE, name = "Tears of Steel", poster = null, posterShape = PosterShape.POSTER,
         background = null, logo = null, description = null, releaseInfo = null, imdbRating = null,
         genres = emptyList(), runtime = null, director = emptyList(), writer = emptyList(), cast = emptyList(),
         castMembers = emptyList(), videos = emptyList(), country = null, awards = null, language = null,
-        links = emptyList(), ageRating = ageRating
+        links = emptyList(), ageRating = ageRating, nonUsRatings = nonUs
     )
 }

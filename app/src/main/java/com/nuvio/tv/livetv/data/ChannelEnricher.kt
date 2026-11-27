@@ -15,7 +15,8 @@ object ChannelEnricher {
 
     fun enrich(ch: Channel, meta: IptvMetadata?): Channel {
         val m = ChannelIdentity.normalizeTvgId(ch.tvgId)?.let { meta?.channels?.get(it) }
-            ?: return ch.copy(nsfw = looksAdult(ch))
+            // Spec 143 P2: an unchanged channel keeps its instance (a copy per channel held a second list).
+            ?: return looksAdult(ch).let { adult -> if (adult == ch.nsfw) ch else ch.copy(nsfw = adult) }
         val feed = ch.tvgId?.substringAfter('@', "")?.trim()?.lowercase()
         val altNames = (ch.altNames + m.name + m.altNames).filter { it != ch.name }.distinct()
         return ch.copy(

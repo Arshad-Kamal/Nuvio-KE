@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "notes": [
+    "Nuvio KE content filter packs (Spec 117). A title is hidden when any enabled pack matches it.",
+    "Words match whole words, upper or lower case, in a title's name, other titles and description; phrases match word by word. Hyphens, apostrophes and spaces all separate words.",
+    "words: text and inside TMDB keyword names. textOnlyWords: text only. tagOnlyWords: inside TMDB keyword names only. wholeTagWords: only a TMDB keyword with exactly that name. Any word also matches a TMDB keyword whose whole name is that word.",
+    "genreIds are TMDB genre ids; genreNames match addon genres by whole name. keywords are TMDB keywords: matched by id, the name is what the pack's page shows. adult: TMDB's adult flag. japaneseAnimation: TMDB Animation with original language Japanese.",
+    "allowTitles: titles the pack never hides (TMDB movie or tv id).",
+    "Limits: text in scripts without spaces (Chinese, Japanese, Thai) is one word, so a word in those scripts matches only a whole run; plurals and accents are not folded, so plural forms are listed.",
+    "TMDB keywords need a TMDB key; without one, genres and words still apply. This product uses the TMDB API but is not endorsed or certified by TMDB."
+  ],
+  "packs": [
+    {
+      "id": "sexual_content",
+      "adult": true,
+      "keywords": [
+        {"id": 267122, "name": "sex"},
+        {"id": 281741, "name": "nudity"},
+        {"id": 738, "name": "sexuality"},
+        {"id": 1664, "name": "eroticism"},
+        {"id": 256466, "name": "erotic"},
+        {"id": 190370, "name": "erotic movie"},
+        {"id": 207767, "name": "erotic thriller"},
+        {"id": 155477, "name": "softcore"},
+        {"id": 159551, "name": "pink film"},
+        {"id": 329280, "name": "sexual content"}
+      ],
+      "words": ["porn", "porno", "pornography", "erotic", "erotica", "nudity", "nude", "stripper", "brothel", "prostitute", "prostitution", "bdsm"],
+      "textOnlyWords": ["sex"]
+    },
+    {
+      "id": "lgbtq",
+      "keywords": [
+        {"id": 158718, "name": "lgbt"},
+        {"id": 387912, "name": "lgbtq"},
+        {"id": 163037, "name": "lgbt teen"},
+        {"id": 363345, "name": "gay"},
+        {"id": 258533, "name": "gay theme"},
+        {"id": 264386, "name": "lesbian"},
+        {"id": 9833, "name": "lesbian relationship"},
+        {"id": 290527, "name": "transgender"},
+        {"id": 250606, "name": "queer"},
+        {"id": 275157, "name": "homosexuality"},
+        {"id": 10180, "name": "male homosexuality"},
+        {"id": 15136, "name": "female homosexuality"},
+        {"id": 384569, "name": "boys' love"},
+        {"id": 383699, "name": "girls' love"}
+      ],
+      "words": ["lgbt", "lgbtq", "gay", "lesbian", "bisexual", "transgender", "queer", "drag queen", "homosexual", "homosexuality", "same sex"],
+      "tagOnlyWords": ["coming out"],
+      "allowTitles": [
+        {
+          "kind": "movie",
+          "tmdbId": 28288,
+          "name": "The Gay Divorcee (1934)"
+        }
+      ]
+    },
+    {
+      "id": "religion",
+      "keywords": [
+        {"id": 11001, "name": "religion"},
+        {"id": 186, "name": "christianity"},
+        {"id": 258703, "name": "christian"},
+        {"id": 253695, "name": "christian film"},
+        {"id": 3036, "name": "bible"},
+        {"id": 230097, "name": "jesus christ"},
+        {"id": 187, "name": "islam"},
+        {"id": 11704, "name": "judaism"},
+        {"id": 6194, "name": "hinduism"},
+        {"id": 188, "name": "buddhism"},
+        {"id": 161203, "name": "atheism"},
+        {"id": 14765, "name": "church"},
+        {"id": 10093, "name": "priest"},
+        {"id": 745, "name": "nun"},
+        {"id": 9649, "name": "god"},
+        {"id": 6150, "name": "faith"}
+      ],
+      "words": ["god", "jesus", "christ", "bible", "biblical", "church", "christianity", "christian faith", "islam", "muslim", "quran", "mosque", "hindu", "hinduism", "buddhist", "buddhism", "torah", "synagogue", "jewish", "judaism", "prophet", "priest", "nun", "prayer", "spiritual", "spirituality", "religion", "religious", "atheism", "atheist", "catholic", "pastor", "rabbi", "imam", "moses", "messiah", "sikh"],
+      "tagOnlyWords": ["faith", "monk"],
+      "allowTitles": [
+        {
+          "kind": "movie",
+          "tmdbId": 238,
+          "name": "The Godfather (1972)"
+        }
+      ]
+    },
+    {
+      "id": "occult",
+      "keywords": [
+        {"id": 156174, "name": "occult"},
+        {"id": 616, "name": "witch"},
+        {"id": 40931, "name": "witchcraft"},
+        {"id": 15001, "name": "demon"},
+        {"id": 9712, "name": "possession"},
+        {"id": 161261, "name": "demonic possession"},
+        {"id": 2626, "name": "exorcism"},
+        {"id": 3099, "name": "satanism"},
+        {"id": 10138, "name": "satan"},
+        {"id": 4252, "name": "black magic"}
+      ],
+      "words": ["witch", "witches", "witchcraft", "occult", "satan", "satanic", "demon", "demons", "demonic", "exorcism", "exorcist", "possessed", "seance", "ouija", "black magic"],
+      "tagOnlyWords": ["possession", "devil"]
+    },
+    {
+      "id": "horror",
+      "genreIds": [27],
+      "genreNames": ["Horror"],
+      "keywords": [
+        {"id": 12339, "name": "slasher"},
+        {"id": 256183, "name": "supernatural horror"},
+        {"id": 295907, "name": "psychological horror"},
+        {"id": 209568, "name": "folk horror"}
+      ],
+      "words": ["slasher", "zombie", "zombies", "haunted", "poltergeist", "vampire", "vampires", "werewolf"],
+      "tagOnlyWords": ["haunting"]
+    },
+    {
+      "id": "violence",
+      "keywords": [
+        {"id": 10292, "name": "gore"},
+        {"id": 312898, "name": "violence"},
+        {"id": 262404, "name": "extreme violence"},
+        {"id": 13006, "name": "torture"},
+        {"id": 344603, "name": "splatter"},
+        {"id": 14707, "name": "brutality"}
+      ],
+      "words": ["gore", "gory", "torture", "massacre", "serial killer", "slasher", "dismemberment", "graphic violence", "splatter"],
+      "tagOnlyWords": ["brutal", "brutality"]
+    },
+    {
+      "id": "drugs",
+      "keywords": [
+        {"id": 14964, "name": "drugs"},
+        {"id": 11494, "name": "drug use"},
+        {"id": 1803, "name": "drug addiction"},
+        {"id": 726, "name": "drug abuse"},
+        {"id": 2150, "name": "cocaine"},
+        {"id": 2671, "name": "heroin"},
+        {"id": 10776, "name": "marijuana"},
+        {"id": 7464, "name": "alcoholism"},
+        {"id": 15237, "name": "alcohol abuse"},
+        {"id": 2635, "name": "overdose"}
+      ],
+      "words": ["drug", "drugs", "cocaine", "heroin", "meth", "methamphetamine", "cartel", "addiction", "addict", "drunk", "alcoholic", "alcoholism", "drug dealer", "drug use", "overdose"]
+    },
+    {
+      "id": "suicide",
+      "keywords": [
+        {"id": 236, "name": "suicide"},
+        {"id": 1252, "name": "suicide attempt"},
+        {"id": 171411, "name": "teen suicide"},
+        {"id": 233130, "name": "self-harm"}
+      ],
+      "words": ["suicide", "suicidal", "self harm", "overdose"]
+    },
+    {
+      "id": "abuse",
+      "keywords": [
+        {"id": 570, "name": "rape"},
+        {"id": 739, "name": "sexual abuse"},
+        {"id": 516, "name": "child abuse"},
+        {"id": 264551, "name": "child sexual abuse"},
+        {"id": 33841, "name": "incest"},
+        {"id": 11925, "name": "domestic violence"},
+        {"id": 11534, "name": "sexual violence"},
+        {"id": 2337, "name": "pedophilia"}
+      ],
+      "words": ["rape", "sexual assault", "sexual abuse", "sexual violence", "trafficking", "molestation", "incest", "pedophile", "child abuse"],
+      "textOnlyWords": ["abuse"]
+    },
+    {
+      "id": "politics",
+      "genreIds": [10763, 10768],
+      "genreNames": ["News", "Politics", "War & Politics"],
+      "keywords": [
+        {"id": 6078, "name": "politics"},
+        {"id": 15134, "name": "election"},
+        {"id": 2946, "name": "presidential election"},
+        {"id": 6083, "name": "politician"},
+        {"id": 8570, "name": "president"}
+      ],
+      "words": ["election", "president", "presidential", "congress", "parliament", "politics", "political", "politician", "senator", "white house"],
+      "tagOnlyWords": ["campaign"]
+    },
+    {
+      "id": "war",
+      "genreIds": [10752, 10768],
+      "genreNames": ["War", "War & Politics"],
+      "keywords": [
+        {"id": 273967, "name": "war"},
+        {"id": 162365, "name": "military"},
+        {"id": 1956, "name": "world war ii"},
+        {"id": 2957, "name": "vietnam war"},
+        {"id": 13065, "name": "soldier"}
+      ],
+      "words": ["soldier", "soldiers", "army", "military", "world war", "war"],
+      "tagOnlyWords": ["battle"],
+      "allowTitles": [
+        {
+          "kind": "movie",
+          "tmdbId": 1381071,
+          "name": "Godzilla Minus Zero (2026)"
+        },
+        {
+          "kind": "movie",
+          "tmdbId": 238,
+          "name": "The Godfather (1972)"
+        }
+      ]
+    },
+    {
+      "id": "crime",
+      "genreIds": [80],
+      "genreNames": ["Crime"],
+      "keywords": [
+        {"id": 323114, "name": "crime"},
+        {"id": 33722, "name": "true crime"},
+        {"id": 10714, "name": "serial killer"},
+        {"id": 10051, "name": "heist"},
+        {"id": 9826, "name": "murder"},
+        {"id": 10391, "name": "mafia"},
+        {"id": 10291, "name": "organized crime"}
+      ],
+      "words": ["true crime", "murder", "heist", "gangster", "mafia"],
+      "allowTitles": [
+        {
+          "kind": "movie",
+          "tmdbId": 8587,
+          "name": "The Lion King (1994)"
+        }
+      ]
+    },
+    {
+      "id": "romance",
+      "genreIds": [10749],
+      "genreNames": ["Romance"],
+      "keywords": [
+        {"id": 9840, "name": "romance"},
+        {"id": 13043, "name": "dating"},
+        {"id": 215119, "name": "dating show"}
+      ],
+      "words": ["dating show", "love island", "romance"],
+      "tagOnlyWords": ["dating"]
+    },
+    {
+      "id": "reality_tv",
+      "genreIds": [10764, 10767, 10766],
+      "genreNames": ["Reality", "Reality-TV", "Talk", "Talk-Show", "Soap"],
+      "keywords": [
+        {"id": 275693, "name": "reality tv"},
+        {"id": 3741, "name": "talk show"}
+      ],
+      "words": ["reality tv", "talk show"]
+    },
+    {
+      "id": "anime",
+      "genreNames": ["Anime"],
+      "japaneseAnimation": true,
+      "keywords": [
+        {"id": 210024, "name": "anime"},
+        {"id": 13141, "name": "based on manga"}
+      ],
+      "words": ["anime"]
+    },
+    {
+      "id": "sports_awards",
+      "keywords": [
+        {"id": 6075, "name": "sports"},
+        {"id": 209476, "name": "boxing"},
+        {"id": 204045, "name": "awards show"},
+        {"id": 191498, "name": "sports entertainment"}
+      ],
+      "words": ["sports entertainment", "wrestling", "awards show", "award ceremony", "wwe"]
+    },
+    {
+      "id": "gambling",
+      "keywords": [
+        {"id": 395, "name": "gambling"},
+        {"id": 585, "name": "casino"},
+        {"id": 383, "name": "poker"},
+        {"id": 230550, "name": "sports gambling"}
+      ],
+      "words": ["casino", "poker", "gambling", "betting", "gambler"]
+    },
+    {
+      "id": "scary_kids",
+      "genreIds": [27],
+      "genreNames": ["Horror"],
+      "keywords": [
+        {"id": 1299, "name": "monster"},
+        {"id": 162846, "name": "ghost"}
+      ],
+      "words": ["ghost", "ghosts", "nightmare", "witch", "scary"],
+      "wholeTagWords": ["monster"]
+    }
+  ]
+}

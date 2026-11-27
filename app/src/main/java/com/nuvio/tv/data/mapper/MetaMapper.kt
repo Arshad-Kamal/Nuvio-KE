@@ -3,6 +3,7 @@ package com.nuvio.tv.data.mapper
 import com.nuvio.tv.core.util.parseRuntimeMinutes
 import com.nuvio.tv.data.remote.dto.MetaDto
 import com.nuvio.tv.data.remote.dto.MetaLinkDto
+import com.nuvio.tv.data.remote.dto.readCertifications
 import com.nuvio.tv.data.remote.dto.VideoDto
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.Meta
@@ -50,6 +51,7 @@ fun MetaDto.toDomain(episodeLabel: String = "Episode"): Meta {
         networks = emptyList(),
         ageRating = certification,
         ageRatingDescriptors = certificationDescriptors(certification, releaseDatesList),
+        nonUsRatings = readCertifications(appExtras?.certifications, certification).orEmpty(),
         country = country,
         awards = awards,
         language = language,

@@ -110,10 +110,11 @@ class SourceFetcherTest {
 
     @Test
     fun `the cap counts inflated bytes`() {
-        // ~100 bytes compressed, 10 000 inflated: only an inflated count trips a 5 000-byte cap.
+        // ~100 bytes compressed, 10 000 inflated: only an inflated count trips a 5 000-byte cap (a
+        // playlist's own, Spec 137 D1).
         val body = gzip("#EXTM3U\n" + "#".repeat(10_000)).readByteArray()
         assertTrue(body.size < 5_000)
-        val (kind, stream) = SourceFetcher.sniff(ByteArrayInputStream(body), maxTextBytes = 5_000)
+        val (kind, stream) = SourceFetcher.sniff(ByteArrayInputStream(body), maxPlaylistBytes = 5_000)
         assertEquals(SourceKind.M3U, kind)
         try {
             stream.readBytes()
@@ -121,7 +122,7 @@ class SourceFetcherTest {
         } catch (e: SourceFetchException) {
             assertTrue(e.message!!.startsWith("Larger than"))
         }
-        val (_, roomy) = SourceFetcher.sniff(ByteArrayInputStream(body), maxTextBytes = 20_000)
+        val (_, roomy) = SourceFetcher.sniff(ByteArrayInputStream(body), maxPlaylistBytes = 20_000)
         assertEquals(10_008, roomy.readBytes().size)
     }
 

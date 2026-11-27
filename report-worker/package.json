@@ -1,0 +1,11 @@
+{
+  "name": "nuvio-report-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/index.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.162.0"
+  }
+}

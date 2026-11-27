@@ -78,12 +78,24 @@ interface WatchProgressRepository {
     
     suspend fun removeProgress(contentId: String, season: Int? = null, episode: Int? = null)
 
-    suspend fun removeFromHistory(contentId: String, season: Int? = null, episode: Int? = null)
+    /**
+     * [contentType] "movie" lets a film's unmark reach the connected trackers (Spec 104); without it and without
+     * season/episode the removal stays with Nuvio. For an episode, [videoId] and [contentType] are the caller's (the ones its
+     * screen marks with, Spec 106 S5b): a tracker's unmark is built from the episode's stored progress, the mark's own
+     * record, and from these only when no stored video id names the episode.
+     */
+    suspend fun removeFromHistory(
+        contentId: String,
+        season: Int? = null,
+        episode: Int? = null,
+        contentType: String? = null,
+        videoId: String? = null
+    )
 
     /**
      * Mark content as completed
      */
-    suspend fun markAsCompleted(progress: WatchProgress)
+    suspend fun markAsCompleted(progress: WatchProgress, broadcastToTrackers: Boolean = true)
 
     /**
      * Mark multiple episodes as completed in a single batch operation.
@@ -92,10 +104,13 @@ interface WatchProgressRepository {
     suspend fun markAsCompletedBatch(progressList: List<WatchProgress>)
 
     /**
-     * Remove multiple episodes from history in a single batch operation.
+     * Remove multiple episodes from history in a single batch operation. [videoIds] (by season and episode; one per
+     * episode, so an addon listing an episode twice gives the last id) and [contentType] as in [removeFromHistory].
      */
     suspend fun removeFromHistoryBatch(
         contentId: String,
-        episodes: List<Pair<Int, Int>>
+        episodes: List<Pair<Int, Int>>,
+        videoIds: Map<Pair<Int, Int>, String> = emptyMap(),
+        contentType: String? = null
     )
 }

@@ -228,6 +228,7 @@ internal fun PlaybackSettingsContent(
         onSetSubtitleBold = { bold -> coroutineScope.launch { viewModel.setSubtitleBold(bold) } },
         onSetUseForcedSubtitles = { enabled -> coroutineScope.launch { viewModel.setUseForcedSubtitles(enabled) } },
         onSetAddonSubtitlesEnabled = { enabled -> coroutineScope.launch { viewModel.setAddonSubtitlesEnabled(enabled) } },
+        onSetSubtitleAutoSyncEnabled = { enabled -> coroutineScope.launch { viewModel.setSubtitleAutoSyncEnabled(enabled) } },
         onSetSubtitleShowOnlyPreferredLanguages = { enabled ->
             coroutineScope.launch { viewModel.setSubtitleShowOnlyPreferredLanguages(enabled) }
         },

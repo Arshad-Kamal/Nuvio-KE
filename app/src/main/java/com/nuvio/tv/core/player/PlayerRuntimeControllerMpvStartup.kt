@@ -69,22 +69,37 @@ internal fun PlayerRuntimeController.handleMpvLoadFailure(fileError: String): Bo
  * grows, up to the same ceiling as Exo's ([PlayerStartupWatchdogPolicy.shouldExtend]). While the
  * app is in the background or mpv is paused (a user pause, a paused start) the window restarts
  * instead of firing; keep-open's pause at the end of a file that decoded nothing is not a pause
- * here (`eof-reached`). A fire goes to [handleMpvStartupFailure].
+ * here (`eof-reached`). A fire goes to [handleMpvStartupFailure]. A torrent start takes the same
+ * TorrServer-progress rule as Exo's (Spec 138: [PlayerStartupWatchdogPolicy.TORRENT_IDLE_LIMIT_MS],
+ * [PlayerStartupWatchdogPolicy.TORRENT_CEILING_MS]) and its fire measures the swarm's bytes.
  */
 internal fun PlayerRuntimeController.scheduleMpvStartupWatchdog(view: NuvioMpvSurfaceView) {
     cancelStartupWatchdog()
+    // Spec 138: a torrent fire measures bytes (0 for a dead swarm), so an earlier start's kept HTTP
+    // error must not name it (PlaybackFailureCauses.startupHttpAnswer); as Exo's arm does.
+    startupLoadHttpError = null
     startupWatchdogJob = scope.launch {
         var armedAtMs = SystemClock.elapsedRealtime()
         var lastCacheMs = 0L
+        // Spec 138: the URL mpv was given; decided at arm, as Exo's watchdog does.
+        val armedUrl = currentStreamUrl
+        val torrentStart = isTorrentStartAt(armedUrl)
+        var armedSwarm = torrentSwarmSample(armedUrl)
+        var lastSwarm = armedSwarm
         while (isActive) {
             delay(PlayerRuntimeController.STARTUP_WATCHDOG_TIMEOUT_MS)
             if (hasRenderedFirstFrame || !isUsingMpvEngine() || mpvView !== view || !view.isCoreAlive()) {
                 return@launch
             }
             val nowMs = SystemClock.elapsedRealtime()
+            val swarm = if (torrentStart) torrentSwarmSample(armedUrl) else null
+            // The window starts at the first polled sample (as Exo's watchdog).
+            armedSwarm = PlayerStartupWatchdogPolicy.swarmBaseline(armedSwarm, swarm)
             if (isInBackground) {
                 armedAtMs = nowMs
                 lastCacheMs = 0L
+                armedSwarm = swarm
+                lastSwarm = swarm
                 continue
             }
             // A failure mpv reported while the progress job was stopped (a user pause) ends the start
@@ -94,22 +109,48 @@ internal fun PlayerRuntimeController.scheduleMpvStartupWatchdog(view: NuvioMpvSu
             if (view.isPausedNow() && !view.isEofReachedNow()) {
                 armedAtMs = nowMs
                 lastCacheMs = 0L
+                armedSwarm = swarm
+                lastSwarm = swarm
                 continue
             }
             val elapsedMs = nowMs - armedAtMs
             val cacheMs = (view.demuxerCacheDurationSec() * 1000.0).toLong().coerceAtLeast(0L)
-            if (PlayerStartupWatchdogPolicy.shouldExtend(elapsedMs, cacheMs, lastCacheMs)) {
+            // Spec 138: mpv's own fetches are not counted; a torrent's swarm data is (read once per check).
+            val input = view.startupWatchdogFireInput().let {
+                if (torrentStart) {
+                    it.copy(networkBytesGrew = swarm != null && PlayerStartupWatchdogPolicy.swarmDelivered(swarm, lastSwarm))
+                } else {
+                    it
+                }
+            }
+            val swarmProgressed = PlayerStartupWatchdogPolicy.torrentExtendSignal(
+                torrentStart = torrentStart,
+                sample = swarm,
+                last = lastSwarm,
+                fireReason = PlayerStartupWatchdogPolicy.fireReason(input),
+            )
+            if (
+                PlayerStartupWatchdogPolicy.shouldExtend(
+                    elapsedMs = elapsedMs,
+                    bufferedAheadMs = cacheMs,
+                    lastBufferedAheadMs = lastCacheMs,
+                    swarmProgressed = swarmProgressed,
+                )
+            ) {
                 Log.w(
                     PlayerRuntimeController.TAG,
                     "STARTUP_WATCHDOG: engine=MPV no first frame ${elapsedMs}ms but demuxer cache " +
-                        "growing (${lastCacheMs}ms -> ${cacheMs}ms); extending"
+                        "${lastCacheMs}ms -> ${cacheMs}ms (swarmProgressed=$swarmProgressed); extending"
                 )
                 lastCacheMs = cacheMs
+                if (swarm != null) lastSwarm = swarm
                 continue
             }
-            val input = view.startupWatchdogFireInput()
             val fireReason = PlayerStartupWatchdogPolicy.fireReason(input)
-            val fire = startupWatchdogFailure(fireReason, elapsedMs, networkBytes = null)
+            val windowBytes = PlayerStartupWatchdogPolicy.fireWindowBytes(
+                torrentStart, swarm, armedSwarm, loopbackBytes = null
+            )
+            val fire = startupWatchdogFailure(fireReason, elapsedMs, networkBytes = windowBytes)
             Log.w(
                 PlayerRuntimeController.TAG,
                 "STARTUP_WATCHDOG: engine=MPV no first frame ${elapsedMs}ms (cacheMs=$cacheMs " +

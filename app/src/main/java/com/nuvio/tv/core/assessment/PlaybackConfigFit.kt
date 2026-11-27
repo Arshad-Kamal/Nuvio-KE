@@ -75,6 +75,8 @@ data class DeviceLimits(
     val safeMb: Int,
     /** Hard chunk ceiling for the RAM tier ([MemoryBudget.tierMaxChunkMb]). */
     val tierMaxChunkMb: Int,
+    /** Hard target-buffer ceiling for the RAM tier ([MemoryBudget.tierMaxTargetMb], Spec 147 D4). */
+    val tierMaxTargetMb: Int,
     /** Performance mode needs API 26+ (the setter forces it off below). */
     val perfModeSupported: Boolean,
     /** >= 2 refresh rates at the current resolution; null = display not inspectable. */
@@ -83,10 +85,11 @@ data class DeviceLimits(
 
 /**
  * Seconds of the film the forward buffer is never cut below while the gate still has network
- * to give up: the 2 GB Shield's fitted 150 MB holds ~19 s of the measured 63 Mbps reference
- * remux (ShieldPreset.secondsOfReference4k(150)), the depth that device plays on today. The
- * card counts decimal MB (19 s); the gate counts MiB as MemoryBudget.backBufferMb does
- * (150 MiB = 19.97 s), so the floor is the same 150 MB step either way.
+ * to give up: the 2 GB Shield's safe-limit fit of 150 MB holds ~19 s of the measured 63 Mbps
+ * reference remux (ShieldPreset.secondsOfReference4k(150)). The card counts decimal MB (19 s);
+ * the gate counts MiB as MemoryBudget.backBufferMb does (150 MiB = 19.97 s), so the floor is the
+ * same 150 MB step either way. [fitFloorMb] caps it at the RAM tier's target ceiling (Spec 147
+ * D4: 100 MB, ~12 s, on <= 2 GB).
  */
 const val FIT_MIN_BUFFER_S = 19
 
@@ -121,6 +124,7 @@ fun fitPlaybackConfig(config: PlaybackConfig, limits: DeviceLimits, filmMbps: Do
         performanceMode = config.performanceMode && limits.perfModeSupported,
         connections = config.connections.coerceIn(MemoryBudget.MIN_CONNECTIONS, MemoryBudget.MAX_CONNECTIONS),
         chunkKb = MemoryBudget.tierCappedChunkKb(config.chunkKb, limits.tierMaxChunkMb),
+        targetBufferMb = MemoryBudget.tierCappedTargetMb(config.targetBufferMb, limits.tierMaxTargetMb),
         frameRateMatching = if (limits.afrSupported == false) FrameRateMatchingMode.OFF else config.frameRateMatching
     )
     fun fits() = c.targetBufferMb + c.parallelOverheadMb <= limits.safeMb
@@ -138,7 +142,7 @@ fun fitPlaybackConfig(config: PlaybackConfig, limits: DeviceLimits, filmMbps: Do
     }
     // (3) Target down, not below the floor.
     if (!fits()) {
-        val fitted = MemoryBudget.maxSafeTargetMb(limits.safeMb, c.parallelOverheadMb)
+        val fitted = MemoryBudget.maxSafeTargetMb(limits.safeMb, c.parallelOverheadMb, limits.tierMaxTargetMb)
         c = c.copy(targetBufferMb = minOf(c.targetBufferMb, maxOf(floorMb, fitted)))
     }
     // (4) Fewer connections, then a single connection.
@@ -148,7 +152,7 @@ fun fitPlaybackConfig(config: PlaybackConfig, limits: DeviceLimits, filmMbps: Do
     }
     // Last resort: under the floor (only a tier whose safe limit cannot hold it lands here).
     if (!fits()) {
-        c = c.copy(targetBufferMb = minOf(c.targetBufferMb, MemoryBudget.maxSafeTargetMb(limits.safeMb, 0)))
+        c = c.copy(targetBufferMb = minOf(c.targetBufferMb, MemoryBudget.maxSafeTargetMb(limits.safeMb, 0, limits.tierMaxTargetMb)))
     }
     // Max buffer seconds the forward bytes can actually hold; never below min (Media3 asserts it).
     if (bitrate != null) {
@@ -168,7 +172,7 @@ fun fitPlaybackConfig(config: PlaybackConfig, limits: DeviceLimits, filmMbps: Do
 internal fun fitFloorMb(limits: DeviceLimits, filmMbps: Double?): Int {
     val bitrate = filmMbps?.takeIf { it > 0 } ?: return MemoryBudget.MIN_BUFFER_MB
     val leanestPipeMb = MemoryBudget.parallelOverheadMb(MemoryBudget.MIN_CONNECTIONS, MemoryBudget.MIN_CHUNK_MB)
-    return minOf(stepUp(mbFor(FIT_MIN_BUFFER_S, bitrate)), MemoryBudget.maxSafeTargetMb(limits.safeMb, leanestPipeMb))
+    return minOf(stepUp(mbFor(FIT_MIN_BUFFER_S, bitrate)), MemoryBudget.maxSafeTargetMb(limits.safeMb, leanestPipeMb, limits.tierMaxTargetMb))
 }
 
 // MB here = MiB, as MemoryBudget.backBufferMb counts it; bitrates are decimal Mbit/s.

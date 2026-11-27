@@ -15,7 +15,7 @@ import com.nuvio.tv.data.local.PlayerSettings
  * When [enabled] is `true`, the helper applies (see the constants for the figures):
  * - Native-allocated [DEFAULT_NUVIO_ALLOCATOR_SEGMENT_SIZE] allocator segments with a
  *   [targetBufferSizeMb] byte target (the RAM tier's safe native limit unless the user's
- *   buffer settings override it)
+ *   buffer settings override it; never above [MemoryBudget.tierMaxTargetMb], Spec 147 D4)
  * - [minBufferMs]..[maxBufferMs] buffer durations and a [backBufferMs] back buffer
  *   (defaults [DEFAULT_NUVIO_MIN_BUFFER_MS], [DEFAULT_NUVIO_MAX_BUFFER_MS],
  *   [DEFAULT_NUVIO_BACK_BUFFER_MS])
@@ -135,7 +135,7 @@ object NuvioExoPlayerPerformanceHelper {
             if (customBuffers) bufferSettings.retainBackBufferFromKeyframe else true
 
         val safeLimitMb = getSafeNativeMemoryLimitMb(context)
-        targetBufferSizeMb = if (customBuffers && !settings.bufferBudgetManaged) {
+        val chosenMb = if (customBuffers && !settings.bufferBudgetManaged) {
             val storedSize = bufferSettings.targetBufferSizeMb
             if (!settings.allowLargeTargetBuffer && storedSize > safeLimitMb) {
                 safeLimitMb
@@ -145,6 +145,8 @@ object NuvioExoPlayerPerformanceHelper {
         } else {
             safeLimitMb
         }
+        // Spec 147 D4: the RAM tier's hard ceiling binds here too (the safe limit is 250 on 2 GB).
+        targetBufferSizeMb = MemoryBudget.tierCappedTargetMb(chosenMb)
 
         val customNetwork = settings.parallelNetworkEnabled
         connectionPoolSize = if (customNetwork && settings.useParallelConnections) {

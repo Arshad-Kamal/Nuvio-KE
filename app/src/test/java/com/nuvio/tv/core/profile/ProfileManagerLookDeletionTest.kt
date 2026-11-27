@@ -1,12 +1,13 @@
 package com.nuvio.tv.core.profile
 
 import android.content.Context
+import com.nuvio.tv.data.local.ProfileContentFilterStore
 import com.nuvio.tv.data.local.ProfileDataStore
 import com.nuvio.tv.data.local.ProfileDataStoreFactory
 import com.nuvio.tv.data.local.ProfileLookStore
 import com.nuvio.tv.data.local.ProfileRatingCapStore
 import com.nuvio.tv.domain.model.UserProfile
-import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -55,12 +56,16 @@ class ProfileManagerLookDeletionTest {
         val context = mockk<Context>()
         every { context.filesDir } returns filesDir
         every { context.getString(any(), *anyVararg()) } returns "Profile 1"
-        val manager = ProfileManager(store, factory, context)
+        val contentFilters = mockk<ProfileContentFilterStore>(relaxed = true)
+        val manager = ProfileManager(store, factory, context, contentFilters)
         manager.profiles.first { list -> list.any { it.id == 3 } }
 
         assertTrue(manager.deleteProfile(3))
 
-        coVerify { factory.clearProfile(3) }
+        coVerifyOrder {
+            contentFilters.clearPreviewOf(3) // Spec 122: before the profile's files go
+            factory.clearProfile(3)
+        }
         deleted.forEach { assertFalse(it.name, it.exists()) }
         kept.forEach { assertTrue(it.name, it.exists()) }
     }

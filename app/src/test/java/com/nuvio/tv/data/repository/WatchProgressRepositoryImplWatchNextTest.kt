@@ -64,7 +64,8 @@ class WatchProgressRepositoryImplWatchNextTest {
         metaRepository = mockk<MetaRepository>(relaxed = true),
         tmdbService = mockk<TmdbService>(relaxed = true),
         profileManager = profileManager,
-        tvRecommendationManager = tvRecommendationManager
+        tvRecommendationManager = tvRecommendationManager,
+        trackingRouter = noTrackingRouter()
     )
 
     @Test

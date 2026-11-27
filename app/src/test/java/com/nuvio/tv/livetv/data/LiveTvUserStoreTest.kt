@@ -10,9 +10,11 @@ import com.nuvio.tv.data.local.TestPreferencesDataStore
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,6 +50,32 @@ class LiveTvUserStoreTest {
         assertEquals(listOf(RecentChannel("x", 3), RecentChannel("y", 2)), state.recents)
         assertEquals("sports", state.lastFilter)
         assertEquals("guide", state.lastView)
+    }
+
+    @Test
+    fun `Preview on focus is on until turned off, per profile`() = runTest {
+        assertTrue(store.state.first().previewOnFocus)
+        assertTrue(store.setPreviewOnFocus(false))
+        assertFalse(store.state.first().previewOnFocus)
+        activeProfile.value = 2
+        assertTrue(store.state.first().previewOnFocus)
+        activeProfile.value = 1
+        assertFalse(store.state.first().previewOnFocus) // kept across the switch
+        store.setPreviewOnFocus(true)
+        assertTrue(store.state.first().previewOnFocus)
+    }
+
+    @Test
+    fun `two quick Preview on focus toggles flip it twice, each decided inside its edit`() = runTest {
+        assertTrue(store.togglePreviewOnFocus())
+        assertFalse(store.state.first().previewOnFocus)
+        coroutineScope {
+            launch { store.togglePreviewOnFocus() }
+            launch { store.togglePreviewOnFocus() }
+        }
+        assertFalse(store.state.first().previewOnFocus) // off -> on -> off, never off twice
+        store.togglePreviewOnFocus()
+        assertTrue(store.state.first().previewOnFocus)
     }
 
     @Test

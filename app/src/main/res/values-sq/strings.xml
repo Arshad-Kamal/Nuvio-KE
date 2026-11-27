@@ -647,7 +647,7 @@
     <string name="settings_p2p_title">Transmetim P2P</string>
     <string name="settings_p2p_subtitle">Lejo transmetimet peer-to-peer (torrent)</string>
     <string name="settings_p2p_hide_stats_title">Fshih statistikat e torrentit</string>
-    <string name="settings_p2p_hide_stats_subtitle">Fshih buffer-in, seed-et, peer-at dhe shpejtësinë e shkarkimit gjatë ngarkimit dhe riprodhimit</string>
+    <string name="settings_p2p_hide_stats_subtitle">Fshih buffer-in, seed-et, peer-at dhe shpejtësinë e shkarkimit gjatë riprodhimit</string>
     <string name="stream_filter_all">Të gjitha</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
     <string name="player_no_external_player">Nuk u gjet luajtës i jashtëm</string>

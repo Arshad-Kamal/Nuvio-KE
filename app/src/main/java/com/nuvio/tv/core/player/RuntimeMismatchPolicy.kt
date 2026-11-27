@@ -19,6 +19,15 @@ object RuntimeMismatchPolicy {
     /** Off by more than this fraction of the runtime, either side, warns (Arshad 2026-10-18). */
     const val TOLERANCE_RATIO = 0.10
 
+    /**
+     * Spec 142 (F13): the fraction for a TV episode. Listed episode runtimes are coarse (a flat 25 m
+     * for every Beverly Hillbillies episode, whose correct files run 22.3 min, -11%; Twilight Zone
+     * files run 28.7 min against 25 m, +15%; a 22 min sitcom listed at 30 m is -27%), while a
+     * different show is off by about half or double (a 2024 Dora reboot file at -52%, Franklin at
+     * +179%). Either side (Arshad 2026-11-21, Spec 142 D3); the 60 s floor never binds here.
+     */
+    const val EPISODE_TOLERANCE_RATIO = 0.35
+
     /** Metadata runtimes are whole minutes, so short titles get at least this much slack. */
     const val MIN_TOLERANCE_MS = 60_000L
 
@@ -40,13 +49,16 @@ object RuntimeMismatchPolicy {
      * @param expectedRuntimeMs metadata runtime of the title, or null when unknown.
      * @param resumed true when playback started from a saved position (Continue Watching or
      *   a Resume press): the viewer already saw this file, so no warning.
+     * @param episode true for a TV episode, judged with [EPISODE_TOLERANCE_RATIO]; a film keeps
+     *   [TOLERANCE_RATIO].
      * @return the mismatch to warn about, or null.
      */
-    fun evaluate(durationMs: Long?, expectedRuntimeMs: Long?, resumed: Boolean): Mismatch? {
+    fun evaluate(durationMs: Long?, expectedRuntimeMs: Long?, resumed: Boolean, episode: Boolean): Mismatch? {
         if (resumed) return null
         val expected = expectedRuntimeMs?.takeIf { it >= MIN_JUDGED_RUNTIME_MS } ?: return null
         val duration = durationMs?.takeIf { it > 0L } ?: return null
-        val toleranceMs = maxOf((expected * TOLERANCE_RATIO).toLong(), MIN_TOLERANCE_MS)
+        val ratio = if (episode) EPISODE_TOLERANCE_RATIO else TOLERANCE_RATIO
+        val toleranceMs = maxOf((expected * ratio).toLong(), MIN_TOLERANCE_MS)
         return if (abs(duration - expected) > toleranceMs) Mismatch(duration, expected) else null
     }
 }

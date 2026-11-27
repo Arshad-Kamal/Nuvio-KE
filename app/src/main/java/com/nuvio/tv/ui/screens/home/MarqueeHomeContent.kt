@@ -128,7 +128,7 @@ fun MarqueeHomeContent(
         derivedStateOf { verticalRowListState.isScrollInProgress }
     }
     val rowListStates = remember { mutableStateMapOf<String, LazyListState>() }
-    val loadMoreRequestedTotals = remember { mutableStateMapOf<String, Int>() }
+    val loadMoreEntries = remember { mutableStateMapOf<String, RowLoadMoreEntry>() }
     val focusedItemByRow = remember { mutableStateMapOf<String, Int>() }
     if (focusedItemByRow.isEmpty() && focusState.hasSavedFocus) {
         // Every row's card is saved on leave, so every row gets it back, not only the focused one.
@@ -218,7 +218,7 @@ fun MarqueeHomeContent(
 
     LaunchedEffect(carouselRows, focusState.hasSavedFocus) {
         rowListStates.keys.retainAll(lookups.activeRowKeys)
-        loadMoreRequestedTotals.keys.retainAll(lookups.activeRowKeys)
+        loadMoreEntries.keys.retainAll(lookups.activeRowKeys)
         val staleSelection = focusedCatalogSelection.value?.let { selection ->
             when (val payload = selection.payload) {
                 is ModernPayload.Catalog ->
@@ -499,7 +499,7 @@ fun MarqueeHomeContent(
                 isVerticalRowsScrollingState = isVerticalRowsScrollingState,
                 focusedItemByRow = remember { StableRef<MutableMap<String, Int>>(focusedItemByRow) },
                 rowListStates = remember { StableRef<MutableMap<String, LazyListState>>(rowListStates) },
-                loadMoreRequestedTotals = remember { StableRef<MutableMap<String, Int>>(loadMoreRequestedTotals) },
+                loadMoreEntries = remember { StableRef<MutableMap<String, RowLoadMoreEntry>>(loadMoreEntries) },
                 focusState = focusState,
                 focus = focus,
                 activeRowIndex = activeRowIndexState,

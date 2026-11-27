@@ -139,7 +139,9 @@ class OkHttpClientArchitectureTest {
 
     @Test
     fun `image client keeps the coil-appropriate shape`() {
-        val client = NetworkModule.provideImageOkHttpClient()
+        val client = NetworkModule.provideImageOkHttpClient(mockk<Context>(), AddonHostGuard())
+        // Spec 114 P0-3: the rating-poster host gate runs first, before the socket-timeout retry.
+        assertTrue(client.interceptors.first() is com.nuvio.tv.core.posters.RatingPosterHostGate)
         assertEquals(12_000, client.callTimeoutMillis)
         assertEquals(4_000, client.connectTimeoutMillis)
         assertEquals(5_000, client.readTimeoutMillis)
@@ -190,7 +192,7 @@ class OkHttpClientArchitectureTest {
             NetworkModule.provideApiOkHttpClient(context, addonTls, AddonHostGuard()),
             NetworkModule.provideDownloadOkHttpClient(addonTls),
             NetworkModule.provideValidatedOkHttpClient(context),
-            NetworkModule.provideImageOkHttpClient(),
+            NetworkModule.provideImageOkHttpClient(context, AddonHostGuard()),
             NetworkModule.provideBackendAuthHttpClient()
         ).forEach { assertSame(AppDns, it.dns) }
         assertNotSame(AppDns, PlayerPlaybackNetworking.playbackHttpClient.dns)

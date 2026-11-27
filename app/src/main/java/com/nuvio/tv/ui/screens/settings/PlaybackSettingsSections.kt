@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.DisplayCapabilities
@@ -133,6 +134,7 @@ internal fun PlaybackSettingsSections(
     onSetSubtitleBold: (Boolean) -> Unit,
     onSetUseForcedSubtitles: (Boolean) -> Unit,
     onSetAddonSubtitlesEnabled: (Boolean) -> Unit,
+    onSetSubtitleAutoSyncEnabled: (Boolean) -> Unit,
     onSetSubtitleShowOnlyPreferredLanguages: (Boolean) -> Unit,
     onSetSubtitleStripSdh: (Boolean) -> Unit,
     onSetSubtitleEdgeStyle: (SubtitleEdgeStyle) -> Unit,
@@ -179,6 +181,8 @@ internal fun PlaybackSettingsSections(
 
     var audioVideoPicker by rememberSaveable { mutableStateOf<AudioVideoPicker?>(null) }
     var subtitlePicker by rememberSaveable { mutableStateOf<SubtitlePicker?>(null) }
+    // Spec 132 S4: the Font row and its panel (fonts, phone page) have their own model.
+    val subtitleFonts: SubtitleFontsViewModel = hiltViewModel()
     var hdrRowFocused by remember { mutableStateOf(false) }
     val frameRateFocus = remember { FocusRequester() }
     val context = LocalContext.current
@@ -294,9 +298,11 @@ internal fun PlaybackSettingsSections(
                 onOpenPicker = { subtitlePicker = it },
                 onSetUseForcedSubtitles = onSetUseForcedSubtitles,
                 onSetAddonSubtitlesEnabled = onSetAddonSubtitlesEnabled,
+                onSetSubtitleAutoSyncEnabled = onSetSubtitleAutoSyncEnabled,
                 onSetSize = onSetSubtitleSize,
                 onSetVerticalOffset = onSetSubtitleVerticalOffset,
                 onSetBold = onSetSubtitleBold,
+                fontsViewModel = subtitleFonts,
                 onSetEdgeStyle = onSetSubtitleEdgeStyle,
                 onSetHdrStyleEnabled = onSetSubtitleHdrStyleEnabled,
                 onSetHdrBrightness = onSetSubtitleHdrBrightness,
@@ -372,6 +378,8 @@ internal fun PlaybackSettingsSections(
             onDismiss = { audioVideoPicker = null }
         )
     }
+
+    SubtitleFontPanels(fontsViewModel = subtitleFonts, chosenId = playerSettings.subtitleStyle.fontId)
 
     subtitlePicker?.let { picker ->
         SubtitlePickerPanel(

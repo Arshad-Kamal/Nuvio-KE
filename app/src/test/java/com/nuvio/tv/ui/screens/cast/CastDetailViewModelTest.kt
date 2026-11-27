@@ -1,5 +1,10 @@
 package com.nuvio.tv.ui.screens.cast
 
+import com.nuvio.tv.data.repository.noContentFilter
+import com.nuvio.tv.data.repository.CatalogContentFilter
+import com.nuvio.tv.data.repository.GateFixture
+import com.nuvio.tv.domain.contentfilter.FilterPack
+import com.nuvio.tv.domain.contentfilter.PackWord
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import com.nuvio.tv.MainDispatcherRule
@@ -73,7 +78,24 @@ class CastDetailViewModelTest {
 
     private val keyState = MutableStateFlow<TmdbKeyState?>(TmdbKeyState(userKey = "", effectiveKey = "built-in"))
 
-    private fun viewModel() = CastDetailViewModel(
+    @Test
+    fun `the content filter's gate hides credits before the page is built`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val zombie = person.departments.single().credits.single().let { credit ->
+                credit.copy(preview = credit.preview.copy(id = "tmdb:2", name = "Zombie Town"))
+            }
+            val withZombie = person.copy(
+                departments = listOf(PersonDepartment("Acting", person.departments.single().credits + zombie))
+            )
+            coEvery { service.fetchPersonDetail(any(), any()) } returns withZombie
+            val gate = GateFixture(listOf(FilterPack("p5", words = listOf(PackWord("zombie")))))
+            val viewModel = viewModel(gate.contentFilter)
+
+            val page = (viewModel.uiState.first { it is CastDetailUiState.Success } as CastDetailUiState.Success).page
+            assertEquals(listOf("Spring"), page.tabs.single().cards.map { it.item.title })
+        }
+
+    private fun viewModel(contentFilter: CatalogContentFilter = noContentFilter()) = CastDetailViewModel(
         context = context,
         tmdbMetadataService = service,
         tmdbSettingsDataStore = mockk<TmdbSettingsDataStore> { every { settings } returns MutableStateFlow(mockk<TmdbSettings>(relaxed = true)) },
@@ -82,6 +104,7 @@ class CastDetailViewModelTest {
         watchProgressRepository = mockk(relaxed = true),
         watchedSeriesStateHolder = mockk(relaxed = true),
         posterOptions = mockk(relaxed = true),
+        contentFilter = contentFilter,
         savedStateHandle = SavedStateHandle(mapOf("personId" to "7", "personName" to "Mira"))
     )
 

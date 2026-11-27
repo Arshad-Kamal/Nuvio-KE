@@ -15,8 +15,10 @@ import androidx.media3.extractor.text.SubtitleParser
 import androidx.media3.ui.SubtitleView
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.Subtitle
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -90,7 +92,10 @@ internal fun PlayerRuntimeController.stopSidecarAddonSubtitle(clearView: Boolean
 /** Drops the active sidecar key and cues and, when [clearView], blanks the bound view. */
 private fun PlayerRuntimeController.clearSidecarSubtitle(clearView: Boolean = true) {
     activeSidecarSubtitleKey = null
+    activeSidecarGeneration = 0L
+    activeSidecarRawBody = null
     sidecarTimedCues = emptyList()
+    clearAutoSyncedSubtitle()
     if (clearView) {
         postToSubtitleView { view ->
             view.setTag(R.id.player_view_sidecar_generation_tag, null)
@@ -103,31 +108,56 @@ private fun PlayerRuntimeController.clearSidecarSubtitle(clearView: Boolean = tr
  * Downloads, parses, and starts rendering [subtitle] without reloading the media source.
  * Returns false if the format is unsupported or a newer selection superseded this request.
  */
-internal fun PlayerRuntimeController.startSidecarAddonSubtitle(subtitle: Subtitle): Boolean {
+internal fun PlayerRuntimeController.startSidecarAddonSubtitle(
+    subtitle: Subtitle,
+    // Spec 108: AutoSync shares its one download of the body. Null, a null result, a failure or a
+    // cancelled share all fall back to this function's own download, so the subtitle still shows.
+    rawBodyLoader: (suspend () -> String?)? = null
+): Boolean {
     if (!canAttachAddonSubtitleViaSidecar(subtitle)) return false
 
     val subtitleKey = addonSubtitleKey(subtitle)
     val urlMimeHint = PlayerSubtitleUtils.mimeTypeFromUrl(subtitle.url)
 
     sidecarSubtitleJob?.cancel()
+    val generation = ++sidecarGenerationCounter
+    activeSidecarGeneration = generation
     activeSidecarSubtitleKey = subtitleKey
+    // Spec 108: AutoSync reads this attachment's body instead of downloading it again.
+    val rawBodyShare = CompletableDeferred<String?>()
+    activeSidecarRawBody = rawBodyShare
     lastSidecarCueSignature = null
     sidecarTimedCues = emptyList()
+    // Spec 108: a (re)started attachment shows the original timing until AutoSync applies again.
+    clearAutoSyncedSubtitle()
     postToSubtitleView { view ->
         view.setTag(R.id.player_view_sidecar_generation_tag, subtitleKey)
         view.setCues(emptyList())
     }
 
+    fun isCurrent() = activeSidecarSubtitleKey == subtitleKey && activeSidecarGeneration == generation
+
     sidecarSubtitleJob = scope.launch {
         try {
-            val rawBody = downloadSubtitleBody(subtitle.url, subtitle.lang, subtitle.headers)
-            if (activeSidecarSubtitleKey != subtitleKey) return@launch
+            val sharedBody = rawBodyLoader?.let { loader ->
+                try {
+                    loader()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    ensureActive() // only the share was cancelled, not this job
+                    null
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            val rawBody = sharedBody ?: downloadSubtitleBody(subtitle.url, subtitle.lang, subtitle.headers)
+            rawBodyShare.complete(rawBody)
+            if (!isCurrent()) return@launch
 
             val resolvedMime = PlayerSubtitleUtils.sniffSubtitleMimeType(rawBody, subtitle.url)
             val parseResult = withContext(Dispatchers.Default) {
                 parseSidecarTimedCuesRobust(rawBody, subtitle.url)
             }
-            if (activeSidecarSubtitleKey != subtitleKey) return@launch
+            if (!isCurrent()) return@launch
 
             if (parseResult.cues.isEmpty()) {
                 Log.w(
@@ -149,14 +179,14 @@ internal fun PlayerRuntimeController.startSidecarAddonSubtitle(subtitle: Subtitl
                     "(buffer preserved)"
             )
 
-            while (isActive && activeSidecarSubtitleKey == subtitleKey) {
+            while (isActive && isCurrent()) {
                 renderSidecarCuesAtCurrentPosition()
                 delay(SIDECAR_RENDER_INTERVAL_MS)
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (activeSidecarSubtitleKey != subtitleKey) return@launch
+            if (!isCurrent()) return@launch
             Log.w(
                 PlayerRuntimeController.TAG,
                 "Sidecar subtitle failed id=${subtitle.id}: ${e.message} " +
@@ -164,6 +194,59 @@ internal fun PlayerRuntimeController.startSidecarAddonSubtitle(subtitle: Subtitl
             )
             clearSidecarSubtitle()
             // Intentionally no attachAddonSubtitleViaMediaReload — keeps A/V buffer intact.
+        }
+    }.also { job -> job.invokeOnCompletion { rawBodyShare.complete(null) } }
+    return true
+}
+
+/** Spec 108: the raw body shared by the attachment of [key], or null when [key] is not attached. */
+internal fun PlayerRuntimeController.currentSidecarRawBodyFor(key: String): CompletableDeferred<String?>? =
+    activeSidecarRawBody.takeIf { activeSidecarSubtitleKey == key }
+
+/** Spec 108: identifies one attachment of [key]; changes whenever the sidecar restarts or stops. */
+internal fun PlayerRuntimeController.currentSidecarGenerationFor(key: String): Long? =
+    activeSidecarGeneration.takeIf { activeSidecarSubtitleKey == key && it != 0L }
+
+/**
+ * Spec 108 (upstream AutoSync): replaces the cues of the attached subtitle with already-parsed
+ * [cues], switching the attachment to [newKey], only if [expectedCurrentKey] (and
+ * [expectedGeneration]) is still the active attachment. Keeps the buffer; no re-download.
+ */
+internal fun PlayerRuntimeController.commitPreparedSidecarSubtitle(
+    expectedCurrentKey: String,
+    newKey: String,
+    cues: List<CuesWithTiming>,
+    expectedGeneration: Long? = null
+): Boolean {
+    if (cues.isEmpty() || activeSidecarSubtitleKey != expectedCurrentKey) return false
+    if (expectedGeneration != null && activeSidecarGeneration != expectedGeneration) return false
+
+    val keyChanged = newKey != expectedCurrentKey
+    if (keyChanged) {
+        sidecarSubtitleJob?.cancel()
+        activeSidecarSubtitleKey = newKey
+        activeSidecarGeneration = ++sidecarGenerationCounter
+        activeSidecarRawBody = null // the old attachment's body is not newKey's
+    }
+
+    val committedGeneration = activeSidecarGeneration
+    sidecarTimedCues = cues
+    lastSidecarCueSignature = null
+    postToSubtitleView { view ->
+        view.setTag(R.id.player_view_sidecar_generation_tag, newKey)
+    }
+    renderSidecarCuesAtCurrentPosition()
+
+    if (keyChanged) {
+        sidecarSubtitleJob = scope.launch {
+            while (
+                isActive &&
+                activeSidecarSubtitleKey == newKey &&
+                activeSidecarGeneration == committedGeneration
+            ) {
+                renderSidecarCuesAtCurrentPosition()
+                delay(SIDECAR_RENDER_INTERVAL_MS)
+            }
         }
     }
     return true
@@ -187,8 +270,14 @@ internal fun PlayerRuntimeController.renderSidecarCuesAtCurrentPosition() {
     if (signature == lastSidecarCueSignature) return
     lastSidecarCueSignature = signature
     val currentKey = activeSidecarSubtitleKey ?: return
+    val currentGeneration = activeSidecarGeneration
     postToSubtitleView { view ->
-        if (view.getTag(R.id.player_view_sidecar_generation_tag) == currentKey) {
+        // Spec 108 (upstream): a render posted for an older attachment of the same key draws nothing.
+        if (
+            view.getTag(R.id.player_view_sidecar_generation_tag) == currentKey &&
+            activeSidecarSubtitleKey == currentKey &&
+            activeSidecarGeneration == currentGeneration
+        ) {
             view.setCues(merged)
         }
     }

@@ -29,6 +29,8 @@ data class Meta(
     val ageRating: String? = null,
     /** Content descriptors for [ageRating] ("violence, language"), when the source names them. */
     val ageRatingDescriptors: List<String> = emptyList(),
+    /** As [MetaPreview.nonUsRatings] (Spec 102); empty on a TMDB fallback meta. */
+    val nonUsRatings: Map<String, String> = emptyMap(),
     val country: String?,
     val awards: String?,
     val language: String?,

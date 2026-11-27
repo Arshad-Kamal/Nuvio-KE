@@ -163,11 +163,17 @@ private fun TmdbKeyNote(buildHasKey: Boolean) {
 }
 
 /**
- * `.s52or` + `.s52qrrow` (Spec 52 key panel; Spec 97 Access headers): the [divider], then the QR of
- * [url] beside [title], the same-Wi-Fi line and the address; the screen stays on while it shows.
+ * `.s52or` + `.s52qrrow` (Spec 52 key panel; Spec 97 Access headers; Spec 132 fonts): the [divider],
+ * then the QR of [url] beside [title], the [note] (the same-Wi-Fi line by default) and the address;
+ * the screen stays on while it shows.
  */
 @Composable
-internal fun SettingsPhoneQrBlock(url: String, divider: String, title: String) {
+internal fun SettingsPhoneQrBlock(
+    url: String,
+    divider: String,
+    title: String,
+    note: String = stringResource(R.string.photo_upload_wifi)
+) {
     val marquee = NuvioTheme.marquee
     val tokens = marquee.settings
     val qr = rememberQrCode(url)
@@ -212,7 +218,7 @@ internal fun SettingsPhoneQrBlock(url: String, divider: String, title: String) {
                     color = NuvioPrimitives.white
                 )
                 Text(
-                    text = stringResource(R.string.photo_upload_wifi),
+                    text = note,
                     style = NuvioTheme.textStyles.settingsNote,
                     color = marquee.onImage2,
                     modifier = Modifier.padding(top = 3.dp)

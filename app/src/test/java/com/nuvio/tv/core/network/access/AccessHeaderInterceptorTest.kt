@@ -191,7 +191,7 @@ class AccessHeaderInterceptorTest {
             NetworkModule.provideApiOkHttpClient(context, addonTls, AddonHostGuard()),
             NetworkModule.provideDownloadOkHttpClient(addonTls),
             NetworkModule.provideValidatedOkHttpClient(context),
-            NetworkModule.provideImageOkHttpClient(),
+            NetworkModule.provideImageOkHttpClient(context, AddonHostGuard()),
             NetworkModule.provideBackendAuthHttpClient(),
             PlayerPlaybackNetworking.playbackHttpClient,
             PlayerPlaybackNetworking.createHttpClient(mapOf("Authorization" to "Basic x"))

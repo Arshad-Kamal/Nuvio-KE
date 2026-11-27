@@ -198,24 +198,40 @@ internal fun MarqueeSwitchRow(
     }
 }
 
-/** `.l8sw`: the switch track and knob (white + black when on). */
+/**
+ * `.l8sw`: the switch track and knob (white + black when on). [onLight]: on a focused white pill (Spec 105 B2
+ * `.l8pk.focus .s105sw`), on = black + white, off = a dark track with a white knob.
+ */
 @Composable
-internal fun MarqueeSwitch(checked: Boolean) {
+internal fun MarqueeSwitch(checked: Boolean, onLight: Boolean = false) {
     val tokens = NuvioTheme.marquee.formRow
+    val track = when {
+        onLight && checked -> NuvioPrimitives.black
+        onLight -> NuvioPrimitives.black.copy(alpha = SWITCH_ON_LIGHT_OFF_TRACK_ALPHA)
+        checked -> NuvioPrimitives.white
+        else -> tokens.switchOffTrack
+    }
+    val knob = when {
+        onLight -> NuvioPrimitives.white
+        checked -> NuvioPrimitives.black
+        else -> tokens.switchOffKnob
+    }
     Box(
         modifier = Modifier
             .size(width = tokens.switchWidth, height = tokens.switchHeight)
-            .background(if (checked) NuvioPrimitives.white else tokens.switchOffTrack, CircleShape)
+            .background(track, CircleShape)
             .padding(horizontal = tokens.switchKnobInset),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         Box(
             modifier = Modifier
                 .size(tokens.switchKnob)
-                .background(if (checked) NuvioPrimitives.black else tokens.switchOffKnob, CircleShape)
+                .background(knob, CircleShape)
         )
     }
 }
+
+private const val SWITCH_ON_LIGHT_OFF_TRACK_ALPHA = 0.25f
 
 /** `.l8r .vl`: end-aligned, white while the row is [lit], onImage3 when [dimmed]. */
 @Composable

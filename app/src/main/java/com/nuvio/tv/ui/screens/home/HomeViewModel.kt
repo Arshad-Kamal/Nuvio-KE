@@ -80,7 +80,11 @@ class HomeViewModel @Inject constructor(
     internal val prefetchSelectionSupplier: com.nuvio.tv.core.stream.PrefetchSelectionSupplier,
     internal val homeRefreshSignal: com.nuvio.tv.core.util.HomeRefreshSignal,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
-    activeRatingCap: com.nuvio.tv.core.profile.ActiveRatingCap
+    activeRatingCap: com.nuvio.tv.core.profile.ActiveRatingCap,
+    internal val activeContentFilter: com.nuvio.tv.core.contentfilter.ActiveContentFilter,
+    internal val titleTagLookup: com.nuvio.tv.core.contentfilter.TitleTagLookup,
+    private val scoutHomeRow: com.nuvio.tv.core.scout.ScoutHomeRow,
+    internal val mdbListHomeRows: com.nuvio.tv.data.mdblist.MdbListHomeRows
 ) : ViewModel() {
     companion object {
         internal const val TAG = "HomeViewModel"
@@ -104,12 +108,19 @@ class HomeViewModel @Inject constructor(
 
     internal val _uiState = MutableStateFlow(HomeUiState())
     // Spec 64 K1c: the one exit every Continue Watching publish path reaches, so the cap is
-    // applied here; internal code keeps reading and writing the unfiltered _uiState.
-    val uiState: StateFlow<HomeUiState> = ContinueWatchingRatingGate(
+    // applied here, then the content filter (Spec 117 P7); internal code keeps reading and writing
+    // the unfiltered _uiState.
+    val uiState: StateFlow<HomeUiState> = ContinueWatchingContentFilterGate(
         scope = viewModelScope,
-        readCap = activeRatingCap::current,
-        lookUpRating = ContinueWatchingRatingGate.metaRepositoryLookup(metaRepository)
-    ).gate(_uiState)
+        readFilter = activeContentFilter::current,
+        lookup = titleTagLookup
+    ).gate(
+        ContinueWatchingRatingGate(
+            scope = viewModelScope,
+            readCap = activeRatingCap::current,
+            lookUpRating = ContinueWatchingRatingGate.metaRepositoryLookup(metaRepository)
+        ).gate(_uiState)
+    )
 
     internal val _modernHomePresentation = MutableStateFlow(ModernHomePresentationState())
     val modernHomePresentation: StateFlow<ModernHomePresentationState> = _modernHomePresentation.asStateFlow()
@@ -177,6 +188,12 @@ class HomeViewModel @Inject constructor(
 
     fun setHomeOnTop(onTop: Boolean) {
         homeOnTop.value = onTop
+        // Spec 100: a no-op unless the day's picks are due; re-reads the cap and filters too.
+        if (onTop) {
+            scoutHomeRow.refresh()
+            // Spec 105 S5b1: reads only what MdbListHomeLists' floors let through.
+            mdbListHomeRows.refresh()
+        }
     }
 
     private val cwPrefetchObserver: Job = viewModelScope.launch {
@@ -304,11 +321,22 @@ class HomeViewModel @Inject constructor(
     internal val catalogOrder = mutableListOf<String>()
     internal var addonsCache: List<Addon> = emptyList()
     internal var collectionsCache: List<Collection> = emptyList()
+    /** Spec 145: set by the collections pipeline's first pass; published as HomeUiState.collectionsLoaded. */
+    internal var collectionsLoadedOnce = false
     internal var homeCatalogOrderKeys: List<String> = emptyList()
     internal var disabledHomeCatalogKeys: Set<String> = emptySet()
     internal var followAddonsOrderEnabled: Boolean = false
     internal var customCatalogTitles: Map<String, String> = emptyMap()
+    /** Spec 105 S5b1: every MDBList key Home may order (watchlist, then the index); their rows sit in [catalogsMap]. */
+    internal var mdbListKeys: List<String> = emptyList()
+    /** The MDBList rows last applied by key, unmerged (applyMdbListRowsPipeline skips an unchanged one). Main-only. */
+    internal val mdbListAppliedRows = HashMap<String, CatalogRow>()
     internal var catalogUpdateJob: Job? = null
+    /**
+     * Spec 117 P5b: the content filter of the latest draw pass (set when the pass starts), null when
+     * nothing is filtered or marked; the enrichment and the prefetched hero judge with it. Main-only.
+     */
+    internal var homeDrawFilter: HomeDrawFilter? = null
     private var catalogRowsDirty = false
     internal var hasRenderedFirstCatalog = false
     internal val catalogLoadSemaphore = Semaphore(MAX_CATALOG_LOAD_CONCURRENCY)
@@ -428,7 +456,15 @@ class HomeViewModel @Inject constructor(
             loadCustomCatalogTitles()
             observeBlurUnwatchedEpisodes()
             observeCollections()
+            observeContentFilterRedrawsPipeline()
             observeInstalledAddons()
+            viewModelScope.launch {
+                scoutHomeRow.items().collect { picks -> _uiState.update { it.copy(scoutPicks = picks) } }
+            }
+            // The build itself starts from setHomeOnTop(true), which the first resume calls.
+            viewModelScope.launch {
+                mdbListHomeRows.rows().collect { applyMdbListRowsPipeline(it) }
+            }
 
             // Settings' clear-cache action: reload every catalogue through the
             // same forceReload path the error-screen Retry uses, so cleared

@@ -14,9 +14,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -48,7 +49,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   emits Loading then one Success then completes, which is what a very fast
  *   scrape looks like: StreamScreenViewModel's existing collect applies it with
  *   isAllLoaded=false, and its post-collect line then applies isAllLoaded=true.
- *   Auto-select timing and binge-group matching are untouched.
+ *   Auto-select timing and binge-group matching are untouched. A join also
+ *   forwards partial pools first ([streamsFor], Spec 141 D2).
  * - A join that times out, is superseded, or yields nothing falls through to
  *   the live flow, so the worst case is today's behaviour.
  *
@@ -194,7 +196,15 @@ object StreamPrefetchCache {
          * false so their repeat calls stay dedup no-ops (no republish storm,
          * and a no-uiKey warmer can never clobber the hero signal).
          */
-        republishOnDedup: Boolean = false
+        republishOnDedup: Boolean = false,
+        /**
+         * Spec 141 D2: run under the cache lock just before [rank] is scheduled on a scrape
+         * that has not finished (a new scrape, or an in-flight dedup with [republishOnDedup]),
+         * never on a fresh-entry republish. The hero caller drops its key's old signal here,
+         * so its source line reads searching instead of a previous scrape's Ready; the
+         * scheduled rank (or the superseded / late-rank path) publishes the terminal signal.
+         */
+        onRankPending: (() -> Unit)? = null
     ) {
         if (type.isBlank() || videoId.isBlank()) return
         val key = keyOf(type, videoId, season, episode)
@@ -233,6 +243,7 @@ object StreamPrefetchCache {
                 // warmer must yield to it rather than cancel it.
                 if (!background) inFlightBackground = false
                 if (republishOnDedup && rank != null) {
+                    onRankPending?.invoke()
                     launchRank(rank, "inflight-republish", source, key, logGroups = true) {
                         try {
                             existing.await()
@@ -335,6 +346,8 @@ object StreamPrefetchCache {
                 }
             }
             inFlightJob = job
+            // Same gate as the superseded handler above, which guarantees the terminal signal.
+            if (republishOnDedup && rank != null) onRankPending?.invoke()
             job.start()
         }
         Log.i(TAG, "PREFETCH start source=$source key=$key")
@@ -372,6 +385,8 @@ object StreamPrefetchCache {
      * was cancelled (superseded) while the awaiting coroutine is still live;
      * false means the awaiter is being cancelled and must rethrow.
      */
+    private fun List<AddonStreams>.streamCount(): Int = sumOf { it.streams.size }
+
     private suspend fun awaitedJobCancelled(job: Job): Boolean =
         job.isCancelled && currentCoroutineContext().isActive
 
@@ -461,6 +476,12 @@ object StreamPrefetchCache {
     /**
      * The stream list for this target: a completed prefetch, a join onto one in
      * flight, or the live repository flow. Drop-in for the repository call.
+     *
+     * Spec 141 D2: a join forwards the repository session's non-empty pools while
+     * it waits (the session shares the running scrape, so no second scrape), so the
+     * stream screen's auto-play timeout has data to pick from. Its last emission is
+     * the larger of the prefetch's result and the last forwarded pool: session pools
+     * only grow, and a capped prefetch's pool can be older than a forwarded one.
      */
     fun streamsFor(
         repository: StreamRepository,
@@ -478,6 +499,7 @@ object StreamPrefetchCache {
         if (forceRefresh) {
             return repository.getStreamsFromAllAddons(type, videoId, season, episode, forceRefresh = true)
         }
+        fun live() = repository.getStreamsFromAllAddons(type, videoId, season, episode)
         val key = keyOf(type, videoId, season, episode)
         var hit: List<AddonStreams>? = null
         var join: Deferred<List<AddonStreams>>? = null
@@ -501,8 +523,24 @@ object StreamPrefetchCache {
         val joinJob = join
         if (joinJob != null) {
             Log.i(TAG, "PREFETCH join key=$key")
-            return flow {
-                emit(NetworkResult.Loading)
+            return channelFlow {
+                send(NetworkResult.Loading)
+                var lastPartial: List<AddonStreams>? = null
+                val partials = launch {
+                    try {
+                        live().collect { result ->
+                            if (result is NetworkResult.Success && result.data.isNotEmpty()) {
+                                send(result)
+                                lastPartial = result.data
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Partials are an extra: a failure here must not end the join.
+                        Log.w(TAG, "PREFETCH join partials failed: ${e.message}")
+                    }
+                }
                 val joined = try {
                     withTimeoutOrNull(JOIN_TIMEOUT_MS) { joinJob.await() }
                 } catch (e: CancellationException) {
@@ -511,16 +549,25 @@ object StreamPrefetchCache {
                 } catch (e: Exception) {
                     null
                 }
+                // Stopped before the final emission, so no partial can land after it.
+                partials.cancelAndJoin()
+                val forwarded = lastPartial
                 if (joined != null && joined.isNotEmpty()) {
-                    emit(NetworkResult.Success(joined))
+                    // A forwarded pool already last and at least as large ends the join as is.
+                    // Streams break a group-count tie: same-named addons merge into one group.
+                    if (forwarded == null || joined.size > forwarded.size ||
+                        (joined.size == forwarded.size && joined.streamCount() > forwarded.streamCount())
+                    ) {
+                        send(NetworkResult.Success(joined))
+                    }
                 } else {
                     Log.i(TAG, "PREFETCH join empty; falling back to live scrape")
-                    emitAll(repository.getStreamsFromAllAddons(type, videoId, season, episode))
+                    live().collect { send(it) }
                 }
             }
         }
 
         Log.i(TAG, "PREFETCH miss key=$key")
-        return repository.getStreamsFromAllAddons(type, videoId, season, episode)
+        return live()
     }
 }

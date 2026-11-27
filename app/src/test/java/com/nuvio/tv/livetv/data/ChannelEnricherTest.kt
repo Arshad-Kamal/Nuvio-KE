@@ -9,7 +9,9 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -134,5 +136,19 @@ class ChannelEnricherTest {
         val plain = ChannelEnricher.enrich(ch("DW.de@English", "DW English"), null)
         assertNull(plain.languages.firstOrNull())
         assertFalse(plain.nsfw)
+    }
+
+    @Test
+    fun `an unchanged channel keeps its instance, a changed one is a copy (Spec 143 P2)`() {
+        val plain = ch(null, "Local News", groups = listOf("News"))
+        assertSame(plain, ChannelEnricher.enrich(plain, meta))
+        assertSame(plain, ChannelEnricher.enrich(plain, null))
+
+        val adult = ch(null, "Late Night", groups = listOf("XXX"))
+        val flagged = ChannelEnricher.enrich(adult, meta)
+        assertNotSame(adult, flagged)
+        assertTrue(flagged.nsfw)
+        // A stale flag on an unmatched, clean channel is cleared, as before.
+        assertFalse(ChannelEnricher.enrich(plain.copy(nsfw = true), meta).nsfw)
     }
 }

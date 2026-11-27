@@ -230,6 +230,20 @@ object AfrFpsCache {
         schedulePersistFlush()
     }
 
+    /**
+     * Spec 131: forgets one detection (memory and disk), for a stream that turned out not to be the
+     * title: a placeholder clip's rate is keyed by the film's filename and would otherwise switch the
+     * display for every later play of that release.
+     */
+    fun removeFrameRate(url: String, headers: Map<String, String>, filename: String? = null) {
+        val key = buildCacheKey(url, headers, filename)
+        val removed = synchronized(frameRateCache) {
+            val inMemory = frameRateCache.remove(key) != null
+            persistedCache.remove(hashKey(key)) != null || inMemory
+        }
+        if (removed) schedulePersistFlush()
+    }
+
     /** Test-only: wipe the in-memory FPS cache between unit tests. */
     internal fun clearFrameRateCache() {
         synchronized(frameRateCache) {

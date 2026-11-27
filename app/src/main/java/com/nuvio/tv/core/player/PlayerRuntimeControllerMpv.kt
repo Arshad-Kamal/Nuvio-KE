@@ -4,6 +4,7 @@ import com.nuvio.tv.core.util.safeHost
 import android.util.Log
 import androidx.media3.exoplayer.SeekParameters
 import com.nuvio.tv.data.local.InternalPlayerEngine
+import com.nuvio.tv.data.local.UserSubtitleFontStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -37,6 +38,7 @@ internal fun PlayerRuntimeController.attachMpvView(view: NuvioMpvSurfaceView?) {
         mpvStartPositionMs = startPositionMs
         performPendingMpvHardRestartIfNeeded(view)
         view.applyHardwareDecodeMode(mpvHardwareDecodeModeSetting)
+        applyMpvSubtitleFont(view)
         view.setMedia(currentStreamUrl, currentHeaders)
         applyMpvSessionSettingsAndStart(view, startPositionMs = startPositionMs)
         hasRenderedFirstFrame = false
@@ -104,6 +106,7 @@ internal fun PlayerRuntimeController.initializeMpvPlayer(
         pendingMpvHardRestartOnNextAttach = false
         view.releasePlayer()
         view.applyHardwareDecodeMode(mpvHardwareDecodeModeSetting)
+        applyMpvSubtitleFont(view)
         val initialResumePosition = resolvePendingInitialResumePosition()
             .takeIf { it > 0L }
             ?: (_uiState.value.pendingSeekPosition?.coerceAtLeast(0L) ?: 0L)
@@ -153,6 +156,15 @@ internal fun PlayerRuntimeController.initializeMpvPlayer(
             allowEngineFailover = allowEngineFailover
         )
     }
+}
+
+/**
+ * Spec 132: the profile's chosen font for the core setMedia starts next (D2: mpv loads fonts at
+ * start). The family is the one stored with the choice (always written with the id).
+ */
+private fun PlayerRuntimeController.applyMpvSubtitleFont(view: NuvioMpvSurfaceView) {
+    val style = _uiState.value.subtitleStyle
+    view.applySubtitleFont(style.fontId?.let { UserSubtitleFontStore.fileOf(context.filesDir, it) }, style.fontName)
 }
 
 /**

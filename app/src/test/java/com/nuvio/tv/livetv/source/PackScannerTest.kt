@@ -181,6 +181,46 @@ class PackScannerTest {
     }
 
     @Test
+    fun `a probe that finishes after playback starts is applied only once playback stops`() = runTest {
+        // Spec 146 D2: an apply reads the channel list back into memory, which a stream start let go.
+        val gate = CompletableDeferred<Boolean>()
+        val pack = listOf(channel("A", "ca", stream("https://a/1")), channel("B", "ca", stream("https://b/1")))
+        val scanner = scanner(pack) { if (it.url == "https://a/1") gate.await() else true }
+        scanner.start(setOf("ca"))
+        runCurrent()
+        playing.value = true
+        runCurrent()
+        gate.complete(true)
+        advanceTimeBy(PackScanner.APPLY_INTERVAL_MS * 3)
+        assertTrue(applied.isEmpty())
+
+        playing.value = false
+        advanceTimeBy(PackScanner.APPLY_INTERVAL_MS)
+        assertTrue(applied.isNotEmpty())
+        assertTrue(ChannelPack.scanKey("https://a/1") in applied.first().first)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a scan whose last probe ends during playback applies once playback stops`() = runTest {
+        val gate = CompletableDeferred<Boolean>()
+        val scanner = scanner(listOf(channel("A", "ca", stream("https://a/1")))) { gate.await() }
+        scanner.start(setOf("ca"))
+        runCurrent()
+        playing.value = true
+        runCurrent()
+        gate.complete(true)
+        advanceTimeBy(PackScanner.APPLY_INTERVAL_MS * 3)
+        assertTrue(applied.isEmpty())
+        assertTrue(scanner.state.value is PackScanner.State.Running)
+
+        playing.value = false
+        advanceUntilIdle()
+        assertEquals(1, applied.single().second.playing)
+        assertEquals(PackScanner.State.Idle, scanner.state.value)
+    }
+
+    @Test
     fun `nothing is probed while something plays, and the state says paused`() = runTest {
         playing.value = true
         // The probe takes a moment, so the resumed scan is still running when the pause ends.

@@ -29,8 +29,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 data class LayoutSettingsUiState(
@@ -226,10 +228,11 @@ class LayoutSettingsViewModel @Inject constructor(
         }
         stopStreamBadgeServer()
         streamBadgeServer = StreamBadgeConfigServer.startOnAvailablePort(
-            currentRulesProvider = { _streamBadgeUiState.value.rules },
-            onRulesChanged = { rules ->
-                _streamBadgeUiState.update { it.copy(settings = it.settings.copy(rules = rules)) }
-                viewModelScope.launch { streamBadgeSettingsDataStore.setStreamBadgeRules(rules) }
+            // Spec 130 F4: both run on the server's request thread against the store itself, not
+            // this pane's state (its collector can lag a write); the pane follows the collector.
+            currentRulesProvider = { runBlocking { streamBadgeSettingsDataStore.settings.first().rules } },
+            updateRules = { transform ->
+                runBlocking { streamBadgeSettingsDataStore.updateStreamBadgeRules(transform) }
             },
             context = context,
             logoProvider = { logoBytes }

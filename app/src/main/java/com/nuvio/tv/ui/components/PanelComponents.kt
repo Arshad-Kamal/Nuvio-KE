@@ -108,16 +108,16 @@ internal fun PanelEyebrow(text: String) {
     }
 }
 
-/** The 1 dp white .12 rule under a compact panel's header, 10 dp above what follows (Column content). */
+/** The 1 dp white .12 rule under a compact panel's header, [below] (10 dp) above what follows (Column content). */
 @Composable
-internal fun PanelRule() {
+internal fun PanelRule(below: Dp = 10.dp) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
             .background(Color.White.copy(alpha = 0.12f))
     )
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(below))
 }
 
 /** A compact panel's eyebrow text (uppercase, +2.2 tracking, white .55), without [PanelEyebrow]'s rule. */
@@ -224,7 +224,9 @@ internal fun PanelActionRow(
  * [selectedFill] false keeps a selected row's tick but not its fill (a multi-select list's ticks, Spec 55
  * stage `s55-pick`). [titleFontFamily] draws the title in its own font (the App font picker); [subtitleMaxLines] lets a
  * picker option's description wrap (u11 stage 18). [leading] draws before the title (the Settings
- * colour panel's swatch chip).
+ * colour panel's swatch chip). [subtitleTrailing] draws after the subtitle on its line, given the row's
+ * focus (the Subtitles panel's "Auto synced" chip, Spec 108 D4); null keeps the line as it was; ignored
+ * with [subtitleTags].
  */
 @Composable
 internal fun PlayerPanelRow(
@@ -250,7 +252,10 @@ internal fun PlayerPanelRow(
     subtitleMaxLines: Int = 1,
     leading: (@Composable () -> Unit)? = null,
     selectedFill: Boolean = true,
-    subtitleTags: List<String> = emptyList()
+    subtitleTags: List<String> = emptyList(),
+    subtitleTrailing: (@Composable (focused: Boolean) -> Unit)? = null,
+    /** Drawn at the end in place of the tick / [trailingIcon] (a switch that inverts on the focused pill). */
+    trailing: (@Composable (focused: Boolean) -> Unit)? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
@@ -343,6 +348,7 @@ internal fun PlayerPanelRow(
             }
             val subtitleText = subtitle?.takeIf { it.isNotBlank() }
             val markText = subtitleMark?.takeIf { it.isNotBlank() }
+            val hasSubtitleText = subtitleText != null || markText != null
             if (subtitleTags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Row(
@@ -361,9 +367,10 @@ internal fun PlayerPanelRow(
                         PanelRowTag(text = tag, color = if (isFocused) darkContent else Color.White, focused = isFocused)
                     }
                 }
-            } else if (subtitleText != null || markText != null) {
+            } else if (hasSubtitleText || subtitleTrailing != null) {
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
+                val subtitleLine: @Composable (Modifier) -> Unit = { lineModifier -> Text(
+                    modifier = lineModifier,
                     text = buildAnnotatedString {
                         fun appendMark() {
                             if (markText == null) return
@@ -386,11 +393,25 @@ internal fun PlayerPanelRow(
                     color = subtitleColor,
                     maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis
-                )
+                ) }
+                if (subtitleTrailing == null) {
+                    subtitleLine(Modifier)
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // The text ellipsizes first, so the trailing content always shows.
+                        if (hasSubtitleText) subtitleLine(Modifier.weight(1f, fill = false))
+                        subtitleTrailing(isFocused)
+                    }
+                }
             }
         }
         val endIcon = if (selected) Icons.Default.Check else trailingIcon
-        if (endIcon != null) {
+        if (trailing != null) {
+            trailing(isFocused)
+        } else if (endIcon != null) {
             Icon(
                 imageVector = endIcon,
                 contentDescription = null,

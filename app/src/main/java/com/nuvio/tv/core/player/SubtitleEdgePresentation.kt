@@ -44,8 +44,8 @@ internal fun exoSubtitleLook(style: SubtitleStyleSettings, ownSsaStyle: Boolean)
     )
 
 /**
- * Applies the user's subtitle look to an ExoPlayer [SubtitleView]: size, weight (typeface from
- * [SubtitleTypefaces], Spec 135), colours, edge and the bottom offset (a fraction of the view's
+ * Applies the user's subtitle look to an ExoPlayer [SubtitleView]: size, font and weight (the
+ * user's font from [UserSubtitleTypefaces], Spec 132, else [SubtitleTypefaces], Spec 135), colours, edge and the bottom offset (a fraction of the view's
  * height plus an extra padding once laid out).
  * [textScale] scales the user's fixed size (the Settings preview draws a smaller frame). One home
  * for the player and the Settings preview (Spec 31 PB6).
@@ -70,7 +70,8 @@ internal fun SubtitleView.applySubtitleLook(
             Color.TRANSPARENT,
             look.edgeType,
             look.edgeColor,
-            SubtitleTypefaces.forWeight(context, style.bold)
+            UserSubtitleTypefaces.forStyle(context, style.fontId, style.bold)
+                ?: SubtitleTypefaces.forWeight(context, style.bold)
         )
     )
     setApplyEmbeddedStyles(true)

@@ -1,6 +1,7 @@
 package com.nuvio.tv.livetv.parse
 
 import com.nuvio.tv.data.local.localStoreJson
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -306,5 +307,21 @@ class XmltvNowNextParserTest {
         assertEquals(base, XmltvNowNextParser.parseXmltvTime("20261019120000 GMT")) // unreadable offset = UTC
         assertNull(XmltvNowNextParser.parseXmltvTime("garbage"))
         assertNull(XmltvNowNextParser.parseXmltvTime(null))
+    }
+
+    @Test
+    fun `equal titles and categories share one String within a parse (Spec 143)`() {
+        val doc = """
+            <tv>
+              <programme start="20261019120000 +0000" stop="20261019130000 +0000" channel="a"><title>News</title><category>News</category></programme>
+              <programme start="20261019130000 +0000" stop="20261019140000 +0000" channel="a"><title>News</title><category>News</category></programme>
+              <programme start="20261019120000 +0000" stop="20261019130000 +0000" channel="b"><title>News</title></programme>
+            </tv>
+        """.trimIndent()
+        val s = parser.parse(doc.byteInputStream(), now)
+        val a = s.programmes.getValue("a")
+        assertSame(a[0].title, a[1].title)
+        assertSame(a[0].title, a[1].category)
+        assertSame(a[0].title, s.programmes.getValue("b")[0].title)
     }
 }

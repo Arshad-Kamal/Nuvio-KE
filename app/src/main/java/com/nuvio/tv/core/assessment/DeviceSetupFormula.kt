@@ -51,7 +51,7 @@ internal object DeviceSetupFormula {
             ) FrameRateMatchingMode.START_STOP else settings.frameRateMatchingMode
         )
         return base.copy(
-            targetBufferMb = MemoryBudget.maxSafeTargetMb(device.safeLimitMb, base.parallelOverheadMb)
+            targetBufferMb = MemoryBudget.maxSafeTargetMb(device.safeLimitMb, base.parallelOverheadMb, device.tierMaxTargetMb)
                 .coerceAtMost(PlayerSettings.LARGE_TARGET_BUFFER_MAX_MB)
         )
     }

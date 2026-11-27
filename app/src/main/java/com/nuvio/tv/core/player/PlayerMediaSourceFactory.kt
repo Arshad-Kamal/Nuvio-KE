@@ -25,7 +25,8 @@ import java.util.Locale
 internal class PlayerMediaSourceFactory(private val context: Context) {
     private var customExtractorsFactory: ExtractorsFactory? = null
     private var customSubtitleParserFactory: SubtitleParser.Factory? = null
-    private val loadErrorHandlingPolicy = PlayerLoadErrorHandlingPolicy()
+    // Internal for the player's Spec 138 load hold (PlayerLoadErrorHandlingPolicy.startupLoadHold).
+    internal val loadErrorHandlingPolicy = PlayerLoadErrorHandlingPolicy()
 
     var useParallelConnections: Boolean = PlayerSettings.DEFAULT_USE_PARALLEL_CONNECTIONS
     var parallelConnectionCount: Int = PlayerSettings.DEFAULT_PARALLEL_CONNECTION_COUNT
@@ -51,7 +52,9 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
      * the safe native budget minus the SampleQueue's own target-buffer bytes on chunks,
      * divide by chunk size, and clamp to [2*connections, connections*4] so the window is
      * always at least deep enough to saturate the connections and never absurdly deep.
-     * On a 2 GB device this still yields a useful window; on 4 GB it opens up fully.
+     * On the <= 2 GB tier the window is 2 * connections, the floor alone (Spec 147 D5/D6,
+     * MemoryBudget.lowRamPrefetchDepth; never the throttling connections + 1 above);
+     * on 4 GB it opens up fully.
      */
     private fun computePrefetchDepthChunks(
         connections: Int,

@@ -52,7 +52,8 @@ class WatchProgressRepositoryProfileIsolationTest {
         metaRepository = mockk(relaxed = true),
         tmdbService = mockk(relaxed = true),
         profileManager = profileManager,
-        tvRecommendationManager = mockk(relaxed = true)
+        tvRecommendationManager = mockk(relaxed = true),
+        trackingRouter = noTrackingRouter()
     )
 
     @Test

@@ -154,6 +154,13 @@ class ProfileSettingsCredentialPolicyTest {
     fun `continue watching settings keep their legacy on-disk and blob names`() {
         assertEquals("trakt_settings", ContinueWatchingSettingsDataStore.FEATURE)
         assertEquals("dismissed_next_up_keys", ContinueWatchingSettingsDataStore.DISMISSED_NEXT_UP_KEYS_KEY)
+        // Spec 104 tracker source choices (synced, D10).
+        assertEquals("tracking_progress_source", ContinueWatchingSettingsDataStore.PROGRESS_SOURCE_KEY)
+        assertEquals("tracking_library_source", ContinueWatchingSettingsDataStore.LIBRARY_SOURCE_KEY)
+        // Spec 106 S5: Simkl's anime seasons mode (synced with the feature, never the pre-cut simkl_anime_id_preference).
+        assertEquals("simkl_anime_seasons", ContinueWatchingSettingsDataStore.SIMKL_ANIME_SEASONS_KEY)
+        // Spec 106 S4a: the More like this source (synced, never the pre-cut more_like_this_source).
+        assertEquals("tracking_more_like_this_source", ContinueWatchingSettingsDataStore.RELATED_SOURCE_KEY)
     }
 
     @Test

@@ -90,7 +90,7 @@ class CardShapeRuleTest {
     private fun size(width: Dp) = ModernCatalogCardMetrics(width, home.portraitCardHeight)
 
     private fun spec(item: ModernCarouselItem, landscape: Boolean) =
-        item.marqueeImageRequestSpec(landscape, false, false, false, home)!!
+        item.marqueeImageRequestSpec(landscape, false, false, false, home, com.nuvio.tv.core.posters.RatingPosterState.Off)!!
 
     private fun row(vararg items: ModernCarouselItem) =
         HeroCarouselRow(key = "r", title = "R", globalRowIndex = 0, items = items.toList().asStable())

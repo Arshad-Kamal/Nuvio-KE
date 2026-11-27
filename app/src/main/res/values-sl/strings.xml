@@ -562,7 +562,7 @@
     <string name="settings_p2p_title">P2P pretakanje</string>
     <string name="settings_p2p_subtitle">Dovoli peer-to-peer (torrent) pretakanje</string>
     <string name="settings_p2p_hide_stats_title">Skrij statistiko torrentov</string>
-    <string name="settings_p2p_hide_stats_subtitle">Skrij medpomnilnik, sejalce (seeds), vrstnike (peers) in hitrost prenosa med nalaganjem in predvajanjem</string>
+    <string name="settings_p2p_hide_stats_subtitle">Skrij medpomnilnik, sejalce (seeds), vrstnike (peers) in hitrost prenosa med predvajanjem</string>
 	<string name="stream_filter_all">All</string>											 
     <!-- PlayerScreen -->
     <string name="player_no_external_player">Zunanjega predvajalnika ni bilo mogoče najti</string>

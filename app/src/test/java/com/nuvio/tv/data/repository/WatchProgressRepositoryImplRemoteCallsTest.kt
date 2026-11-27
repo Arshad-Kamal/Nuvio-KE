@@ -12,11 +12,17 @@ import com.nuvio.tv.data.local.WatchProgressPreferences
 import com.nuvio.tv.data.local.WatchedItemsPreferences
 import com.nuvio.tv.domain.model.WatchProgress
 import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.core.tracking.TrackingHistoryWriterRegistry
+import com.nuvio.tv.core.tracking.TrackingProgressRouter
+import com.nuvio.tv.core.tracking.TrackingProviderRegistry
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -67,7 +73,8 @@ class WatchProgressRepositoryImplRemoteCallsTest {
         metaRepository = mockk<MetaRepository>(relaxed = true),
         tmdbService = mockk<TmdbService>(relaxed = true),
         profileManager = profileManager,
-        tvRecommendationManager = mockk<TvRecommendationManager>(relaxed = true)
+        tvRecommendationManager = mockk<TvRecommendationManager>(relaxed = true),
+        trackingRouter = noTrackingRouter()
     )
 
     @Test
@@ -247,3 +254,12 @@ internal fun Any.injectProfileManager(profileManager: ProfileManager) {
     }
     error("No profileManager field on ${javaClass.name}")
 }
+
+/** A router for a build with no tracker (Spec 104 S2b): every read is the local one, no tracker writes. */
+internal fun noTrackingRouter() = TrackingProgressRouter(
+    activeProviderFlow = flowOf(null),
+    hasProgressProviders = false,
+    historyWriters = TrackingHistoryWriterRegistry(emptySet()),
+    registry = TrackingProviderRegistry(emptySet()),
+    scope = CoroutineScope(Dispatchers.Unconfined)
+)

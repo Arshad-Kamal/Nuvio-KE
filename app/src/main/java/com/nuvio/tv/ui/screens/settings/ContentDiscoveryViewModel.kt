@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 data class ContentPaneState(
     /** The Addon Manager's list: disabled addons and failed-manifest placeholders included. */
     val addonCount: Int,
-    /** Rows the Home catalog order page lists: addon catalogs shown on Home plus collections. */
+    /** Addon catalogs shown on Home plus collections; the page also lists MDBList rows (Spec 105 S5b2), not counted here. */
     val homeCatalogRows: Int,
     val collectionCount: Int,
     /** A profile using the primary's addons: the phone page edits collections only. */

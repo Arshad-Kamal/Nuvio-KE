@@ -17,7 +17,14 @@ import com.nuvio.tv.domain.model.AddonStreams
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -76,15 +83,68 @@ class PrefetchSelectionSupplier @Inject constructor(
      */
     private val recentSignals = LinkedHashMap<String, SourcePrefetchSignal>()
 
+    /**
+     * Spec 130 round 2: a READY signal waits on its winner's badge match, which costs seconds
+     * with a big pack on a TV (FR Badges: +3.5 s per Details prefetch on the Shield), so it
+     * runs here, off the rank: the press and the stream list no longer wait on it, and the
+     * source line still appears with its badges, as before. One pending job per uiKey, guarded
+     * by [recentSignals]; any later publish for the key supersedes it.
+     */
+    private val badgeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val badgeJobs = HashMap<String, Job>()
+
     private fun publish(signal: SourcePrefetchSignal) {
         synchronized(recentSignals) {
-            recentSignals.remove(signal.uiKey)
-            recentSignals[signal.uiKey] = signal
-            while (recentSignals.size > MAX_UI_SIGNALS) {
-                recentSignals.remove(recentSignals.keys.first())
-            }
-            _uiSignals.value = recentSignals.toMap()
+            badgeJobs.remove(signal.uiKey)?.cancel()
+            publishLocked(signal)
         }
+    }
+
+    /**
+     * Spec 141 D2: a new rank is pending for [uiKey] (StreamPrefetchCache's onRankPending), so
+     * its last signal describes an older scrape: drop it (the line reads searching) and its
+     * pending badge job, which would otherwise publish that older READY late.
+     */
+    fun clearSignal(uiKey: String) {
+        synchronized(recentSignals) {
+            badgeJobs.remove(uiKey)?.cancel()
+            if (recentSignals.remove(uiKey) != null) _uiSignals.value = recentSignals.toMap()
+        }
+    }
+
+    private fun publishLocked(signal: SourcePrefetchSignal) {
+        recentSignals.remove(signal.uiKey)
+        recentSignals[signal.uiKey] = signal
+        while (recentSignals.size > MAX_UI_SIGNALS) {
+            recentSignals.remove(recentSignals.keys.first())
+        }
+        _uiSignals.value = recentSignals.toMap()
+    }
+
+    /** Publishes READY for [winner] once its badges are matched, unless superseded meanwhile. */
+    private fun publishReady(uiKey: String, winner: com.nuvio.tv.domain.model.Stream) {
+        val facts = ReleaseFactsParser.factsFor(winner)
+        lateinit var job: Job
+        job = badgeScope.launch(start = CoroutineStart.LAZY) {
+            val badges = try {
+                streamBadgePresentation.badgesFor(winner)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "PREFETCH badges failed: ${e.message}")
+                emptyList()
+            }
+            synchronized(recentSignals) {
+                if (badgeJobs[uiKey] !== job) return@launch
+                badgeJobs.remove(uiKey)
+                publishLocked(SourcePrefetchSignal(uiKey, SourcePrefetchPhase.READY, facts, badges, winner = winner))
+            }
+        }
+        synchronized(recentSignals) {
+            badgeJobs.remove(uiKey)?.cancel()
+            badgeJobs[uiKey] = job
+        }
+        job.start()
     }
 
     /**
@@ -99,6 +159,9 @@ class PrefetchSelectionSupplier @Inject constructor(
      * [prewarm] false (focus-dwell callers, upstream-sync T30): rank only. Focus is
      * not consent, and the prewarm GET on a debrid resolve URL asks the service for
      * that file; the press warms the link itself (StreamScreen, S1g).
+     *
+     * A [uiKey]'s READY signal is published after this returns, once the winner's badges are
+     * matched ([publishReady]); the cache's total_ms no longer includes that match.
      *
      * [runtimeMinutes] / [episode] are the target's as the caller already knows them (Spec 51
      * D8: nothing waits for one), for the stream list limit; [exemptBingeGroup] is the player's
@@ -119,7 +182,15 @@ class PrefetchSelectionSupplier @Inject constructor(
         continuation: ContinuationTarget? = null
     ): PrefetchedSelection? {
         val rankT0 = SystemClock.elapsedRealtime()
-        val selection = rank(groups, contentId, bingeOverride, runtimeMinutes, episode, film, exemptBingeGroup, continuation)
+        val selection = try {
+            rank(groups, contentId, bingeOverride, runtimeMinutes, episode, film, exemptBingeGroup, continuation)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Spec 141 D2: the key's line was cleared for this rank; end it rather than spin.
+            if (uiKey != null) publish(SourcePrefetchSignal(uiKey, SourcePrefetchPhase.EMPTY, null))
+            throw e
+        }
         // §2.7(a): the cache's total_ms covers this call AND any prewarm.
         // Logged here so the rank component needs no subtraction.
         val winnerLabel = if (selection == null) "none" else "yes"
@@ -150,17 +221,7 @@ class PrefetchSelectionSupplier @Inject constructor(
         } else {
             android.util.Log.i(TAG, "PREFETCH prewarm skipped (focus)")
         }
-        if (uiKey != null) {
-            publish(
-                SourcePrefetchSignal(
-                    uiKey,
-                    SourcePrefetchPhase.READY,
-                    ReleaseFactsParser.factsFor(selection.winner),
-                    streamBadgePresentation.badgesFor(selection.winner),
-                    winner = selection.winner
-                )
-            )
-        }
+        if (uiKey != null) publishReady(uiKey, selection.winner)
         return selection
     }
 

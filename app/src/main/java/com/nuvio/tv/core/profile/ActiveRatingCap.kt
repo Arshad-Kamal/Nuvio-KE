@@ -4,7 +4,6 @@ import com.nuvio.tv.data.local.ProfileDataStore
 import com.nuvio.tv.data.local.ProfileRatingCapStore
 import com.nuvio.tv.domain.model.ContentRatingCap
 import kotlinx.coroutines.flow.first
-import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,31 +21,18 @@ class ActiveRatingCap @Inject constructor(
     private val capStore: ProfileRatingCapStore
 ) {
     /**
-     * The cap, or null when the active profile is uncapped. The id comes from the DataStore
-     * itself, not ProfileManager's stateIn mirror: the picker opens Home as soon as its write
-     * completes, before the mirror has caught up, so the mirror can still hold the previous
-     * profile. A failed read fails closed to the strictest cap (D1).
+     * The cap, or null when the active profile is uncapped. A failed read of the active id fails
+     * closed to the strictest cap (D1).
      */
     suspend fun current(): ContentRatingCap? {
-        val profileId = activeProfileIdOrNull() ?: return ContentRatingCap.STRICTEST
+        val profileId = profileDataStore.activeProfileIdOrNull() ?: return ContentRatingCap.STRICTEST
         return capStore.capFor(profileId).first()
     }
 
     /** [current] with the active profile's name (Detail's block copy, K2b); null when uncapped. */
     suspend fun currentLimit(): ActiveRatingLimit? {
-        val profileId = activeProfileIdOrNull() ?: return ActiveRatingLimit(ContentRatingCap.STRICTEST, null)
+        val profileId = profileDataStore.activeProfileIdOrNull() ?: return ActiveRatingLimit(ContentRatingCap.STRICTEST, null)
         val cap = capStore.capFor(profileId).first() ?: return null
-        val name = try {
-            profileDataStore.profilesList.first().firstOrNull { it.id == profileId }?.name
-        } catch (e: IOException) {
-            null
-        }
-        return ActiveRatingLimit(cap, name)
-    }
-
-    private suspend fun activeProfileIdOrNull(): Int? = try {
-        profileDataStore.activeProfileId.first()
-    } catch (e: IOException) {
-        null
+        return ActiveRatingLimit(cap, profileDataStore.profileNameOrNull(profileId))
     }
 }

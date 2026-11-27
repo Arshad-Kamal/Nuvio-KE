@@ -698,7 +698,7 @@
     <string name="settings_p2p_title">P2P Yayın</string>
     <string name="settings_p2p_subtitle">Eşler arası (torrent) yayınlara izin ver</string>
     <string name="settings_p2p_hide_stats_title">Torrent istatistiklerini gizle</string>
-    <string name="settings_p2p_hide_stats_subtitle">Yükleme ve oynatma sırasında tampon, tohum, eş ve indirme hızı bilgisini gizle</string>
+    <string name="settings_p2p_hide_stats_subtitle">Oynatma sırasında tampon, tohum, eş ve indirme hızı bilgisini gizle</string>
     <string name="stream_filter_all">Tümü</string>
 
     <!-- PlayerScreen -->

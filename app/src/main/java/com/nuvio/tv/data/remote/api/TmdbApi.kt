@@ -57,6 +57,22 @@ interface TmdbApi {
         @Query("language") language: String? = null
     ): Response<TmdbDetailsResponse>
 
+    /** Spec 117 P4: one request for a title's content-filter tags (genres, language, adult, keywords). */
+    @GET("movie/{movie_id}")
+    suspend fun getMovieTags(
+        @Path("movie_id") movieId: Int,
+        @Query("api_key") apiKey: String,
+        @Query("append_to_response") appendToResponse: String = "keywords"
+    ): Response<TmdbTagDetailsResponse>
+
+    /** As [getMovieTags]; a series' keywords arrive under `keywords.results`. */
+    @GET("tv/{tv_id}")
+    suspend fun getTvTags(
+        @Path("tv_id") tvId: Int,
+        @Query("api_key") apiKey: String,
+        @Query("append_to_response") appendToResponse: String = "keywords"
+    ): Response<TmdbTagDetailsResponse>
+
     @GET("movie/{movie_id}/credits")
     suspend fun getMovieCredits(
         @Path("movie_id") movieId: Int,
@@ -224,6 +240,14 @@ interface TmdbApi {
         @Query("include_adult") includeAdult: Boolean = false
     ): Response<TmdbCollectionSearchResponse>
 
+    /** Spec 117 P9: TMDB keyword names for own-pack tags. */
+    @GET("search/keyword")
+    suspend fun searchKeywords(
+        @Query("api_key") apiKey: String,
+        @Query("query") query: String,
+        @Query("page") page: Int = 1
+    ): Response<TmdbKeywordSearchResponse>
+
     /**
      * Spec 52 P3, the key check: 200 for a key TMDB accepts, 401 for one it does not. Only the status
      * is read. no-store keeps the candidate key out of the HTTP cache, both ways.
@@ -302,6 +326,38 @@ data class TmdbDetailsResponse(
     @SerialName("last_air_date") val lastAirDate: String? = null,
     @SerialName("status") val status: String? = null,
     @SerialName("belongs_to_collection") val belongsToCollection: TmdbCollectionSummary? = null
+)
+
+/** Spec 117: the fields content filters read from `movie|tv/{id}?append_to_response=keywords`. */
+@Serializable
+data class TmdbTagDetailsResponse(
+    @SerialName("id") val id: Int,
+    @SerialName("genres") val genres: List<TmdbGenre>? = null,
+    @SerialName("original_language") val originalLanguage: String? = null,
+    @SerialName("adult") val adult: Boolean? = null,
+    @SerialName("keywords") val keywords: TmdbKeywordsBlock? = null
+)
+
+/** Movies list keywords under `keywords`, series under `results`. */
+@Serializable
+data class TmdbKeywordsBlock(
+    @SerialName("keywords") val keywords: List<TmdbKeyword>? = null,
+    @SerialName("results") val results: List<TmdbKeyword>? = null
+) {
+    val all: List<TmdbKeyword> get() = keywords ?: results.orEmpty()
+}
+
+@Serializable
+data class TmdbKeyword(
+    @SerialName("id") val id: Int,
+    @SerialName("name") val name: String? = null
+)
+
+@Serializable
+data class TmdbKeywordSearchResponse(
+    @SerialName("page") val page: Int = 1,
+    @SerialName("results") val results: List<TmdbKeyword> = emptyList(),
+    @SerialName("total_pages") val totalPages: Int = 0
 )
 
 @Serializable
@@ -482,7 +538,8 @@ data class TmdbListItem(
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("vote_count") val voteCount: Int? = null,
-    @SerialName("genre_ids") val genreIds: List<Int>? = null
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 @Serializable
@@ -530,7 +587,9 @@ data class TmdbDiscoverResult(
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("vote_count") val voteCount: Int? = null,
-    @SerialName("popularity") val popularity: Double? = null
+    @SerialName("popularity") val popularity: Double? = null,
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 @Serializable
@@ -548,7 +607,9 @@ data class TmdbRecommendationResult(
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
-    @SerialName("vote_count") val voteCount: Int? = null
+    @SerialName("vote_count") val voteCount: Int? = null,
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 // ── Person / Cast Detail DTOs ──
@@ -588,7 +649,8 @@ data class TmdbPersonCreditCast(
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("vote_count") val voteCount: Int? = null,
     @SerialName("overview") val overview: String? = null,
-    @SerialName("genre_ids") val genreIds: List<Int>? = null
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 @Serializable
@@ -607,7 +669,8 @@ data class TmdbPersonCreditCrew(
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("vote_count") val voteCount: Int? = null,
     @SerialName("overview") val overview: String? = null,
-    @SerialName("genre_ids") val genreIds: List<Int>? = null
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 @Serializable
@@ -629,7 +692,9 @@ data class TmdbCollectionPart(
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("backdrop_path") val backdropPath: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
-    @SerialName("vote_count") val voteCount: Int? = null
+    @SerialName("vote_count") val voteCount: Int? = null,
+    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("adult") val adult: Boolean? = null
 )
 
 @Serializable

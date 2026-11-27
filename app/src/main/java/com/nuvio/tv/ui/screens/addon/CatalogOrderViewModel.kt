@@ -7,6 +7,11 @@ import com.nuvio.tv.core.sync.HomeCatalogSettingsSyncService
 import com.nuvio.tv.core.sync.homeCollectionKey
 import com.nuvio.tv.data.local.CollectionsDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.mdblist.MdbListHomeIndex
+import com.nuvio.tv.data.mdblist.MdbListHomeList
+import com.nuvio.tv.data.mdblist.MdbListHomeListKind
+import com.nuvio.tv.data.mdblist.MDBLIST_BRAND
+import com.nuvio.tv.data.mdblist.MdbListHomeRows
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.repository.AddonRepository
@@ -25,7 +30,8 @@ class CatalogOrderViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
     private val collectionsDataStore: CollectionsDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
-    private val homeCatalogSettingsSyncService: HomeCatalogSettingsSyncService
+    private val homeCatalogSettingsSyncService: HomeCatalogSettingsSyncService,
+    private val mdbListHomeRows: MdbListHomeRows
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CatalogOrderUiState())
@@ -40,7 +46,7 @@ class CatalogOrderViewModel @Inject constructor(
 
     fun moveUp(key: String) {
         if (_uiState.value.followAddonsOrder) {
-            moveCollectionBetweenAddons(key, -1)
+            moveFreeRowBetweenAddons(key, -1)
         } else {
             moveCatalog(key, -1)
         }
@@ -48,7 +54,7 @@ class CatalogOrderViewModel @Inject constructor(
 
     fun moveDown(key: String) {
         if (_uiState.value.followAddonsOrder) {
-            moveCollectionBetweenAddons(key, 1)
+            moveFreeRowBetweenAddons(key, 1)
         } else {
             moveCatalog(key, 1)
         }
@@ -73,43 +79,55 @@ class CatalogOrderViewModel @Inject constructor(
             .flatMap { listOfNotNull(it.disableKey, it.legacyDisableKey) }
             .toSet()
         viewModelScope.launch {
+            var synced = false
             val written = layoutPreferenceDataStore.updateDisabledHomeCatalogKeys { storedDisabled ->
                 val storedSet = storedDisabled.toSet()
                 val renderedDisabled = renderedEntries
                     .filter { HomeCatalogOrdering.isDisabled(it, storedSet) }
                     .mapTo(LinkedHashSet<String>()) { it.disableKey }
                     .apply { if (disableKey in this) remove(disableKey) else add(disableKey) }
-                storedDisabled.filterNot { it in renderedDisableKeys } + renderedDisabled
+                (storedDisabled.filterNot { it in renderedDisableKeys } + renderedDisabled)
+                    .also { synced = syncedKeysChanged(storedDisabled, it) }
             }
-            if (written) homeCatalogSettingsSyncService.triggerPush()
+            if (written && synced) homeCatalogSettingsSyncService.triggerPush()
         }
     }
 
     /**
-     * Rename panel's Save on an addon catalog (Home applies custom titles to addon catalogs
-     * only): [title] blank or equal to the catalog's own name restores it. Pushes when written.
+     * Rename panel's Save on an addon catalog or an MDBList row (Home applies custom titles to
+     * those, never to collections): [title] blank or equal to the row's own name restores it.
+     * Pushes when written, except for an MDBList row (its title is never synced).
      */
     fun renameCatalog(key: String, title: String) {
         if (HomeCatalogOrdering.isCollectionKey(key)) return
         val originalName = orderInputs?.entry(key)?.catalogName ?: return
         viewModelScope.launch {
-            if (layoutPreferenceDataStore.setCustomCatalogTitle(key, title, originalName)) {
-                homeCatalogSettingsSyncService.triggerPush()
-            }
+            val written = layoutPreferenceDataStore.setCustomCatalogTitle(key, title, originalName)
+            // The synced payload never carries MDBList rows (Spec 105 S5a: per TV profile).
+            if (written && !HomeCatalogOrdering.isMdbListKey(key)) homeCatalogSettingsSyncService.triggerPush()
         }
     }
+
+    /**
+     * Whether a write changed what the synced payload is built from: [before] and [after] without MDBList keys (never
+     * synced), in order (an order-only change of the hidden list may push once more than needed: harmless). A press on
+     * an MDBList row pushes only when it also rewrote synced keys (a follow-mode snap, a synced key moved past an
+     * unrendered one, a legacy disable key migrated).
+     */
+    private fun syncedKeysChanged(before: List<String>, after: List<String>): Boolean =
+        before.filterNot(HomeCatalogOrdering::isMdbListKey) != after.filterNot(HomeCatalogOrdering::isMdbListKey)
 
     private fun moveCatalog(key: String, direction: Int) {
         moveStored(key) { _, currentIndex -> currentIndex + direction }
     }
 
     /**
-     * When followAddonsOrder is enabled, collections jump between addon boundaries.
+     * When followAddonsOrder is enabled, free rows (collections, MDBList rows) jump between addon boundaries.
      * Moving up means jumping above the previous addon block (all catalogs from one addon).
      * Moving down means jumping below the next addon block.
      */
-    private fun moveCollectionBetweenAddons(key: String, direction: Int) {
-        if (!HomeCatalogOrdering.isCollectionKey(key)) return
+    private fun moveFreeRowBetweenAddons(key: String, direction: Int) {
+        if (!HomeCatalogOrdering.isFreeRowKey(key)) return
         val addonNameOf = orderInputs?.let { it::addonNameOf } ?: return
         moveStored(key) { currentKeys, currentIndex ->
             HomeCatalogOrdering.collectionBlockJumpIndex(
@@ -131,6 +149,7 @@ class CatalogOrderViewModel @Inject constructor(
     ) {
         val inputs = orderInputs ?: return
         viewModelScope.launch {
+            var synced = false
             val written = layoutPreferenceDataStore.updateHomeCatalogOrderKeys { savedOrder ->
                 val currentKeys = inputs.effectiveOrder(savedOrder)
                 val currentIndex = currentKeys.indexOf(key)
@@ -141,10 +160,10 @@ class CatalogOrderViewModel @Inject constructor(
                     spliceRendered(
                         savedOrder = savedOrder,
                         reordered = currentKeys.toMutableList().apply { add(newIndex, removeAt(currentIndex)) }
-                    )
+                    ).also { synced = syncedKeysChanged(savedOrder, it) }
                 }
             }
-            if (written) homeCatalogSettingsSyncService.triggerPush()
+            if (written && synced) homeCatalogSettingsSyncService.triggerPush()
         }
     }
 
@@ -168,7 +187,8 @@ class CatalogOrderViewModel @Inject constructor(
                 layoutPreferenceDataStore.homeCatalogOrderKeys,
                 layoutPreferenceDataStore.disabledHomeCatalogKeys,
                 layoutPreferenceDataStore.customCatalogTitles,
-                layoutPreferenceDataStore.followAddonsOrder
+                layoutPreferenceDataStore.followAddonsOrder,
+                mdbListHomeRows.index()
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val addons = values[0] as List<Addon>
@@ -181,11 +201,14 @@ class CatalogOrderViewModel @Inject constructor(
                 @Suppress("UNCHECKED_CAST")
                 val customTitles = values[4] as Map<String, String>
                 val followAddons = values[5] as Boolean
+                val mdbListIndex = values[6] as MdbListHomeIndex?
 
                 val folderCounts = collections.associate { homeCollectionKey(it.id) to it.folders.size }
                 val inputs = OrderInputs(
                     addonEntries = HomeCatalogOrdering.buildAddonCatalogEntries(addons),
                     collectionEntries = HomeCatalogOrdering.buildCollectionEntries(collections),
+                    mdbListEntries = mdbListIndex?.let(::mdbListOrderEntries).orEmpty(),
+                    mdbListRows = mdbListIndex?.let(::mdbListRowFacts).orEmpty(),
                     followAddonsOrder = followAddons
                 )
                 val items = buildOrderedCatalogItems(
@@ -222,15 +245,15 @@ class CatalogOrderViewModel @Inject constructor(
         return effectiveOrder.mapIndexedNotNull { index, key ->
             val entry = inputs.entry(key) ?: return@mapIndexedNotNull null
             val isCollection = HomeCatalogOrdering.isCollectionKey(key)
-            // Home shows custom titles on addon catalogs only, so a synced collection title is ignored here too.
+            // Home shows custom titles on addon catalogs and MDBList rows only, so a synced collection title is ignored here too.
             val displayName = if (isCollection) {
                 entry.catalogName
             } else {
                 customTitles[key]?.takeIf { it.isNotBlank() } ?: entry.catalogName
             }
-            // In follow mode only collections can move (they jump between addon
+            // In follow mode only free rows can move (they jump between addon
             // blocks); addon catalogs are pinned to manifest order.
-            val pinned = followAddonsOrder && !isCollection
+            val pinned = followAddonsOrder && !HomeCatalogOrdering.isFreeRowKey(key)
 
             CatalogOrderItem(
                 key = entry.key,
@@ -243,7 +266,8 @@ class CatalogOrderViewModel @Inject constructor(
                 canMoveDown = !pinned && index < effectiveOrder.lastIndex,
                 originalName = entry.catalogName,
                 folderCount = if (isCollection) folderCounts[key] ?: 0 else null,
-                pinnedByFollow = pinned
+                pinnedByFollow = pinned,
+                mdbList = inputs.mdbListRows[key]
             )
         }
     }
@@ -252,9 +276,11 @@ class CatalogOrderViewModel @Inject constructor(
     private class OrderInputs(
         val addonEntries: List<HomeCatalogOrdering.CatalogEntry>,
         val collectionEntries: List<HomeCatalogOrdering.CatalogEntry>,
+        val mdbListEntries: List<HomeCatalogOrdering.CatalogEntry>,
+        val mdbListRows: Map<String, MdbListRowFacts>,
         val followAddonsOrder: Boolean
     ) {
-        private val entryByKey = (addonEntries + collectionEntries).associateBy { it.key }
+        private val entryByKey = (addonEntries + collectionEntries + mdbListEntries).associateBy { it.key }
 
         fun entry(key: String): HomeCatalogOrdering.CatalogEntry? = entryByKey[key]
 
@@ -268,10 +294,34 @@ class CatalogOrderViewModel @Inject constructor(
                 addonEntries = addonEntries,
                 collectionEntries = collectionEntries,
                 savedOrderKeys = savedOrderKeys,
-                followAddonsOrder = followAddonsOrder
+                followAddonsOrder = followAddonsOrder,
+                mdbListEntries = mdbListEntries
             )
     }
 }
+
+/**
+ * Spec 105 S5b2 (D2, mockup v3 D2): the watchlist and every list of the index (hidden ones too) as order entries. Free
+ * rows: follow mode never reads their [HomeCatalogOrdering.CatalogEntry.addonName] for addon blocks.
+ */
+internal fun mdbListOrderEntries(index: MdbListHomeIndex): List<HomeCatalogOrdering.CatalogEntry> =
+    listOf(mdbListOrderEntry(MdbListHomeList.WATCHLIST_KEY, index.watchlistTitle)) +
+        index.lists.map { mdbListOrderEntry(it.key, it.name) }
+
+/** What each MDBList row's source line names (D30-D32): its kind and title count. */
+internal fun mdbListRowFacts(index: MdbListHomeIndex): Map<String, MdbListRowFacts> =
+    mapOf(MdbListHomeList.WATCHLIST_KEY to MdbListRowFacts(MdbListRowKind.WATCHLIST, itemCount = null)) +
+        index.lists.associate { list ->
+            val kind = when (list.kind) {
+                MdbListHomeListKind.OWN -> if (list.dynamic) MdbListRowKind.DYNAMIC else MdbListRowKind.OWN
+                MdbListHomeListKind.LIKED -> MdbListRowKind.LIKED
+                MdbListHomeListKind.EXTERNAL -> MdbListRowKind.IMPORTED
+            }
+            list.key to MdbListRowFacts(kind, list.itemCount)
+        }
+
+private fun mdbListOrderEntry(key: String, name: String) =
+    HomeCatalogOrdering.CatalogEntry(key = key, disableKey = key, catalogName = name, addonName = MDBLIST_BRAND, typeLabel = "")
 
 data class CatalogOrderUiState(
     val isLoading: Boolean = true,
@@ -282,7 +332,8 @@ data class CatalogOrderUiState(
 /**
  * One Home row. [catalogName] is the shown title (the custom one if set), [originalName] the
  * catalog's own; [folderCount] is set on collection rows only; [pinnedByFollow] marks an addon
- * catalog whose place follows its addon (follow mode), so its moves are dimmed with that reason.
+ * catalog whose place follows its addon (follow mode), so its moves are dimmed with that reason;
+ * [mdbList] is set on MDBList rows (Spec 105 S5b2).
  */
 data class CatalogOrderItem(
     val key: String,
@@ -295,8 +346,16 @@ data class CatalogOrderItem(
     val canMoveDown: Boolean,
     val originalName: String,
     val folderCount: Int?,
-    val pinnedByFollow: Boolean
+    val pinnedByFollow: Boolean,
+    val mdbList: MdbListRowFacts? = null
 ) {
     val isCollection: Boolean get() = HomeCatalogOrdering.isCollectionKey(key)
+    val isMdbList: Boolean get() = mdbList != null
     val isRenamed: Boolean get() = catalogName != originalName
 }
+
+/** An MDBList row's kind as its source line names it (mockup v3 D2; D30 dynamic, D31 liked / imported). */
+enum class MdbListRowKind { WATCHLIST, OWN, DYNAMIC, LIKED, IMPORTED }
+
+/** [itemCount]: the list's title count from the index; null for the watchlist (its line names no count). */
+data class MdbListRowFacts(val kind: MdbListRowKind, val itemCount: Int?)

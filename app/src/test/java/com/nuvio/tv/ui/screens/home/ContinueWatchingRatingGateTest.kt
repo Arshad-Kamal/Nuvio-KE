@@ -106,6 +106,31 @@ class ContinueWatchingRatingGateTest {
     }
 
     @Test
+    fun `a title without a US rating is gated on its non-US ratings (Spec 102)`() = runTest {
+        val olderKidsBoards = mapOf("GB" to "PG", "DE" to "6", "KR" to "7")
+        answers = mapOf(
+            "boards" to CwRatingLookup.Found(null, olderKidsBoards),
+            "teen-boards" to CwRatingLookup.Found("NR", olderKidsBoards + ("FR" to "12")),
+            "two-boards" to CwRatingLookup.Found(null, mapOf("GB" to "PG", "DE" to "6"))
+        )
+        val source = MutableStateFlow(
+            HomeUiState(continueWatchingItems = listOf(inProgress("boards"), inProgress("teen-boards"), inProgress("two-boards")))
+        )
+        val olderKids = backgroundScope.gate(source) { ContentRatingCap.OLDER_KIDS }
+        runCurrent()
+        assertEquals(listOf("boards"), olderKids.ids())
+    }
+
+    @Test
+    fun `the meta lookup carries the meta's non-US ratings`() = runTest {
+        val metaRepository = mockk<MetaRepository>()
+        every { metaRepository.getMetaFromAllAddons(any(), any(), any()) } returns
+            flowOf(NetworkResult.Success(mockk<Meta> { every { ageRating } returns null; every { nonUsRatings } returns mapOf("GB" to "15") }))
+        val lookup = ContinueWatchingRatingGate.metaRepositoryLookup(metaRepository)
+        assertEquals(CwRatingLookup.Found(null, mapOf("GB" to "15")), lookup("movie", "tt1"))
+    }
+
+    @Test
     fun `a title already being looked up is not requested again`() = runTest {
         val answer = CompletableDeferred<CwRatingLookup>()
         var calls = 0
@@ -187,7 +212,7 @@ class ContinueWatchingRatingGateTest {
         val metaRepository = mockk<MetaRepository> {
             every { getMetaFromAllAddons("movie", "tmdb:5", any()) } returns flowOf(NetworkResult.Error("missing"))
             every { getMetaFromAllAddons("movie", "5", any()) } returns
-                flowOf(NetworkResult.Success(mockk<Meta> { every { ageRating } returns null }))
+                flowOf(NetworkResult.Success(mockk<Meta> { every { ageRating } returns null; every { nonUsRatings } returns emptyMap() }))
         }
         val lookup = ContinueWatchingRatingGate.metaRepositoryLookup(metaRepository)
         assertEquals(CwRatingLookup.Found(null), lookup("movie", "tmdb:5"))

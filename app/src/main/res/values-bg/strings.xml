@@ -641,7 +641,7 @@
     <string name="settings_p2p_title">P2P стрийминг</string>
     <string name="settings_p2p_subtitle">Разреши peer-to-peer (torrent) потоци</string>
     <string name="settings_p2p_hide_stats_title">Скрий torrent статистики</string>
-    <string name="settings_p2p_hide_stats_subtitle">Скрий буфер, seeds, peers и скорост на изтегляне по време на зареждане и възпроизвеждане</string>
+    <string name="settings_p2p_hide_stats_subtitle">Скрий буфер, seeds, peers и скорост на изтегляне по време на възпроизвеждане</string>
     <string name="stream_filter_all">Всички</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

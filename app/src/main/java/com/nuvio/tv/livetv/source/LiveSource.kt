@@ -5,14 +5,16 @@ import kotlinx.serialization.Serializable
 
 /**
  * What a source URL serves, detected from the response's first bytes (Spec 34 D10), never the URL;
- * [PACK] is the channel pack (Spec 73), added by name, never detected.
+ * [PACK] is the channel pack (Spec 73), added by name, and [XTREAM] an Xtream login (Spec 109),
+ * added from its fields; neither is ever detected.
  */
 @Serializable
 enum class SourceKind {
     @SerialName("m3u") M3U,
     @SerialName("xmltv") XMLTV,
     @SerialName("stremio") STREMIO,
-    @SerialName("pack") PACK
+    @SerialName("pack") PACK,
+    @SerialName("xtream") XTREAM
 }
 
 /**
@@ -25,6 +27,9 @@ enum class SourceKind {
  * [headerGuides] (playlists only) = the guides its header names that Sources may offer (Spec 55 S1).
  * [playlistAttrs] (playlists only) = its `#EXTM3U` attributes other than the guide URLs, as written
  * at the last check or refresh (catchup defaults, tvg-shift: Spec 74 D1); null when none.
+ * An Xtream login's [url] is its server base without credentials (the login itself lives in
+ * [XtreamAccountStore]); [account] is what the server said of the account at the last check or
+ * refresh (Spec 109 S1).
  */
 @Serializable
 data class LiveSource(
@@ -38,7 +43,24 @@ data class LiveSource(
     val channelCount: Int = 0,
     val country: String? = null,
     val headerGuides: HeaderGuides? = null,
-    val playlistAttrs: Map<String, String>? = null
+    val playlistAttrs: Map<String, String>? = null,
+    val account: XtreamAccountInfo? = null
+)
+
+/**
+ * An Xtream account as `player_api.php` describes it (Spec 109 S1; no credential):
+ * [expiresAtMs] null = no expiry sent; [maxConnections] = streams it may play at once, null when
+ * not sent; [categories] = its live categories; [guideChannels] = how many of this login's channels
+ * the server's guide (`xmltv.php`, cached under the source id, Spec 109 S2) covers, null when no guide
+ * was read.
+ */
+@Serializable
+data class XtreamAccountInfo(
+    val expiresAtMs: Long? = null,
+    val maxConnections: Int? = null,
+    val trial: Boolean = false,
+    val categories: Int = 0,
+    val guideChannels: Int? = null
 )
 
 /**

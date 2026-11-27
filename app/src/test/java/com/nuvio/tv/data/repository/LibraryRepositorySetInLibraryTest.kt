@@ -42,7 +42,8 @@ class LibraryRepositorySetInLibraryTest {
         librarySyncService = librarySyncService,
         authManager = authManager,
         metaRepository = mockk<MetaRepository>(relaxed = true),
-        profileManager = profileManager
+        profileManager = profileManager,
+        trackingSources = mockk { every { activeLibraryProvider } returns flowOf(null) }
     ).apply { hasCompletedInitialPull = true }
 
     @Test

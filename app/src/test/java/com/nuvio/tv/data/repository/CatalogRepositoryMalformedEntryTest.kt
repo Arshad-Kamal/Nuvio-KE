@@ -41,7 +41,8 @@ class CatalogRepositoryMalformedEntryTest {
             healthStore = mockk(relaxed = true),
             wireJson = NetworkModule.provideWireJson(),
             activeRatingCap = testRatingCap(),
-            ratingFilter = CatalogRatingFilter(mockk())
+            ratingFilter = CatalogRatingFilter(mockk()),
+            contentFilter = noContentFilter()
         )
 
         val result = repository.getCatalog(
@@ -80,7 +81,8 @@ class CatalogRepositoryMalformedEntryTest {
             healthStore = healthStore,
             wireJson = NetworkModule.provideWireJson(),
             activeRatingCap = testRatingCap(),
-            ratingFilter = CatalogRatingFilter(mockk())
+            ratingFilter = CatalogRatingFilter(mockk()),
+            contentFilter = noContentFilter()
         )
 
         val result = repository.getCatalog(

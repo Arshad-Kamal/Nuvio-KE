@@ -55,7 +55,8 @@ class WatchProgressRepositoryImplHydrationTest {
         metaRepository = metaRepository,
         tmdbService = mockk<TmdbService>(relaxed = true),
         profileManager = profileManager,
-        tvRecommendationManager = mockk<TvRecommendationManager>(relaxed = true)
+        tvRecommendationManager = mockk<TvRecommendationManager>(relaxed = true),
+        trackingRouter = noTrackingRouter()
     )
 
     @Test

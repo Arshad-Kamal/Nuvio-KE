@@ -13,6 +13,8 @@ import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -56,6 +59,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
@@ -184,7 +189,8 @@ val LocalHideTopBar = compositionLocalOf<(Boolean) -> Unit> { {} }
  * [showUpdate] (Spec 52 T2: a newer release is known and Check automatically is on) puts the
  * Update pill before the clock, unless Settings is locked for this profile; OK opens Settings ›
  * About with the update panel open ([SettingsEntry.UPDATE]). [pulseUpdate]: the release the pill
- * pulses for once (Spec 80 D5); [onUpdatePulsed] reports the pulse started.
+ * pulses for once (Spec 80 D5); [onUpdatePulsed] reports the pulse started. [previewingName]: the
+ * profile whose content filters the primary previews (Spec 122 D4), shown as a chip before the clock.
  */
 @Composable
 internal fun TopBarScaffold(
@@ -201,7 +207,8 @@ internal fun TopBarScaffold(
     onExitApp: () -> Unit,
     showUpdate: Boolean = false,
     pulseUpdate: Int? = null,
-    onUpdatePulsed: (Int) -> Unit = {}
+    onUpdatePulsed: (Int) -> Unit = {},
+    previewingName: String? = null
 ) {
     val topBarRoutes = remember(tabs) { tabs.mapTo(HashSet()) { it.route } }
     // The route whose screen hid the bar (LocalHideTopBar); another route shows it again.
@@ -300,6 +307,7 @@ internal fun TopBarScaffold(
                     showUpdate = showUpdate && Screen.Settings.route !in blockedRoutes,
                     pulseUpdate = pulseUpdate,
                     onUpdatePulsed = onUpdatePulsed,
+                    previewingName = previewingName,
                     onUpdateClick = {
                         keyboardController?.hide()
                         // On Settings already: hand the entry to it in place (a tab navigation to the
@@ -353,6 +361,7 @@ private fun TopBar(
     showUpdate: Boolean,
     pulseUpdate: Int?,
     onUpdatePulsed: (Int) -> Unit,
+    previewingName: String?,
     onUpdateClick: () -> Unit
 ) {
     val marquee = NuvioTheme.marquee
@@ -420,6 +429,7 @@ private fun TopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(bar.trailingGap)
             ) {
+                if (previewingName != null) TopBarPreviewChip(previewingName)
                 if (showUpdate) TopBarUpdatePill(pulse = pulseUpdate, onPulsed = onUpdatePulsed, onClick = onUpdateClick)
                 TopBarClock()
                 if (profile != null) {
@@ -460,6 +470,39 @@ private fun TopBarAvatar(
             size = avatarSize,
             art = profile.avatarArt,
             imageCrossfade = false
+        )
+    }
+}
+
+// Sandbox spec-122-filter-preview stage 2 (`.pvchip`): the filter band's amber (122/D1) on a dark pill.
+private val PREVIEW_CHIP_HEIGHT = 26.dp
+private val PREVIEW_CHIP_PADDING = 10.dp
+private val PREVIEW_CHIP_GAP = 6.dp
+private val PREVIEW_CHIP_ICON = 14.dp
+private val PREVIEW_CHIP_FILL = Color.Black.copy(alpha = 0.6f)
+private const val PREVIEW_CHIP_EDGE_ALPHA = 0.55f
+
+/** Spec 122 D4: "Previewing <name>'s filters", not focusable (it only says preview is on; the picker turns it off). */
+@Composable
+private fun TopBarPreviewChip(name: String) {
+    val amber = NuvioPrimitives.warning
+    val shape = RoundedCornerShape(PREVIEW_CHIP_HEIGHT / 2)
+    Row(
+        modifier = Modifier
+            .height(PREVIEW_CHIP_HEIGHT)
+            .background(PREVIEW_CHIP_FILL, shape)
+            .border(1.dp, amber.copy(alpha = PREVIEW_CHIP_EDGE_ALPHA), shape)
+            .padding(horizontal = PREVIEW_CHIP_PADDING),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PREVIEW_CHIP_GAP)
+    ) {
+        Icon(imageVector = Icons.Filled.FilterAlt, contentDescription = null, tint = amber, modifier = Modifier.size(PREVIEW_CHIP_ICON))
+        Text(
+            text = stringResource(R.string.content_filters_previewing, name),
+            style = NuvioTheme.textStyles.caption.copy(fontWeight = FontWeight.SemiBold),
+            color = amber,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

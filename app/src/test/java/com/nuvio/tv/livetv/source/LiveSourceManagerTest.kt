@@ -5,17 +5,21 @@ import com.nuvio.tv.livetv.data.GuideRepository
 import com.nuvio.tv.livetv.model.Channel
 import com.nuvio.tv.livetv.model.EpgOverride
 import com.nuvio.tv.livetv.model.EpgRef
+import com.nuvio.tv.livetv.model.LiveStream
 import com.nuvio.tv.livetv.parse.EpgChannel
 import com.nuvio.tv.livetv.parse.EpgProgramme
 import com.nuvio.tv.livetv.parse.EpgSnapshot
 import com.nuvio.tv.livetv.parse.XmltvNowNextParser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -32,6 +36,8 @@ import okio.Buffer
 import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveSourceManagerTest {
@@ -62,13 +68,16 @@ class LiveSourceManagerTest {
         server.shutdown()
     }
 
-    private fun manager(maxTextBytes: Long = SourceFetcher.MAX_TEXT_BYTES) = LiveSourceManager(
+    private fun manager(
+        maxPlaylistBytes: Long = SourceFetcher.MAX_PLAYLIST_BYTES,
+        // Metadata is IptvMetadataRepositoryTest's subject: by default it fails fast (refused port).
+        metadataUrl: String = "http://127.0.0.1:1/"
+    ) = LiveSourceManager(
         store,
         channels,
         guides,
-        // Metadata is IptvMetadataRepositoryTest's subject: here it always fails fast (refused port).
-        IptvMetadataRepository(tmp.root, SourceFetcher(OkHttpClient(), io), { now }, io, "http://127.0.0.1:1/"),
-        SourceFetcher(OkHttpClient(), io, maxTextBytes),
+        IptvMetadataRepository(tmp.root, SourceFetcher(OkHttpClient(), io), { now }, io, metadataUrl),
+        SourceFetcher(OkHttpClient(), io, maxPlaylistBytes = maxPlaylistBytes),
         StremioTvAdapter(SourceFetcher(OkHttpClient(), io)),
         XmltvNowNextParser({ KXmlParser() }),
         { File(PRESET_PATH).inputStream() },
@@ -78,7 +87,8 @@ class LiveSourceManagerTest {
         // Not UTC (the usual CI zone): a window taken from the system zone instead would show.
         { ZoneOffset.ofHours(-6) },
         pack = pack,
-        scans = PackScanStore(tmp.root, io)
+        scans = PackScanStore(tmp.root, io),
+        accounts = XtreamAccountStore(tmp.root, io)
     )
 
     private fun playlist(vararg ids: String) = buildString {
@@ -192,7 +202,7 @@ class LiveSourceManagerTest {
 
     @Test
     fun `a failed refresh keeps the old channels and records the reason`() = runTest {
-        val manager = manager(maxTextBytes = 400)
+        val manager = manager(maxPlaylistBytes = 400)
         val source = added(manager, playlist("a", "b"))
         val before = channels.channels.value
 
@@ -251,6 +261,28 @@ class LiveSourceManagerTest {
         assertTrue(channels.channels.value.all { it.sourceId == LiveSourceManager.PRESET_ID })
         assertNotNull(manager.refresh(LiveSourceManager.PRESET_ID))
         assertNull(manager.refresh(source.id))
+    }
+
+    @Test
+    fun `a removed source's channel has no streams to play`() = runTest {
+        // Spec 147 F27: a stale screen lineup still holds the channel after its source is removed.
+        val manager = manager()
+        val source = added(manager, playlist("a"))
+        val channel = channels.channels.value.single()
+        assertEquals(channel.streams, manager.streamsFor(channel))
+        assertTrue(manager.remove(source.id))
+        val gone = runCatching { manager.streamsFor(channel) }.exceptionOrNull()
+        assertTrue("$gone", gone is SourceFetchException && gone.message == LiveSourceManager.SOURCE_GONE)
+    }
+
+    @Test
+    fun `a stale copy of a channel plays its current streams`() = runTest {
+        // Spec 147 F27 red team: an edited login keeps the channel's key and changes its URLs.
+        val manager = manager()
+        added(manager, playlist("a"))
+        val channel = channels.channels.value.single()
+        val stale = channel.copy(streams = listOf(LiveStream("http://old.example/live/user/oldpass/1.ts")))
+        assertEquals(channel.streams, manager.streamsFor(stale))
     }
 
     @Test
@@ -904,6 +936,100 @@ class LiveSourceManagerTest {
         assertEquals(0, server.requestCount) // fetched by the caller's refresh, not here
         assertEquals(guides.take(1), manager.addHeaderGuides(listOf(uk to "again")))
         assertEquals(2, store.sources.value.size)
+    }
+
+    @Test
+    fun `unload lets every store go and the next load reads them from disk`() = runTest {
+        now = guideAt
+        val manager = manager()
+        added(manager, playlist("a"))
+        server.enqueue(MockResponse().setBody(epgBody()))
+        val guide = (manager.addUrl(server.url("/epg_IN.xml.gz").toString()) as LiveSourceManager.AddResult.Added).source
+        channels.setOverride("s1#id:a.in", EpgOverride(EpgRef(guide.id, "542998")))
+        val heldChannels = channels.channels.value
+        val heldOverrides = channels.overrides.value
+        val heldGuide = guides.guides.value.getValue(guide.id)
+        val requests = server.requestCount
+
+        assertTrue(manager.unload())
+        assertEquals(1, manager.unloads.value)
+        assertTrue(channels.channels.value.isEmpty())
+        assertTrue(channels.overrides.value.isEmpty())
+        assertTrue(guides.guides.value.isEmpty())
+
+        manager.load()
+        assertEquals(heldChannels, channels.channels.value)
+        assertEquals(heldOverrides, channels.overrides.value)
+        assertEquals(heldGuide, guides.guides.value.getValue(guide.id))
+        assertEquals(requests, server.requestCount) // from disk, not the network
+    }
+
+    @Test
+    fun `unload is refused while a refresh runs or holds the lock`() = runTest {
+        val manager = manager(metadataUrl = server.url("/meta/").toString())
+        val list = added(manager, playlist("a"))
+        val release = CountDownLatch(1)
+        val arrived = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path!!.startsWith("/meta/")) {
+                    // The iptv-org refresh runs before the per-source lock: only the refresh count guards it.
+                    arrived.countDown()
+                    release.await(10, TimeUnit.SECONDS)
+                    return MockResponse().setResponseCode(404)
+                }
+                return MockResponse().setBody(playlist("a", "b"))
+            }
+        }
+        now += LiveSourceManager.MAX_AGE_MS + 1
+
+        val stale = launch(Dispatchers.Default) { manager.refreshStale() }
+        assertTrue(arrived.await(10, TimeUnit.SECONDS))
+        assertFalse(manager.unload())
+        assertEquals(0, manager.unloads.value)
+        release.countDown()
+        stale.join()
+        assertEquals(2, channels.channels.value.size) // the refresh published what it saved
+
+        val held = CountDownLatch(1)
+        val gate = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                held.countDown()
+                gate.await(10, TimeUnit.SECONDS)
+                return MockResponse().setBody(playlist("a"))
+            }
+        }
+        val one = launch(Dispatchers.Default) { manager.refresh(list.id) }
+        assertTrue(held.await(10, TimeUnit.SECONDS))
+        assertFalse(manager.unload())
+        gate.countDown()
+        one.join()
+
+        assertTrue(manager.unload())
+        assertEquals(1, manager.unloads.value)
+    }
+
+    @Test
+    fun `a cancelled refresh lets unloads through again`() = runTest {
+        val manager = manager(metadataUrl = server.url("/meta/").toString())
+        added(manager, playlist("a"))
+        val release = CountDownLatch(1)
+        val arrived = CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                arrived.countDown()
+                release.await(10, TimeUnit.SECONDS)
+                return MockResponse().setResponseCode(404)
+            }
+        }
+        val stale = launch(Dispatchers.Default) { manager.refreshStale() }
+        assertTrue(arrived.await(10, TimeUnit.SECONDS))
+        assertFalse(manager.unload())
+        stale.cancel()
+        release.countDown()
+        stale.join()
+        assertTrue(manager.unload())
     }
 
     private companion object {

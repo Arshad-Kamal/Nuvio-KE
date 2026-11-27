@@ -5,6 +5,7 @@ import com.nuvio.tv.core.streams.StreamBadgeImport
 import com.nuvio.tv.core.streams.StreamBadgeRules
 import fi.iki.elonen.NanoHTTPD
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -60,7 +61,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { rules.get() },
-            onRulesChanged = { rules.set(it) }
+            updateRules = { transform -> rules.updateAndGet { transform(it) } }
         )
 
         val response = withBadgeSource(BadgeSourceServer(NanoHTTPD.Response.Status.OK, fusionPayload)) { url ->
@@ -73,13 +74,32 @@ class StreamBadgeConfigServerTest {
         assertEquals("Dolby Vision", rules.get().imports.first().filters.first().name)
     }
 
+    // Spec 130 (issue #4): the phone import of a real Fusion pack with long patterns saves it.
+    @Test
+    fun `imports a real Fusion pack fetched over http`() {
+        val rules = AtomicReference(StreamBadgeRules())
+        val server = StreamBadgeConfigServer(
+            token = TOKEN,
+            currentRulesProvider = { rules.get() },
+            updateRules = { transform -> rules.updateAndGet { transform(it) } }
+        )
+        val frPack = checkNotNull(javaClass.getResource("/stream-badges/fr-badges.json")).readText()
+
+        val response = withBadgeSource(BadgeSourceServer(NanoHTTPD.Response.Status.OK, frPack)) { url ->
+            server.serve(FakePostSession(importBody(url), "/b/$TOKEN/api/badges/import"))
+        }
+
+        assertEquals(NanoHTTPD.Response.Status.OK, response.status)
+        assertEquals(219, rules.get().imports.single().filters.size)
+    }
+
     @Test
     fun `import keeps rule changes made while the fetch was in flight`() {
         val rules = AtomicReference(StreamBadgeRules())
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { rules.get() },
-            onRulesChanged = { rules.set(it) }
+            updateRules = { transform -> rules.updateAndGet { transform(it) } }
         )
         val other = StreamBadgeImport(
             sourceUrl = "https://example.com/other.json",
@@ -105,7 +125,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = { saved = true }
+            updateRules = { transform -> saved = true; transform(StreamBadgeRules()) }
         )
         val sources = listOf(
             BadgeSourceServer(NanoHTTPD.Response.Status.OK, "{not json"),
@@ -128,7 +148,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = { saved = true }
+            updateRules = { transform -> saved = true; transform(StreamBadgeRules()) }
         )
 
         val blank = server.serve(FakePostSession(importBody("  "), "/b/$TOKEN/api/badges/import"))
@@ -157,7 +177,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { rules.get() },
-            onRulesChanged = { rules.set(it) }
+            updateRules = { transform -> rules.updateAndGet { transform(it) } }
         )
 
         val active = server.serve(FakePostSession(importBody(two.sourceUrl), "/b/$TOKEN/api/badges/active"))
@@ -175,13 +195,48 @@ class StreamBadgeConfigServerTest {
         assertEquals(listOf(two.sourceUrl), deletedRules.imports.map { it.sourceUrl })
     }
 
+    // Spec 130 F4, end to end over the real store as the ViewModel wires it: two deletes at once both stick.
+    @Test
+    fun `concurrent deletes against the store both stick`() {
+        val factory = io.mockk.mockk<com.nuvio.tv.data.local.ProfileDataStoreFactory>()
+        io.mockk.every { factory.get(any(), any()) } returns com.nuvio.tv.data.local.YieldingPreferencesDataStore()
+        val profileManager = io.mockk.mockk<com.nuvio.tv.core.profile.ProfileManager>()
+        io.mockk.every { profileManager.activeProfileId } returns kotlinx.coroutines.flow.MutableStateFlow(1)
+        val store = com.nuvio.tv.data.local.StreamBadgeSettingsDataStore(factory, profileManager)
+        fun import(name: String) = StreamBadgeImport(
+            sourceUrl = "https://example.com/$name.json",
+            filters = listOf(StreamBadgeFilter(name = name, pattern = name))
+        )
+        kotlinx.coroutines.runBlocking {
+            store.setStreamBadgeRules(StreamBadgeRules(imports = listOf(import("A"), import("B"), import("C"))))
+        }
+        val server = StreamBadgeConfigServer(
+            token = TOKEN,
+            currentRulesProvider = { kotlinx.coroutines.runBlocking { store.settings.first().rules } },
+            updateRules = { transform -> kotlinx.coroutines.runBlocking { store.updateStreamBadgeRules(transform) } }
+        )
+        val start = java.util.concurrent.CountDownLatch(1)
+
+        val deletes = listOf("A", "B").map { name ->
+            Thread {
+                start.await()
+                server.serve(FakePostSession(importBody("https://example.com/$name.json"), "/b/$TOKEN/api/badges/delete"))
+            }.apply { start() }
+        }
+        start.countDown()
+        deletes.forEach { it.join() }
+
+        val left = kotlinx.coroutines.runBlocking { store.settings.first().rules }
+        assertEquals(listOf("https://example.com/C.json"), left.imports.map { it.sourceUrl })
+    }
+
     @Test
     fun `settings POST is gone and saves nothing`() {
         var saved: StreamBadgeRules? = null
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = { saved = it }
+            updateRules = { transform -> transform(StreamBadgeRules()).also { saved = it } }
         )
 
         val response = server.serve(FakePostSession("""{"badgePlacement":"TOP"}""", "/b/$TOKEN/api/settings"))
@@ -196,7 +251,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = { saved = it }
+            updateRules = { transform -> transform(StreamBadgeRules()).also { saved = it } }
         )
 
         val malformed = server.serve(FakePostSession("{oops", "/b/$TOKEN/api/badges/active"))
@@ -218,7 +273,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = {}
+            updateRules = { transform -> transform(StreamBadgeRules()) }
         )
 
         val response = server.serve(FakeGetSession("/b/$TOKEN/api/settings", host = "attacker.example:8091"))
@@ -245,7 +300,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { rules },
-            onRulesChanged = {}
+            updateRules = { transform -> transform(StreamBadgeRules()) }
         )
 
         val response = server.serve(FakeGetSession("/b/$TOKEN/api/settings"))
@@ -264,7 +319,7 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { rules.get() },
-            onRulesChanged = { rules.set(it) }
+            updateRules = { transform -> rules.updateAndGet { transform(it) } }
         )
         val stale = FakeUploadSession(
             "/b/${"0".repeat(32)}/api/badges/delete",
@@ -289,13 +344,31 @@ class StreamBadgeConfigServerTest {
         val server = StreamBadgeConfigServer(
             token = TOKEN,
             currentRulesProvider = { StreamBadgeRules() },
-            onRulesChanged = {}
+            updateRules = { transform -> transform(StreamBadgeRules()) }
         )
 
         val page = server.serve(FakeGetSession("/b/$TOKEN/"))
 
         assertEquals(NanoHTTPD.Response.Status.OK, page.status)
         assertNoAbsoluteSameOriginPath(page.bodyText())
+    }
+
+    // Spec 130 F8: opened without the trailing slash, the page's relative logo.png resolved to /b/logo.png.
+    @Test
+    fun `page url without the trailing slash redirects to the slash form`() {
+        val server = StreamBadgeConfigServer(
+            token = TOKEN,
+            currentRulesProvider = { StreamBadgeRules() },
+            updateRules = { transform -> transform(StreamBadgeRules()) }
+        )
+
+        val bare = server.serve(FakeGetSession("/b/$TOKEN"))
+        val wrongToken = server.serve(FakeGetSession("/b/${"0".repeat(32)}"))
+
+        assertEquals(NanoHTTPD.Response.Status.FOUND, bare.status)
+        assertEquals("/b/$TOKEN/", bare.getHeader("Location"))
+        assertEquals("no-store", bare.getHeader("Cache-Control"))
+        assertEquals(NanoHTTPD.Response.Status.NOT_FOUND, wrongToken.status)
     }
 
     private companion object {

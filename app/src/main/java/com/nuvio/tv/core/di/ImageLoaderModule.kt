@@ -12,6 +12,8 @@ import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import coil3.request.allowHardware
 import coil3.request.crossfade
+import com.nuvio.tv.core.posters.RatingPosterFallbackInterceptor
+import com.nuvio.tv.core.posters.RatingPosterSettings
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,6 +22,18 @@ import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
 import javax.inject.Singleton
+
+/**
+ * Spec 61 Q5 (savantguarded NuvioCPlayerMemory.onPlayerOpened), widened by Spec 147 D1 (R4-3): the
+ * first stream of a player session empties the image memory cache (was trimmed to a quarter), so
+ * the browse screens' posters do not sit in memory next to a 4K decode. `trimToSize(0)` empties the
+ * strong cache only: evicted images still drawn stay reachable through Coil's weak cache (no reload
+ * for art on screen), the rest is left to the GC; the cap is unchanged, and the disk cache refills
+ * it on the way back. Called once per player session (in-player rebuilds skip it).
+ */
+internal fun emptyImageMemoryCacheForPlayback(context: Context) {
+    runCatching { SingletonImageLoader.get(context).memoryCache?.trimToSize(0) }
+}
 
 /**
  * The single tuned Coil loader (W3.1). Builder relocated verbatim from
@@ -31,22 +45,6 @@ import javax.inject.Singleton
  * path resolve the same loader. That injected handle is the seam memory-M2
  * trims through (derisk S1) — do not build ad-hoc loaders for new surfaces.
  */
-/** Share of the image memory cache kept while the full-screen player is up (Spec 61 Q5). */
-private const val PLAYBACK_IMAGE_CACHE_DIVISOR = 4
-
-/**
- * Spec 61 Q5 (savantguarded NuvioCPlayerMemory.onPlayerOpened): gives most of the image memory
- * cache back when a stream starts, so the browse screens' posters do not sit in the heap next to
- * a 4K decode. Least-recently-used entries go first, so the art the player itself just loaded
- * stays; the cap is unchanged, and the disk cache refills the rest on the way back.
- */
-internal fun trimImageMemoryCacheForPlayback(context: Context) {
-    runCatching {
-        val cache = SingletonImageLoader.get(context).memoryCache ?: return
-        cache.trimToSize(cache.maxSize / PLAYBACK_IMAGE_CACHE_DIVISOR)
-    }
-}
-
 @Module
 @InstallIn(SingletonComponent::class)
 object ImageLoaderModule {
@@ -56,9 +54,13 @@ object ImageLoaderModule {
     fun provideImageLoader(
         @ApplicationContext context: Context,
         @Image imageOkHttpClient: OkHttpClient,
+        // Spec 114 P0-4: taken only so it is built at app start and publishes the rating-poster state.
+        @Suppress("UNUSED_PARAMETER") ratingPosterSettings: RatingPosterSettings,
     ): ImageLoader {
         return ImageLoader.Builder(context)
             .components {
+                // Spec 114 P0-3: a failed rating poster falls back to the addon's own.
+                add(RatingPosterFallbackInterceptor())
                 // Size-aware TMDB downscaler: the Bingecat catalogue serves original-size
                 // TMDB image URLs (multi-MB, 600-1200ms to decode). Rewrite them to a bucket
                 // matching the resolved display target. Only touches image.tmdb.org

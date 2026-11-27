@@ -964,7 +964,7 @@
     <string name="settings_p2p_title">P2P Стриминг</string>
     <string name="settings_p2p_subtitle">Разрешить P2P (торрент) потоки</string>
     <string name="settings_p2p_hide_stats_title">Скрыть статистику торрента</string>
-    <string name="settings_p2p_hide_stats_subtitle">Скрыть буфер, сиды, пиры и скорость загрузки во время загрузки и воспроизведения</string>
+    <string name="settings_p2p_hide_stats_subtitle">Скрыть буфер, сиды, пиры и скорость загрузки во время воспроизведения</string>
     <string name="stream_filter_all">Все</string>
     <string name="player_sync_line">Строка синхронизации</string>
     <string name="subtitle_timing_press_sync">Нажмите Синхронизация, когда услышите реплику.</string>

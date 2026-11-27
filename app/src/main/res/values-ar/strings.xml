@@ -659,7 +659,7 @@
     <string name="settings_p2p_title">تشغيل ملفات التورنت</string>
     <string name="settings_p2p_subtitle">السماح بتشغيل ملفات التورنت</string>
     <string name="settings_p2p_hide_stats_title">إخفاء إحصائيات التورنت</string>
-    <string name="settings_p2p_hide_stats_subtitle">إخفاء التخزين المؤقت، والمزودين، وعدد المتصلين، وسرعة التنزيل أثناء التحميل والتشغيل</string>
+    <string name="settings_p2p_hide_stats_subtitle">إخفاء التخزين المؤقت، والمزودين، وعدد المتصلين، وسرعة التنزيل أثناء التشغيل</string>
     <string name="stream_filter_all">الكل</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

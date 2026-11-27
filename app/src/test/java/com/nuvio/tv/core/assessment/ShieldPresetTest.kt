@@ -60,7 +60,7 @@ class ShieldPresetTest {
         )
         val totalMb = (plan.targetBufferSizeMb ?: 0) + overheadMb
         // Unclamped on a tier whose safe limit fits the pinned target (350 MB).
-        assertEquals(ShieldPreset.effectiveEstimatedNativeMb(350), totalMb)
+        assertEquals(ShieldPreset.effectiveEstimatedNativeMb(350, Int.MAX_VALUE), totalMb)
         assertEquals(296, totalMb)
         // Deliberately conservative budget: since the F3 re-tiering
         // (2026-08-28) it sits under even the <3.2 GB tier's 350 MB safe
@@ -73,20 +73,23 @@ class ShieldPresetTest {
     @Test
     fun `effective figures preview the applier's safe-limit clamp`() {
         // Nominal tier (≥3.2 GB class): the pinned 200/296 lands unclamped.
-        assertEquals(200, ShieldPreset.effectiveTargetMb(350))
-        assertEquals(296, ShieldPreset.effectiveEstimatedNativeMb(350))
-        assertEquals(200, ShieldPreset.effectiveTargetMb(500))
-        // Measured reference device (2026-08-29 meminfo): the 2017 Shield
-        // reports 1.9 GiB totalMem → the <2.3 GB rung, safe 250. The
-        // applier's pre-commit re-check clamps to the largest 25 MB step
-        // fitting above the 96 MB parallel overhead.
-        assertEquals(150, ShieldPreset.effectiveTargetMb(250))
-        assertEquals(246, ShieldPreset.effectiveEstimatedNativeMb(250))
+        assertEquals(200, ShieldPreset.effectiveTargetMb(350, Int.MAX_VALUE))
+        assertEquals(296, ShieldPreset.effectiveEstimatedNativeMb(350, Int.MAX_VALUE))
+        assertEquals(200, ShieldPreset.effectiveTargetMb(500, Int.MAX_VALUE))
+        // Without a tier ceiling the safe-limit clamp alone takes safe 250 to the largest
+        // 25 MB step fitting above the 96 MB parallel overhead.
+        assertEquals(150, ShieldPreset.effectiveTargetMb(250, Int.MAX_VALUE))
+        assertEquals(246, ShieldPreset.effectiveEstimatedNativeMb(250, Int.MAX_VALUE))
+        // Measured reference device (2026-08-29 meminfo): the 2017 Shield reports 1.9 GiB
+        // totalMem → the <2.3 GB rung, safe 250, whose 100 MB target ceiling binds (Spec 147 D4).
+        assertEquals(100, ShieldPreset.effectiveTargetMb(250, 100))
+        assertEquals(196, ShieldPreset.effectiveEstimatedNativeMb(250, 100))
         // The clamp guarantees the estimate never exceeds the safe limit.
         for (safe in listOf(150, 200, 250, 350, 1000, 1600, 2000)) {
             assertTrue(
                 "effective estimate must stay inside safe limit $safe",
-                ShieldPreset.effectiveEstimatedNativeMb(safe) <= safe
+                ShieldPreset.effectiveEstimatedNativeMb(safe, Int.MAX_VALUE) <= safe &&
+                    ShieldPreset.effectiveEstimatedNativeMb(safe, 100) <= safe
             )
         }
     }
@@ -95,6 +98,7 @@ class ShieldPresetTest {
     fun `card seconds figure derives from the reference remux bitrate`() {
         assertEquals(25, ShieldPreset.secondsOfReference4k(200))
         assertEquals(19, ShieldPreset.secondsOfReference4k(150))
+        assertEquals(12, ShieldPreset.secondsOfReference4k(100))
     }
 
     @Test
@@ -112,9 +116,13 @@ class ShieldPresetTest {
 
     @Test
     fun `expected write count is touched fields plus the profile trio`() {
-        assertEquals(ShieldPreset.plan.touchedCount + 3, ShieldPreset.expectedWriteCount(350))
-        assertEquals(19, ShieldPreset.expectedWriteCount(350))
-        // The applier's clamp step adds one write on the 2 GB reference Shield.
-        assertEquals(20, ShieldPreset.expectedWriteCount(250))
+        assertEquals(ShieldPreset.plan.touchedCount + 3, ShieldPreset.expectedWriteCount(350, Int.MAX_VALUE))
+        assertEquals(19, ShieldPreset.expectedWriteCount(350, Int.MAX_VALUE))
+        // Without a tier ceiling the applier's clamp step adds one write on safe 250.
+        assertEquals(20, ShieldPreset.expectedWriteCount(250, Int.MAX_VALUE))
+        // The 2 GB Shield: its re-check reads the stored 200 as 100, which fits, so no clamp step.
+        assertEquals(19, ShieldPreset.expectedWriteCount(250, 100))
+        assertEquals(19, ShieldPreset.expectedWriteCount(200, 100)) // reads 100, fits 100: no clamp
+        assertEquals(20, ShieldPreset.expectedWriteCount(150, 100)) // reads 100, fits 50: clamp
     }
 }

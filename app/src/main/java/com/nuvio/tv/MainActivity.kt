@@ -53,6 +53,7 @@ import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.auth.DeviceSessionRegistration
 import com.nuvio.tv.ui.components.PanelActionRow
 import com.nuvio.tv.ui.components.marquee.MarqueeLoadingScreen
+import com.nuvio.tv.ui.components.marquee.LocalFilterPackNames
 import com.nuvio.tv.ui.components.marquee.LocalMarqueeToast
 import com.nuvio.tv.ui.components.marquee.MarqueeToastHost
 import com.nuvio.tv.ui.components.marquee.rememberMarqueeToastState
@@ -63,6 +64,7 @@ import com.nuvio.tv.core.deeplink.DeepLinkParser
 import com.nuvio.tv.core.profile.IdleProfileReturn
 import com.nuvio.tv.core.profile.activeProfilePinState
 import com.nuvio.tv.core.profile.profileReturnHasTarget
+import com.nuvio.tv.core.contentfilter.ActiveContentFilter
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.sync.ProfileSyncService
 import com.nuvio.tv.core.sync.StartupSyncService
@@ -149,6 +151,9 @@ class MainActivity : ComponentActivity() {
     lateinit var startupSyncService: StartupSyncService
 
     @Inject
+    lateinit var trackingSyncScheduler: com.nuvio.tv.core.tracking.TrackingSyncScheduler
+
+    @Inject
     lateinit var nightlySelfTrim: com.nuvio.tv.core.runtime.NightlySelfTrim
 
     @Inject
@@ -156,6 +161,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var profileManager: ProfileManager
+
+    @Inject
+    lateinit var activeContentFilter: ActiveContentFilter
 
     @Inject
     lateinit var profileLockStateDataStore: ProfileLockStateDataStore
@@ -253,9 +261,10 @@ class MainActivity : ComponentActivity() {
             config.setLocale(locale)
             super.attachBaseContext(newBase.createConfigurationContext(config))
         } else {
-            // Cache not ready yet (very early cold start) — use system locale
-            // The IO coroutine in Application.onCreate will finish before any activity
-            // is usually created, but if not, we just use system locale until next launch
+            // System default (or the cache not read yet): the system's language. Reset the JVM default too:
+            // a language chosen earlier in this process set it, and recreate() after switching back to
+            // System default would otherwise keep dates and numbers in that language (Spec 101 F7).
+            Locale.setDefault(newBase.resources.configuration.locales[0])
             super.attachBaseContext(newBase)
         }
     }
@@ -945,12 +954,21 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Spec 122 D4, D5: the preview chip and own-pack names for card marks, app-wide.
+                    val activeFilter by remember { activeContentFilter.states() }.collectAsState(initial = null)
+                    // Gated on the activity's own active id: states() may trail a switch away from the primary by one read.
+                    val previewingName = activeFilter?.previewProfileId?.takeIf { isPrimaryProfileActive }
+                        ?.let { id -> profiles.firstOrNull { it.id == id }?.name }
+
                     // Spec 52 T2: the top bar's Update pill.
                     val showUpdatePill by updateController.notice.collectAsState()
                     val pulseUpdatePill by updateController.pulseRelease.collectAsState()
 
                     Box(modifier = Modifier.fillMaxSize()) {
-                        CompositionLocalProvider(LocalMarqueeToast provides toast) {
+                        CompositionLocalProvider(
+                            LocalMarqueeToast provides toast,
+                            LocalFilterPackNames provides activeFilter?.ownPackNames.orEmpty()
+                        ) {
                             TopBarScaffold(
                                 navController = navController,
                                 navViewModelStoreOwner = navViewModelStoreOwner,
@@ -968,7 +986,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 showUpdate = showUpdatePill,
                                 pulseUpdate = pulseUpdatePill,
-                                onUpdatePulsed = updateController::pillPulsed
+                                onUpdatePulsed = updateController::pillPulsed,
+                                previewingName = previewingName
                             )
                         }
 
@@ -1051,6 +1070,8 @@ class MainActivity : ComponentActivity() {
             deviceSessionRegistration.requestForegroundRegistration()
             startupSyncService.requestForegroundSync()
         }
+        // Spec 104 S2d: connected trackers refresh on resume (cold start included), gated; none in a keyless build.
+        trackingSyncScheduler.onAppForeground()
     }
 
     override fun onNewIntent(intent: Intent) {

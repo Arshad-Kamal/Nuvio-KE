@@ -6,8 +6,8 @@ import org.junit.Test
 
 class SettingsReturnTargetTest {
 
-    private val all = visibleSettingsCategories(isPrimaryProfile = true, isDebugBuild = false)
-    private val nonPrimary = visibleSettingsCategories(isPrimaryProfile = false, isDebugBuild = false)
+    private val all = visibleSettingsCategories(isPrimaryProfile = true, isDebugBuild = false, hasTrackers = false)
+    private val nonPrimary = visibleSettingsCategories(isPrimaryProfile = false, isDebugBuild = false, hasTrackers = false)
 
     @Test
     fun `a target survives its saveable form, a slash in the row key included`() {
@@ -70,6 +70,15 @@ class SettingsReturnTargetTest {
         assertEquals(null, entry.playbackSection)
         assertEquals(true, entry.opensPanel)
         assertEquals(false, SettingsEntry.NETWORK.opensPanel)
+    }
+
+    @Test
+    fun mdbListAccountEntryOpensTheAccountPanelOnTrackersMdbListRow() {
+        val entry = SettingsEntry.fromName("MDBLIST_ACCOUNT")
+        assertEquals(SettingsEntry.MDBLIST_ACCOUNT, entry)
+        assertEquals(SettingsReturnTarget(SettingsCategory.TRACKERS, "tracker_mdblist"), entry!!.target)
+        assertEquals(null, entry.playbackSection)
+        assertEquals(true, entry.opensPanel)
     }
 
     @Test

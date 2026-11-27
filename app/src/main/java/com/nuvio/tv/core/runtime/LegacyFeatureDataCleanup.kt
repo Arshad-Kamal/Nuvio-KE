@@ -27,16 +27,16 @@ private const val CS3_PLUGIN_PREFS_FILE = "cs3_plugin_preferences.xml"
 private const val PRE_X7_HTTP_CACHE_DIR = "http_cache"
 
 // Stale secrets of cut services, removed key-by-key; the stores themselves stay
-// (they are profile-settings blob passthroughs). Every key here must be excluded by
+// (they are profile-settings blob passthroughs). MDBList's API key left this list in Spec 104
+// S1 (trackers return); a key left on disk from before the cut is never read and never pushed. Every key here must be excluded by
 // ProfileSettingsSyncService.shouldExcludePreferenceFromProfileSettingsSync so the
 // removal never changes the synced blob, its signature, or triggers a push (pinned by
 // LegacyFeatureDataCleanupTest).
 internal val LEGACY_SECRET_KEYS: Map<String, Set<String>> = mapOf(
-    "debrid_settings" to setOf("torbox_api_key", "premiumize_api_key", "real_debrid_api_key"),
-    "mdblist_settings" to setOf("mdblist_api_key")
+    "debrid_settings" to setOf("torbox_api_key", "premiumize_api_key", "real_debrid_api_key")
 )
 private val LEGACY_SECRET_STORE_REGEX =
-    Regex("""^(debrid_settings|mdblist_settings)(?:_p(\d+))?\.preferences_pb$""")
+    Regex("""^(debrid_settings)(?:_p(\d+))?\.preferences_pb$""")
 
 /** A profile-scoped store holding stale secrets, addressed the way ProfileDataStoreFactory.get is. */
 internal data class LegacySecretStore(
@@ -120,7 +120,7 @@ private fun deleteAll(targets: List<File>): Long {
 }
 
 /**
- * X15: removes leftovers of cut features (plugin runtime files, stale debrid/MDBList API
+ * X15: removes leftovers of cut features (plugin runtime files, stale debrid API
  * keys) and the pre-X7 `@Api` HTTP cache (Spec 68). Run once per process, delayed and on IO,
  * from NuvioApplication.
  */

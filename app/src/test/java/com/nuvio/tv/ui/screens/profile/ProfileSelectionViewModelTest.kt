@@ -1,16 +1,22 @@
 package com.nuvio.tv.ui.screens.profile
 
 import com.nuvio.tv.MainDispatcherRule
+import com.nuvio.tv.core.contentfilter.ActiveContentFilter
+import com.nuvio.tv.core.contentfilter.OwnTagSearch
 import com.nuvio.tv.core.profile.DpadCombo
 import com.nuvio.tv.core.profile.DpadDirection
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.profile.PinLockouts
 import com.nuvio.tv.core.sync.ProfileSyncService
+import com.nuvio.tv.data.local.ContentFilterRead
 import com.nuvio.tv.data.local.DpadUnlockState
 import com.nuvio.tv.data.local.MyPhotosStore
 import com.nuvio.tv.data.local.ProfileLockStateDataStore
 import com.nuvio.tv.data.local.ProfileLookStore
+import com.nuvio.tv.data.local.ProfileContentFilterStore
 import com.nuvio.tv.data.local.ProfileRatingCapStore
+import com.nuvio.tv.domain.contentfilter.ContentFilterSettings
+import com.nuvio.tv.domain.contentfilter.FilterPack
 import com.nuvio.tv.domain.model.ContentRatingCap
 import com.nuvio.tv.domain.model.ProfileLookChoice
 import com.nuvio.tv.domain.model.ProfileLookEntry
@@ -55,6 +61,8 @@ class ProfileSelectionViewModelTest {
     private val profileLookStore = mockk<ProfileLookStore>(relaxed = true)
     private val myPhotosStore = mockk<MyPhotosStore>(relaxed = true)
     private val ratingCapStore = mockk<ProfileRatingCapStore>(relaxed = true)
+    private val contentFilterStore = mockk<ProfileContentFilterStore>(relaxed = true)
+    private val activeContentFilter = mockk<ActiveContentFilter>(relaxed = true)
 
     private val sequence = listOf(
         DpadDirection.UP, DpadDirection.DOWN, DpadDirection.LEFT,
@@ -81,6 +89,9 @@ class ProfileSelectionViewModelTest {
             profileLookStore = profileLookStore,
             myPhotosStore = myPhotosStore,
             ratingCapStore = ratingCapStore,
+            contentFilterStore = contentFilterStore,
+            activeContentFilter = activeContentFilter,
+            ownTagSearch = OwnTagSearch(MutableStateFlow(null)) { _, _ -> null },
             photoUploadStarter = mockk(relaxed = true)
         )
     }
@@ -371,6 +382,92 @@ class ProfileSelectionViewModelTest {
             listOf("cap 4 null", "result true", "cap 5 OLDER_KIDS", "result true", "result false"),
             events
         )
+    }
+
+    @Test
+    fun `content filters load per profile, a missing read keeps Edit waiting, and the built-in packs load once (Spec 117 P9)`() = runTest {
+        val zaynRead = MutableSharedFlow<ContentFilterRead>()
+        val stored = ContentFilterRead.Stored(ContentFilterSettings(enabledPacks = setOf("horror")))
+        every { contentFilterStore.settingsFor(1) } returns flowOf(ContentFilterRead.Unreadable)
+        every { contentFilterStore.settingsFor(2) } returns zaynRead
+        coEvery { activeContentFilter.builtInPacks() } returns listOf(FilterPack("horror"))
+        val viewModel = viewModelWith(
+            DpadUnlockState(),
+            profiles = listOf(UserProfile(id = 1, name = "Arshad", avatarColorHex = "#1E88E5"), UserProfile(id = 2, name = "Zayn", avatarColorHex = "#E8743B"))
+        )
+        advanceUntilIdle()
+        assertEquals(null, viewModel.contentFiltersById.value)
+        assertEquals(listOf(FilterPack("horror")), viewModel.builtInPacks.value)
+        zaynRead.emit(stored)
+        advanceUntilIdle()
+        assertEquals(mapOf(1 to ContentFilterRead.Unreadable, 2 to stored), viewModel.contentFiltersById.value)
+        coVerify(exactly = 1) { activeContentFilter.builtInPacks() }
+    }
+
+    @Test
+    fun `a broken or unreadable pack file lists no packs instead of crashing`() = runTest {
+        listOf(IllegalArgumentException("bad pack file"), java.io.IOException("no asset")).forEach { failure ->
+            coEvery { activeContentFilter.builtInPacks() } throws failure
+            val viewModel = viewModelWith(DpadUnlockState())
+            advanceUntilIdle()
+            assertEquals(failure.toString(), emptyList<FilterPack>(), viewModel.builtInPacks.value)
+        }
+    }
+
+    @Test
+    fun `a newly listed profile stays unloaded until its own filters read lands`() = runTest {
+        val list = MutableStateFlow(listOf(UserProfile(id = 1, name = "Arshad", avatarColorHex = "#1E88E5")))
+        val noorRead = MutableSharedFlow<ContentFilterRead>()
+        every { contentFilterStore.settingsFor(1) } returns flowOf(ContentFilterRead.Stored(ContentFilterSettings()))
+        every { contentFilterStore.settingsFor(3) } returns noorRead
+        val viewModel = viewModelWith(DpadUnlockState(), profileList = list)
+        advanceUntilIdle()
+        assertTrue(contentFiltersLoaded(1, viewModel.contentFiltersById.value))
+        list.value = list.value + UserProfile(id = 3, name = "Noor", avatarColorHex = "#8D6E63")
+        advanceUntilIdle()
+        assertFalse(contentFiltersLoaded(3, viewModel.contentFiltersById.value))
+        noorRead.emit(ContentFilterRead.Unreadable)
+        advanceUntilIdle()
+        assertTrue(contentFiltersLoaded(3, viewModel.contentFiltersById.value))
+    }
+
+    @Test
+    fun `create always writes content filters for the new id, update writes an edit through writeEdited after a save`() = runTest {
+        val settings = ContentFilterSettings(enabledPacks = setOf("horror"))
+        coEvery { profileManager.createProfile(any(), any(), any(), any()) } returnsMany listOf(created(4), created(5), null)
+        val zayn = UserProfile(id = 3, name = "Zayn", avatarColorHex = "#E8743B")
+        coEvery { profileManager.updateProfile(zayn) } returnsMany listOf(true, true, false)
+        val events = mutableListOf<String>()
+        coEvery { contentFilterStore.write(any(), any()) } coAnswers {
+            events += "write ${firstArg<Int>()} ${secondArg<ContentFilterSettings>().enabledPacks}"
+            firstArg<Int>() == 4
+        }
+        coEvery { contentFilterStore.writeEdited(any(), any()) } coAnswers { events += "edit ${firstArg<Int>()} ${secondArg<ContentFilterSettings>().enabledPacks}"; false }
+        var notSaved = 0
+        val viewModel = viewModelWith(DpadUnlockState())
+        // Empty settings are written too: they clear a reused id's stale file.
+        viewModel.createProfile("Kids", "#1E88E5", null) { events += "result $it" }
+        advanceUntilIdle()
+        viewModel.createProfile("Guest", "#1E88E5", null, contentFilters = settings, onContentFiltersNotSaved = { notSaved++ }) { events += "result $it" }
+        advanceUntilIdle()
+        viewModel.createProfile("Gone", "#1E88E5", null, contentFilters = settings) { events += "result $it" }
+        advanceUntilIdle()
+        viewModel.updateProfile(zayn) { events += "result $it" }
+        advanceUntilIdle()
+        viewModel.updateProfile(zayn, contentFilters = settings, onContentFiltersNotSaved = { notSaved++ }) { events += "result $it" }
+        advanceUntilIdle()
+        // The profile is gone: no write.
+        viewModel.updateProfile(zayn, contentFilters = settings) { events += "result $it" }
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                "write 4 []", "result true", "write 5 [horror]", "result true", "result false",
+                "result true", "edit 3 [horror]", "result true", "result false"
+            ),
+            events
+        )
+        // Guest's write and Zayn's edit failed.
+        assertEquals(2, notSaved)
     }
 
     @Test

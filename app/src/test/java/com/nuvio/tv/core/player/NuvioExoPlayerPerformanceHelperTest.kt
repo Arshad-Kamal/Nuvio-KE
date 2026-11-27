@@ -114,11 +114,11 @@ class NuvioExoPlayerPerformanceHelperTest {
         // effectiveEstimatedNativeMb is clamped into the safe band by
         // construction, so the SAFE check alone cannot fail: pin that this
         // tier fits the full pinned target without the clamp.
-        assertEquals(ShieldPreset.TARGET_BUFFER_MB, ShieldPreset.effectiveTargetMb(safeLimitMb))
+        assertEquals(ShieldPreset.TARGET_BUFFER_MB, ShieldPreset.effectiveTargetMb(safeLimitMb, Int.MAX_VALUE))
         assertEquals(
             MemoryUsageStatus.SAFE,
             MemoryBudget.getUsageStatus(
-                ShieldPreset.effectiveEstimatedNativeMb(safeLimitMb), safeLimitMb, warningLimitMb
+                ShieldPreset.effectiveEstimatedNativeMb(safeLimitMb, Int.MAX_VALUE), safeLimitMb, warningLimitMb
             )
         )
     }

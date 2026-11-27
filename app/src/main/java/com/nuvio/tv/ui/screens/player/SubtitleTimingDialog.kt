@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.SubtitleSyncCue
-import com.nuvio.tv.core.player.formatAutoSyncTimestamp
+import com.nuvio.tv.core.player.formatManualSyncTimestamp
 import com.nuvio.tv.domain.model.Subtitle
 import com.nuvio.tv.ui.components.CompactPanel
 import com.nuvio.tv.ui.components.LoadingIndicator
@@ -65,8 +65,8 @@ private val SyncStatusColor = Color(0xFF9BE2AF)
 private val SyncErrorColor = Color(0xFFFFB37A)
 
 /**
- * The cue time the Sync Line list centres and pre-focuses on: the line on screen at video time
- * [videoMs]. A delay D shows a cue starting at S at video S + D (applySubtitleAutoSyncCue sets
+ * The cue time the Manual sync list centres and pre-focuses on: the line on screen at video time
+ * [videoMs]. A delay D shows a cue starting at S at video S + D (applySubtitleManualSyncCue sets
  * D = capture - start), so that line starts at video - D (Register A2 P8, NM `6d142b944`).
  */
 internal fun syncLineAnchorMs(videoMs: Long, subtitleDelayMs: Int): Long =
@@ -74,7 +74,7 @@ internal fun syncLineAnchorMs(videoMs: Long, subtitleDelayMs: Int): Long =
 
 /**
  * Sync line (approved sandbox `u6-player-panels-marquee` stage 9): a centred compact shell, eyebrow
- * "Sync Line". Step 1 asks for Sync at a dialog line; step 2 lists the lines around the captured
+ * "Manual sync". Step 1 asks for Sync at a dialog line; step 2 lists the lines around the captured
  * moment (time, line) with the nearest focused; OK applies it.
  */
 @Composable
@@ -95,7 +95,7 @@ internal fun SubtitleTimingDialog(
     val syncButtonFocusRequester = remember { FocusRequester() }
     val anchorMs = syncLineAnchorMs(capturedVideoMs ?: currentPositionMs, subtitleDelayMs)
     val visibleCues = remember(cues, anchorMs) {
-        selectAutoSyncVisibleCues(
+        selectManualSyncVisibleCues(
             cues = cues,
             anchorTimeMs = anchorMs
         )
@@ -139,7 +139,7 @@ internal fun SubtitleTimingDialog(
             )
             if (stage == SyncStage.PICK_LINE) {
                 val captured = if (capturedVideoMs != null) {
-                    stringResource(R.string.subtitle_timing_captured_at, formatAutoSyncTimestamp(capturedVideoMs))
+                    stringResource(R.string.subtitle_timing_captured_at, formatManualSyncTimestamp(capturedVideoMs))
                 } else {
                     stringResource(R.string.subtitle_timing_capturing)
                 }
@@ -343,7 +343,7 @@ private fun CueRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = formatAutoSyncTimestamp(cue.startTimeMs),
+            text = formatManualSyncTimestamp(cue.startTimeMs),
             style = NuvioTheme.textStyles.caption,
             color = content.copy(alpha = 0.6f),
             maxLines = 1,
@@ -372,7 +372,7 @@ private fun sanitizeCuePreviewText(text: String): String {
     return if (cleaned.isNotBlank()) cleaned else text.trim()
 }
 
-private fun selectAutoSyncVisibleCues(
+private fun selectManualSyncVisibleCues(
     cues: List<SubtitleSyncCue>,
     anchorTimeMs: Long,
     marginMs: Long = 180_000L,

@@ -15,7 +15,9 @@ import com.nuvio.tv.core.stream.FailureReason
 import com.nuvio.tv.core.stream.StreamTextSizeParser
 import com.nuvio.tv.core.stream.limitKey
 import com.nuvio.tv.data.local.InternalPlayerEngine
+import com.nuvio.tv.domain.model.ProxyHeaders
 import com.nuvio.tv.domain.model.Stream
+import com.nuvio.tv.domain.model.StreamBehaviorHints
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -966,7 +968,8 @@ internal fun PlayerRuntimeController.recordPlaybackFailure(
  * Spec 75 D6(5): leaving the player from the error box records the failure it shows, as NO_START,
  * when the source caused it ([PlaybackFailure.recordedWhenBoxEnds]) and no failover recorded it
  * already. At the exit, not when the box shows: a late first frame can still retract the startup
- * watchdog's box (a slow source that then played is never ranked down).
+ * watchdog's box (a slow source that then played is never ranked down). Spec 131 D14: the same rule
+ * for a source picked by hand, whose gate records nothing (a hand picker sees which source failed).
  */
 internal fun PlayerRuntimeController.recordBoxEndingFailure() {
     val failure = boxEndingFailureToRecord(_uiState.value.error, lastRecordedFailure) ?: return
@@ -1010,11 +1013,12 @@ internal fun listedReleaseIndex(streams: List<Stream>, addonName: String?, filen
 /**
  * Marks the current stream URL dead for this session (greying it in the source
  * panel), then auto-advances to the next live source in the user's existing
- * sort order. Shared by the dead-source, mid-play, startup-exhausted and
+ * sort order. Spec 131 D5/D14: never for a hand-picked source: false at once, nothing recorded or
+ * greyed (only the usual box-exit rule, [recordBoxEndingFailure]). Shared by the dead-source, mid-play, startup-exhausted and
  * placeholder paths; all draw on the same MAX_DEAD_SOURCE_FAILOVERS cap, and each records its
  * [reason] in the failure store (Spec 65 P5) so autoplay ranks the stream last for a day, with
  * [failure]'s mark (Spec 75); [failure] is also what the error box shows when this gives up. Returns
- * false when out of options (cap reached or no live sources left) so the caller
+ * false when out of options (a hand pick, the cap reached or no live sources left) so the caller
  * surfaces the error screen. After a placeholder reject the placeholder's playhead
  * is not carried ([failoverPendingSeek]); the next source resumes from saved progress.
  */
@@ -1022,6 +1026,14 @@ internal fun PlayerRuntimeController.advanceToNextLiveSource(
     failure: PlaybackFailure,
     reason: FailureReason
 ): Boolean {
+    // Spec 131 D1/D5: a source the user picked is never replaced; its failure stops at the error box,
+    // not marked dead or recorded (D14; Retry and a re-pick stay open).
+    if (currentStreamHandPicked) {
+        Log.w(PlayerRuntimeController.TAG, "Hand-picked source failed (${failure.message}); no failover, error box")
+        // A chain the box's Next source started keeps its tried count on the box.
+        if (failedOverSources.isNotEmpty()) markFailoverExhausted(failure)
+        return false
+    }
     val state = _uiState.value
     val streams = sourceStreamsForPlayingItem()
     val currentIdx = playingRowIndex(streams, state)
@@ -1126,7 +1138,7 @@ internal fun PlayerRuntimeController.advanceToNextLiveSource(
                 )
             )
         }
-        switchToSourceStream(next, resetFailoverBudget = false)
+        switchToSourceStream(next, handPicked = false, resetFailoverBudget = false)
     }
     return true
 }
@@ -1154,7 +1166,7 @@ private fun PlayerRuntimeController.failoverCandidate(
  * retracted asks first (the startup watchdog).
  */
 internal fun PlayerRuntimeController.canAdvanceToNextLiveSource(): Boolean {
-    if (deadSourceFailoverCount >= MAX_DEAD_SOURCE_FAILOVERS) return false
+    if (!sourceFailoverAllowed(currentStreamHandPicked, deadSourceFailoverCount)) return false
     if (sourceStreamsForPlayingItem().isEmpty()) return true
     return nextSourceAfterPlaying() != null
 }
@@ -1232,25 +1244,96 @@ internal fun PlayerRuntimeController.playNextSourceFromFailureBox() {
             exhaustedFailover = null
         )
     }
-    switchToSourceStream(next, resetFailoverBudget = false)
+    // Spec 131 D4: one press, one source: the user's pick.
+    switchToSourceStream(next, handPicked = true, resetFailoverBudget = false)
 }
 
 /**
  * Spec 86 R3: the error box's Retry, for a passing cause: this link again where it stopped (the
  * playhead, else the pending resume), with fresh retries and a fresh failover budget, as the
  * user's own new start (the per-URL recovery budget included, and no longer marked dead).
+ * Spec 131 D2: also for a placeholder ("not cached" yet), see [retryPlaceholderFromFailureBox].
  */
 internal fun PlayerRuntimeController.retryFromFailureBox() {
     if (_uiState.value.error == null || currentStreamUrl.isBlank()) return
-    val positionMs = currentPlaybackPositionMs()?.takeIf { it > 0L }
-        ?: _uiState.value.pendingSeekPosition
-        ?: 0L
     resetErrorRetryState()
     // The nt6 per-URL budget too: Retry is the user's own new start of this URL.
     autoRecoveryCountForCurrentStream = 0
     unmarkPlayingSourceDead()
+    if (placeholderRejectedForStream) {
+        retryPlaceholderFromFailureBox()
+        return
+    }
+    val positionMs = currentPlaybackPositionMs()?.takeIf { it > 0L }
+        ?: _uiState.value.pendingSeekPosition
+        ?: 0L
     Log.i(PlayerRuntimeController.TAG, "Failure box: retry host=${currentStreamUrl.safeHost()} positionMs=$positionMs")
     scheduleDeferredPlayerReinitialize("failure box retry", fromPositionMs = positionMs)
+}
+
+/**
+ * Spec 131 D9: Retry after a placeholder ([rejectPlaceholderStream]), so a debrid file that was still
+ * caching can play once it is ready. Everything the clip left (tracks, frame rate, file hash and size,
+ * playhead, the consumed saved resume) is the clip's, so this is a switch to the same row
+ * ([switchToSourceStream], the one home for a new stream's resets; after a placeholder it reads the saved
+ * progress again, [seedSourceSwitchResumeFromLivePosition]), with a fresh failover budget as every Retry.
+ * The row comes from the source list, loaded first when it is not ([loadSourceListForFailureBox], as Next
+ * source); a reload carries the addon's freshly signed URL. No row found: the playing stream as known
+ * ([currentPlayingStream], given the request headers a route launch keeps only in [currentHeaders]).
+ * The list wait is for every addon ([awaitSourceFetchCompleted], as [refreshLinkAndReplay]): the playing
+ * addon's row is the one wanted, not the first addon's. A row the switch would decline (a torrent with P2P
+ * off or no info hash, no http link: [isAutoFailoverCandidate]) brings the box back instead of leaving a
+ * stopped player under the loading screen.
+ * The retained PRDS session (45 s, its redirect pinned to the clip) is released first, so the same URL's
+ * redirect is followed again (as [refreshLinkAndReplay]).
+ */
+private fun PlayerRuntimeController.retryPlaceholderFromFailureBox() {
+    val rejectedUrl = currentStreamUrl
+    val box = _uiState.value
+    Log.i(PlayerRuntimeController.TAG, "Failure box: retry after placeholder host=${rejectedUrl.safeHost()}")
+    _uiState.update {
+        it.copy(
+            error = null,
+            showPauseOverlay = false,
+            showLoadingOverlay = it.loadingOverlayEnabled,
+            loadingMessage = null,
+            failoverNotice = null,
+            exhaustedFailover = null
+        )
+    }
+    // Lazy, so errorRetryJob holds this job before its body runs: under Main.immediate a body that never
+    // suspends (the list already loaded) would otherwise overwrite the switch's own errorRetryJob on return.
+    val job = scope.launch(start = CoroutineStart.LAZY) {
+        loadSourceListForFailureBox()
+        awaitSourceFetchCompleted()
+        // A switch, an episode change or an exit meanwhile owns the player now.
+        if (currentStreamUrl != rejectedUrl) return@launch
+        val row = playingListEntry() ?: currentPlayingStream.withRequestHeaders(currentHeaders)
+        if (!isAutoFailoverCandidate(row, p2pEnabled)) {
+            Log.w(PlayerRuntimeController.TAG, "Failure box: retry after placeholder declined (row cannot play here)")
+            _uiState.update {
+                it.copy(error = box.error, exhaustedFailover = box.exhaustedFailover, showLoadingOverlay = false)
+            }
+            return@launch
+        }
+        ParallelRangeDataSource.releaseRetainedSession()
+        switchToSourceStream(row, handPicked = currentStreamHandPicked)
+    }
+    errorRetryJob = job
+    job.start()
+}
+
+/** [this] stream, given [headers] as its request headers when it carries none (a route launch's stream). */
+internal fun Stream.withRequestHeaders(headers: Map<String, String>): Stream {
+    if (headers.isEmpty() || !behaviorHints?.proxyHeaders?.request.isNullOrEmpty()) return this
+    val hints = behaviorHints ?: StreamBehaviorHints(
+        notWebReady = null, bingeGroup = null, countryWhitelist = null, proxyHeaders = null
+    )
+    return copy(
+        behaviorHints = hints.copy(
+            proxyHeaders = ProxyHeaders(request = headers, response = hints.proxyHeaders?.response)
+        )
+    )
 }
 
 /** Spec 86 R3: the error box's Play with: the manual engine switch, this source no longer dead. */
@@ -1397,7 +1480,18 @@ internal fun PlayerRuntimeController.refreshLinkAndReplay(failure: PlaybackFailu
         if (row == null || rowUrl.isNullOrBlank() || row.isTorrent()) {
             Log.w(PlayerRuntimeController.TAG, "MID_PLAY_LINK_REFRESH: playing row not found; failing over")
             if (!advanceToNextLiveSource(failure, FailureReason.DEAD_LINK)) {
-                _uiState.update { it.copy(error = failure, showLoadingOverlay = false, showPauseOverlay = false) }
+                // Fatal here, as the other terminal sites: a running next-episode countdown must not
+                // switch under the box (reachable on the first refusal of a hand pick, Spec 131 D5).
+                cancelNextEpisodeAutoPlayOnFatalError()
+                _uiState.update {
+                    it.copy(
+                        error = failure,
+                        showLoadingOverlay = false,
+                        showPauseOverlay = false,
+                        playbackEnded = false,
+                        postPlayMode = null
+                    )
+                }
             }
             return@launch
         }
@@ -1411,7 +1505,7 @@ internal fun PlayerRuntimeController.refreshLinkAndReplay(failure: PlaybackFailu
         )
         ParallelRangeDataSource.releaseRetainedSession()
         if (positionMs > 0L) _uiState.update { it.copy(pendingSeekPosition = positionMs) }
-        switchToSourceStream(row, resetFailoverBudget = false)
+        switchToSourceStream(row, handPicked = currentStreamHandPicked, resetFailoverBudget = false)
         // The switch normalizes the URL ([PlayerMediaSourceFactory.normalizePlaybackRequest]); the
         // gate reads that one.
         linkRefreshedStreamUrls.add(currentStreamUrl)
@@ -1557,3 +1651,10 @@ internal fun PlayerRuntimeController.consumeAutoRecoveryBudget(detailedError: St
     }
     return true
 }
+
+/**
+ * Spec 131 D5: whether a failure may still move to another source on its own: not for a source the user
+ * picked by hand ([handPicked]), and only under the [MAX_DEAD_SOURCE_FAILOVERS] cap ([failoverCount]).
+ */
+internal fun sourceFailoverAllowed(handPicked: Boolean, failoverCount: Int): Boolean =
+    !handPicked && failoverCount < MAX_DEAD_SOURCE_FAILOVERS

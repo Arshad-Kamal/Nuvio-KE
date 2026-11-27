@@ -172,7 +172,8 @@ internal fun LiveTvPill(
  * number; [muted] (the channel gave up) = faded text and tile + the UNAVAILABLE tag; lost (L8-D4) =
  * number, tile and text at `lostAlpha` + the SOURCE LOST tag and "[sourceName] no longer lists it".
  * Hold OK or MENU = [onLongPress] when set (the list's side panel, L7d; see
- * [MarqueeLongPress][com.nuvio.tv.ui.components.marquee.MarqueeLongPress]).
+ * [MarqueeLongPress][com.nuvio.tv.ui.components.marquee.MarqueeLongPress]). A search result marks
+ * what matched, its number or its name ([mark], Spec 111).
  */
 @Composable
 internal fun LiveTvRow(
@@ -184,7 +185,8 @@ internal fun LiveTvRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     sourceName: String? = null,
-    onLongPress: (() -> Unit)? = null
+    onLongPress: (() -> Unit)? = null,
+    mark: LiveRowMark? = null
 ) {
     val marquee = NuvioTheme.marquee
     val live = marquee.liveTv
@@ -192,6 +194,7 @@ internal fun LiveTvRow(
     val black = NuvioPrimitives.black
     var focused by remember { mutableStateOf(false) }
     val longPress = rememberMarqueeLongPress()
+    val markFill = if (focused) live.searchMarkFocused else live.searchMark
     val shape = RoundedCornerShape(live.rowRadius)
     Surface(
         onClick = { longPress.click(onClick) },
@@ -231,7 +234,7 @@ internal fun LiveTvRow(
             horizontalArrangement = Arrangement.spacedBy(live.rowInnerGap)
         ) {
             Text(
-                text = row.number,
+                text = liveTvMarked(row.number, mark?.takeIf { it.onNumber }?.range, markFill),
                 style = NuvioTheme.textStyles.cardLabel.copy(fontFeatureSettings = "tnum"),
                 color = when {
                     focused -> secondary
@@ -262,7 +265,7 @@ internal fun LiveTvRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = row.channel.shownName,
+                        text = liveTvMarked(row.channel.shownName, mark?.takeIf { !it.onNumber }?.range, markFill),
                         style = NuvioTheme.textStyles.button,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

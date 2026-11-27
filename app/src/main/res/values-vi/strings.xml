@@ -683,7 +683,7 @@
     <string name="settings_p2p_title">Phát luồng P2P</string>
     <string name="settings_p2p_subtitle">Cho phép phát trực tuyến ngang hàng(torrent)</string>
     <string name="settings_p2p_hide_stats_title">Ẩn thống kê torrent</string>
-    <string name="settings_p2p_hide_stats_subtitle">Ẩn bộ đệm, số lượng seed, peer và tốc độ tải trong khi tải và phát lại</string>
+    <string name="settings_p2p_hide_stats_subtitle">Ẩn bộ đệm, số lượng seed, peer và tốc độ tải trong khi phát lại</string>
     <string name="stream_filter_all">Tất cả</string>
     <string name="stream_episode_label">M%1$d T%2$d</string>
 

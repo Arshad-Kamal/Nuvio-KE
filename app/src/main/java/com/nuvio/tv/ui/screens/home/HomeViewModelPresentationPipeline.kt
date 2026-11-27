@@ -54,7 +54,8 @@ internal fun HomeViewModel.observeModernHomePresentationPipeline() {
                     showAddonName = state.catalogAddonNameEnabled,
                     showFullReleaseDate = state.showFullReleaseDate,
                     localeTag = localeTag,
-                    heroItems = if (state.heroSectionEnabled) state.heroItems else emptyList()
+                    heroItems = if (state.heroSectionEnabled) state.heroItems else emptyList(),
+                    scoutPicks = state.scoutPicks
                 )
             }
             // Compare by row structure only (keys + item counts), not by
@@ -72,6 +73,7 @@ internal fun HomeViewModel.observeModernHomePresentationPipeline() {
                     && old.localeTag == new.localeTag
                     && old.catalogRows.size == new.catalogRows.size
                     && old.heroItems == new.heroItems
+                    && old.scoutPicks == new.scoutPicks
             }
             .debounce {
                 // Use a longer debounce while catalogs are still loading to
@@ -253,8 +255,9 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
         // hero data immediately (e.g. when adjacent prefetch resolved it
         // before the user focused on it).
         if (item.id !in _enrichedPreviews.value) {
-            val enriched = findCatalogItemById(item.id) ?: item
-            addEnrichedPreview(item.id, enriched)
+            // 117/P5b: a stored copy may have been enriched into a hit since the last draw.
+            val enriched = prefetchedHeroCopy(findCatalogItemCopies(item.id), item, homeDrawFilter)
+            if (enriched != null) addEnrichedPreview(item.id, enriched) else scheduleUpdateCatalogRows()
         }
         if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
         // Still prefetch full meta in background for instant detail screen.
@@ -429,35 +432,28 @@ private fun HomeViewModel.updateCatalogItemWithMeta(itemId: String, meta: Meta) 
 
     updateIndexedCatalogItem(itemId, ::mergeItem)
 
+    // 117/P5b (R8-M2): a merged copy that turns hit or undecided is left to the next draw, which
+    // removes it; a changed preview mark (122/V2 M1) likewise. Nothing here shows a hidden copy.
+    val drawFilter = homeDrawFilter
+    val storedCopies = findCatalogItemCopies(itemId)
+    var outcome: EnrichedOutcome? = null
     _uiState.update { state ->
-        var changed = false
-        val updatedRows = state.catalogRows.map { row ->
-            val itemIndex = row.items.indexOfFirst { it.id == itemId }
-            if (itemIndex < 0) {
-                row
-            } else {
-                val mergedItem = mergeItem(row.items[itemIndex])
-                if (mergedItem == row.items[itemIndex]) {
-                    row
-                } else {
-                    changed = true
-                    val mutableItems = row.items.toMutableList()
-                    mutableItems[itemIndex] = mergedItem
-                    row.copy(items = mutableItems)
-                }
-            }
+        val decided = enrichedOutcome(storedCopies, state.catalogRows, itemId, drawFilter, ::mergeItem)
+        outcome = decided
+        when (val patch = decided.patch) {
+            EnrichedPatch.Unchanged, EnrichedPatch.Redraw -> state
+            is EnrichedPatch.Patched -> state.copy(catalogRows = patch.rows)
         }
-        if (changed) state.copy(catalogRows = updatedRows) else state
     }
-    findCatalogItemById(itemId)?.let { enriched ->
-        addEnrichedPreview(itemId, enriched)
-    }
+    if (outcome?.patch == EnrichedPatch.Redraw) scheduleUpdateCatalogRows()
+    val hero = outcome?.hero ?: return
+    addEnrichedPreview(itemId, hero)
 
     // If external meta brought new trailerYtIds and the item has no trailer resolved yet, retry.
     // Only retry if this item is currently focused — avoid prefetching trailers for adjacent items.
     if (incomingTrailerYtIds.isNotEmpty() && !trailerPreviewUrlsState.containsKey(itemId) && activeTrailerPreviewItemId == itemId) {
         trailerPreviewNegativeCache.remove(itemId)
-        val currentItem = findCatalogItemById(itemId) ?: return
+        val currentItem = hero
         // Not pending any more: the request cancels the running lookup (its old ids) and
         // restarts it with the new ones.
         trailerPreviewPendingItemId = null

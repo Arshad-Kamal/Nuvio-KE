@@ -62,7 +62,10 @@ import javax.inject.Singleton
  *
  * A Stremio `tv` addon (L5d, O2) is a source whose manifest URL is fetched, checked and expanded
  * into its catalog channels by [StremioTvAdapter]; their streams resolve at play time
- * ([streamsFor]). One mutex serialises every operation on one source, so a removal never races a
+ * ([streamsFor]). An Xtream login (Spec 109 S1) is checked from its fields ([checkXtream]), its
+ * login kept in [XtreamAccountStore] (never in the source record), and listed by [XtreamAdapter]
+ * at each check and refresh; its channels carry their stream URLs as a playlist's do. One mutex
+ * serialises every operation on one source, so a removal never races a
  * refresh that would re-add the removed source's data. It is held for the whole fetch: one call
  * ([SourceFetcher.CALL_TIMEOUT_MINUTES] each) for a playlist or guide (a playlist's header guides'
  * probes after it, [PROBE_PARALLEL] at a time, [SourceFetcher.PROBE_TIMEOUT_SECONDS] each), up to
@@ -87,7 +90,9 @@ class LiveSourceManager internal constructor(
     private val zone: () -> ZoneId = ZoneId::systemDefault,
     private val pack: PackStore,
     private val scans: PackScanStore,
-    private val packUrls: PackUrls = PackUrls()
+    private val packUrls: PackUrls = PackUrls(),
+    private val accounts: XtreamAccountStore,
+    private val xtream: XtreamAdapter = XtreamAdapter(fetcher)
 ) {
     /** Where the pack's files are fetched from (tests point them at a local server). */
     internal data class PackUrls(
@@ -106,6 +111,8 @@ class LiveSourceManager internal constructor(
         stremio: StremioTvAdapter,
         pack: PackStore,
         scans: PackScanStore,
+        accounts: XtreamAccountStore,
+        xtream: XtreamAdapter,
         @ApplicationContext context: Context
     ) : this(
         store,
@@ -121,7 +128,9 @@ class LiveSourceManager internal constructor(
         { UUID.randomUUID().toString() },
         Dispatchers.IO,
         pack = pack,
-        scans = scans
+        scans = scans,
+        accounts = accounts,
+        xtream = xtream
     )
 
     sealed interface AddResult {
@@ -133,9 +142,14 @@ class LiveSourceManager internal constructor(
      * A URL that passed [check], ready for [add]: [source] is the record adding it writes, [listed]
      * the channels the playlist or addon lists or the guide file holds (for a guide,
      * [LiveSource.channelCount] is the channels it matched). Holds the fetched data, so adding
-     * never fetches again.
+     * never fetches again. [login] is an Xtream source's login, stored apart from the record.
      */
-    class Checked internal constructor(val source: LiveSource, val listed: Int, internal val loaded: Loaded)
+    class Checked internal constructor(
+        val source: LiveSource,
+        val listed: Int,
+        internal val loaded: Loaded,
+        internal val login: XtreamLogin? = null
+    )
 
     sealed interface CheckResult {
         data class Ready(val checked: Checked) : CheckResult
@@ -146,13 +160,15 @@ class LiveSourceManager internal constructor(
     internal sealed interface Loaded {
         /**
          * [addonName] is set for a Stremio addon's channels (its manifest name); [epgUrls] are a
-         * playlist header's guides, [playlistAttrs] its other attributes ([LiveSource.playlistAttrs]).
+         * playlist header's guides, [playlistAttrs] its other attributes ([LiveSource.playlistAttrs]);
+         * [account] is set for an Xtream login's channels.
          */
         data class Channels(
             val list: List<Channel>,
             val addonName: String? = null,
             val epgUrls: List<String> = emptyList(),
-            val playlistAttrs: Map<String, String> = emptyMap()
+            val playlistAttrs: Map<String, String> = emptyMap(),
+            val account: XtreamAccountInfo? = null
         ) : Loaded
         data class Guide(val snapshot: EpgSnapshot) : Loaded
         /** The channel pack: every kept channel, listed or not ([ChannelPack.listing] picks). */
@@ -174,6 +190,20 @@ class LiveSourceManager internal constructor(
     private val addMutex = Mutex()
 
     val sources: StateFlow<List<LiveSource>> = store.sources
+
+    /** Running [refreshStale] calls; [unload] refuses while any runs. Changed and read under [unloadGate]. */
+    private var refreshing = 0
+
+    /** Orders [unload]'s check with a [refreshStale] start (short holds only, unlike [mutex]). */
+    private val unloadGate = Mutex()
+
+    private val _unloads = MutableStateFlow(0)
+
+    /**
+     * Counts the [unload]s that ran (each player init runs one, data held or not): Live TV's screen
+     * state drops what it derived from the stores and reads them again when shown.
+     */
+    val unloads: StateFlow<Int> = _unloads.asStateFlow()
 
     private val _packSaves = MutableStateFlow(0)
 
@@ -199,11 +229,33 @@ class LiveSourceManager internal constructor(
         channels.load()
         metadata.load()
         retireGuides()
+        if (!loginsSwept) sweepLogins()
     }
 
-    /** Reads the cached guides of the saved guide sources from disk (once each); after [loadChannels]. */
+    /** [sweepLogins] ran this process (once is enough: what it sweeps arises at a restore or a failed rollback). */
+    @Volatile private var loginsSwept = false
+
+    /**
+     * Drops stored Xtream logins whose record is gone (a restore replaced `sources.json`; an add
+     * whose rollback could not drop its login), so a credential lives only as long as its source.
+     * Under [addMutex]: an add writes its record before its login and holds it for both. Skipped
+     * while `sources.json` is unreadable ([SourceStore.unreadable]): its list reads as empty, and
+     * must not cost every login; an empty list that was read sweeps them all.
+     */
+    private suspend fun sweepLogins() = addMutex.withLock {
+        if (loginsSwept || store.unreadable) return@withLock
+        val sources = store.sources.value
+        try {
+            accounts.retainOnly(sources.filter { it.kind == SourceKind.XTREAM }.mapTo(HashSet()) { it.id })
+            loginsSwept = true
+        } catch (e: IOException) {
+            logFailure("sweep logins", e) // retried at the next load
+        }
+    }
+
+    /** Reads the cached guides of the saved guide sources and Xtream logins from disk (once each); after [loadChannels]. */
     suspend fun loadGuides() {
-        guides.load(store.sources.value.filter { it.kind == SourceKind.XMLTV }.map { it.id })
+        guides.load(store.sources.value.filter { it.kind == SourceKind.XMLTV || it.kind == SourceKind.XTREAM }.map { it.id })
     }
 
     /**
@@ -234,7 +286,7 @@ class LiveSourceManager internal constructor(
      */
     suspend fun check(url: String): CheckResult {
         val trimmed = StremioTvAdapter.normalizeUrl(url)
-        val httpUrl = trimmed.toHttpUrlOrNull() ?: return CheckResult.Refused("Not a web address")
+        val httpUrl = trimmed.toHttpUrlOrNull() ?: return CheckResult.Refused(NOT_WEB_ADDRESS)
         load()
         if (store.sources.value.any { it.url == trimmed }) return CheckResult.Refused(ALREADY_ADDED)
         val id = newId()
@@ -264,12 +316,194 @@ class LiveSourceManager internal constructor(
         return CheckResult.Ready(Checked(source, listed, loaded))
     }
 
+    /**
+     * Signs in to an Xtream server and lists its live channels without storing anything (Spec 109
+     * S1, the Add source dialog's Xtream login check): [server] as typed ([XtreamAdapter.serverBase]),
+     * [username] trimmed, [password] exactly as typed (a space can be part of it). Named after the server's host (Rename changes it
+     * later). Refused when a field is blank, the server is no web address, the same server and
+     * username is already added, or the server refuses ([XtreamAdapter]'s reasons). No reason quotes
+     * a credential. Holds no lock while it fetches, as [check].
+     */
+    suspend fun checkXtream(server: String, username: String, password: String): CheckResult {
+        val login = xtreamLogin(server, username, password) ?: return CheckResult.Refused(XTREAM_FILL_IN)
+        if (login.server.isEmpty()) return CheckResult.Refused(NOT_WEB_ADDRESS)
+        load()
+        if (xtreamAdded(login)) return CheckResult.Refused(ALREADY_ADDED)
+        val id = newId()
+        val loaded = try {
+            fetchXtream(id, login)
+        } catch (e: IOException) {
+            return CheckResult.Refused(describe(e))
+        }
+        emptyReason(loaded)?.let { return CheckResult.Refused(it) }
+        val source = LiveSource(
+            id = id,
+            kind = SourceKind.XTREAM,
+            name = login.server.toHttpUrl().host,
+            url = login.server,
+            addedAtMs = nowMs(),
+            lastRefreshMs = nowMs(),
+            channelCount = loaded.list.size,
+            account = loaded.account
+        )
+        return CheckResult.Ready(Checked(source, loaded.list.size, loaded, login))
+    }
+
+    /**
+     * The Link tab's check (Spec 109 S2.7, stage 11): a pasted `get.php` link carrying a login
+     * ([XtreamAdapter.linkLogin]) signs in as Xtream first (D14), Ready as an XTREAM source the
+     * panel offers as a login or a playlist; a server already added with that username is "Already
+     * added" only (D15); any other refusal falls back to [check] (the Xtream reason is dropped).
+     * Any other URL is [check], as is a link [check] reads as no web address (no scheme): no
+     * sign-in is sent for a link the playlist check would refuse unread. A link already stored as
+     * a playlist still gets the offer (Q5: the upgrade is offered on paste); the panel then offers
+     * the login only.
+     */
+    suspend fun checkLink(url: String): CheckResult {
+        if (StremioTvAdapter.normalizeUrl(url).toHttpUrlOrNull() == null) return check(url)
+        val login = XtreamAdapter.linkLogin(url) ?: return check(url)
+        val xtream = checkXtream(login.server, login.username, login.password)
+        return if (xtream is CheckResult.Refused && xtream.reason != ALREADY_ADDED) check(url) else xtream
+    }
+
+    /**
+     * The login as typed: [username] trimmed, [password] exactly as typed; null when a field is
+     * blank, a login with an empty server when [server] is no web address.
+     */
+    private fun xtreamLogin(server: String, username: String, password: String): XtreamLogin? {
+        val user = username.trim()
+        if (server.isBlank() || user.isEmpty() || password.isBlank()) return null
+        return XtreamLogin(XtreamAdapter.serverBase(server) ?: "", user, password)
+    }
+
+    /** This listing's account facts, keeping [previous]'s guide count (the guide is read after the channels). */
+    private fun XtreamAccountInfo?.copyGuide(previous: XtreamAccountInfo?): XtreamAccountInfo? =
+        this?.copy(guideChannels = previous?.guideChannels)
+
+    /** Whether a stored Xtream source other than [except] holds [login]'s server and username. */
+    private suspend fun xtreamAdded(login: XtreamLogin, except: String? = null): Boolean = store.sources.value.any { source ->
+        source.kind == SourceKind.XTREAM && source.id != except && source.url == login.server &&
+            accounts.get(source.id)?.username == login.username
+    }
+
+    /** The username stored for Xtream source [id] (Edit login prefills it); null when no login is on this TV. */
+    suspend fun xtreamUsername(id: String): String? = accounts.get(id)?.username
+
+    /**
+     * Edit login's check (Spec 109 S2, stage 10): signs in with the edited login of Xtream source
+     * [id] and lists its channels under the same id (so channel keys, and with them favourites,
+     * stay), storing nothing. [password] null = keep the stored one (read here only: the screen
+     * never holds it), sent only to the server it was stored for: another server needs it typed
+     * ([XTREAM_RETYPE_PASSWORD]). Refused as [checkXtream] is, when the source is gone, or when
+     * another login holds the same server and username.
+     */
+    suspend fun checkXtreamEdit(id: String, server: String, username: String, password: String?): CheckResult {
+        load()
+        val source = store.get(id)?.takeIf { it.kind == SourceKind.XTREAM } ?: return CheckResult.Refused(SOURCE_GONE)
+        val pass = password ?: run {
+            val stored = accounts.get(id) ?: return CheckResult.Refused(XTREAM_FILL_IN)
+            // The whole guarantee here: no stored password with an unreadable or another server.
+            val typed = XtreamAdapter.serverBase(server) ?: return CheckResult.Refused(
+                if (server.isBlank()) XTREAM_FILL_IN else NOT_WEB_ADDRESS
+            )
+            if (typed != stored.server) return CheckResult.Refused(XTREAM_RETYPE_PASSWORD)
+            stored.password
+        }
+        val login = xtreamLogin(server, username, pass) ?: return CheckResult.Refused(XTREAM_FILL_IN)
+        if (login.server.isEmpty()) return CheckResult.Refused(NOT_WEB_ADDRESS)
+        if (xtreamAdded(login, except = id)) return CheckResult.Refused(ALREADY_ADDED)
+        val loaded = try {
+            fetchXtream(id, login)
+        } catch (e: IOException) {
+            return CheckResult.Refused(describe(e))
+        }
+        emptyReason(loaded)?.let { return CheckResult.Refused(it) }
+        val edited = source.copy(
+            url = login.server,
+            lastRefreshMs = nowMs(),
+            lastError = null,
+            channelCount = loaded.list.size,
+            account = loaded.account
+        )
+        return CheckResult.Ready(Checked(edited, loaded.list.size, loaded, login))
+    }
+
+    /**
+     * Saves an Edit login [checked] by [checkXtreamEdit] over the record as it is now (its name
+     * kept: a rename meanwhile stands): the record first, then the login and the channels, then on
+     * a server change the old server's guide is dropped. A failed record write changes nothing; a
+     * later failure restores the old record and login (the channels and guide on disk still match
+     * them). Refused when the source is gone or another login took the same server and username meanwhile.
+     */
+    suspend fun saveEdit(checked: Checked): AddResult = mutex.withLock {
+        addMutex.withLock {
+            val login = checked.login ?: return@withLock AddResult.Refused(SOURCE_GONE)
+            val current = store.get(checked.source.id)?.takeIf { it.kind == SourceKind.XTREAM }
+                ?: return@withLock AddResult.Refused(SOURCE_GONE)
+            if (xtreamAdded(login, except = current.id)) return@withLock AddResult.Refused(ALREADY_ADDED)
+            // Another server's guide is not this login's: it goes, with its count ([refreshGuide] reads the new one).
+            val moved = login.server != current.url
+            val listed = checked.source
+            val edited = current.copy(
+                url = login.server,
+                lastRefreshMs = listed.lastRefreshMs,
+                lastError = null,
+                channelCount = listed.channelCount,
+                account = listed.account?.copy(guideChannels = if (moved) null else current.account?.guideChannels)
+            )
+            withContext(NonCancellable) {
+                val old = accounts.get(current.id)
+                try {
+                    store.upsert(edited)
+                    try {
+                        accounts.put(current.id, login)
+                        save(edited, checked.loaded)
+                        // Last: a failed edit keeps the old login's guide (GuideRepository.remove does not throw).
+                        if (moved) guides.remove(current.id)
+                    } catch (e: IOException) {
+                        // Each on its own: one failed restore must not skip the other.
+                        try {
+                            if (old != null) accounts.put(current.id, old) else accounts.remove(current.id)
+                        } catch (cleanup: IOException) {
+                            logFailure("restore login", cleanup) // the new login stays under this id until Edit login
+                        }
+                        record(current)
+                        throw e
+                    }
+                    AddResult.Added(edited)
+                } catch (e: IOException) {
+                    AddResult.Refused(describe(e, saving = true))
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads Xtream source [id]'s guide alone (Spec 109 S2: after an add or an Edit login, whose
+     * check listed the channels already), as a refresh would after its channels; the record
+     * otherwise unchanged. Null when no such login; the source as it is when its login is not on this TV.
+     */
+    suspend fun refreshGuide(id: String): LiveSource? = mutex.withLock {
+        val source = store.get(id)?.takeIf { it.kind == SourceKind.XTREAM } ?: return@withLock null
+        val login = accounts.get(id) ?: return@withLock source
+        guides.load(listOf(id))
+        refreshXtreamGuide(source, login)
+    }
+
+    /** [XtreamAdapter.load] as a [Loaded.Channels]. */
+    private suspend fun fetchXtream(sourceId: String, login: XtreamLogin): Loaded.Channels {
+        val listing = xtream.load(sourceId, login, nowMs())
+        return Loaded.Channels(listing.channels, account = listing.account)
+    }
+
     /** Stores a [check]ed source and its data; refused when its URL was added meanwhile or a write failed. */
     suspend fun add(checked: Checked): AddResult = mutex.withLock { addMutex.withLock { addLocked(checked) } }
 
     private suspend fun addLocked(checked: Checked): AddResult {
         val source = checked.source
-        if (store.sources.value.any { it.url == source.url }) return AddResult.Refused(ALREADY_ADDED)
+        val login = checked.login
+        val taken = if (login != null) xtreamAdded(login) else store.sources.value.any { it.url == source.url }
+        if (taken) return AddResult.Refused(ALREADY_ADDED)
         // Record first: if the data write then fails (or the process dies), the record stays
         // reachable on the Sources route, where Refresh or Remove repairs it; data written first
         // could be orphaned with no source to remove it by. Not cancellable: a cancel between the
@@ -278,6 +512,8 @@ class LiveSourceManager internal constructor(
             try {
                 store.upsert(source)
                 try {
+                    // The login before the data: a record with channels but no login could not refresh.
+                    if (login != null) accounts.put(source.id, login)
                     save(source, checked.loaded)
                 } catch (e: IOException) {
                     // The pack file is written before the channels: drop it with the record.
@@ -286,6 +522,13 @@ class LiveSourceManager internal constructor(
                             pack.clear()
                         } catch (cleanup: IOException) {
                             logFailure("drop pack file", cleanup) // a stale file; the next add overwrites it
+                        }
+                    }
+                    if (login != null) {
+                        try {
+                            accounts.remove(source.id)
+                        } catch (cleanup: IOException) {
+                            logFailure("drop login", cleanup) // an orphan login under an unused id
                         }
                     }
                     store.remove(source.id)
@@ -433,9 +676,41 @@ class LiveSourceManager internal constructor(
      * freed at once. Any other channel write meanwhile publishes at once.
      */
     suspend fun refreshStale() {
+        unloadGate.withLock { refreshing++ }
+        try {
+            refreshStaleCounted()
+        } finally {
+            withContext(NonCancellable) { unloadGate.withLock { refreshing-- } }
+        }
+    }
+
+    /**
+     * Spec 146 (F19): lets the channels, iptv-org metadata and guides held in memory go, so a 4K start
+     * does not carry them; the next load reads them from disk again. Refused (false) while a source operation holds [mutex] or a
+     * [refreshStale] runs: those read the held data mid-way (cached guides, unpublished channels).
+     */
+    suspend fun unload(): Boolean = unloadGate.withLock {
+        if (refreshing > 0 || !mutex.tryLock()) return@withLock false
+        try {
+            withContext(NonCancellable) {
+                channels.unload()
+                metadata.unload()
+                guides.unload()
+                _unloads.update { it + 1 }
+            }
+            true
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    /** [refreshStale]'s work, run while it is counted in [refreshing] (so [unload] keeps out). */
+    private suspend fun refreshStaleCounted() {
         load()
-        // Only playlists and the pack carry tvg-ids to enrich; Stremio channels have provider ids.
-        if (store.sources.value.any { it.kind == SourceKind.M3U || it.kind == SourceKind.PACK }) metadata.refreshIfStale()
+        // Only playlists, Xtream logins and the pack carry tvg-ids to enrich; Stremio channels have provider ids.
+        if (store.sources.value.any { it.kind == SourceKind.M3U || it.kind == SourceKind.PACK || it.kind == SourceKind.XTREAM }) {
+            metadata.refreshIfStale()
+        }
         try {
             for (id in store.sources.value.map { it.id }) {
                 // Re-checked under the lock: an overlapping call may have refreshed it meanwhile.
@@ -454,9 +729,18 @@ class LiveSourceManager internal constructor(
      * Removes source [id] with its channels (and their guide overrides) or its guide; false when
      * a file could not be written. Data goes first, so a failure leaves the record to retry from.
      */
-    suspend fun remove(id: String): Boolean = mutex.withLock {
-        val source = store.get(id) ?: return@withLock true
-        try {
+    suspend fun remove(id: String): Boolean = withContext(NonCancellable) {
+        // Not cancellable, the wait for the lock included (a refresh holds it for a whole download): Back
+        // right after Remove closes the Sources route, and a cancel would drop the remove unseen, or
+        // between the writes leave the record with its channels gone and its login kept.
+        mutex.withLock {
+            val source = store.get(id) ?: return@withLock true
+            removeLocked(id, source)
+        }
+    }
+
+    private suspend fun removeLocked(id: String, source: LiveSource): Boolean {
+        return try {
             when (source.kind) {
                 // A user's "this guide" choice must not outlive the guide: the channel falls back to matching.
                 SourceKind.XMLTV -> {
@@ -464,6 +748,13 @@ class LiveSourceManager internal constructor(
                     channels.clearOverridesTo(id)
                 }
                 SourceKind.M3U, SourceKind.STREMIO -> channels.removeSource(id)
+                // Channels, then the login: a failure keeps the record, and Remove again finishes it.
+                SourceKind.XTREAM -> {
+                    channels.removeSource(id)
+                    guides.remove(id)
+                    channels.clearOverridesTo(id)
+                    accounts.remove(id)
+                }
                 // Channels first, as a playlist's: a failed file delete then keeps the record to retry from.
                 SourceKind.PACK -> {
                     channels.removeSource(id)
@@ -481,27 +772,29 @@ class LiveSourceManager internal constructor(
 
     /** [publish] false: saved channels reach disk and [ChannelRepository.latest], not the screens ([refreshStale]). */
     private suspend fun refreshLocked(source: LiveSource, publish: Boolean = true): LiveSource {
-        if (source.kind == SourceKind.XMLTV) guides.load(listOf(source.id))
+        if (source.kind == SourceKind.XMLTV || source.kind == SourceKind.XTREAM) guides.load(listOf(source.id))
+        val login = if (source.kind == SourceKind.XTREAM) accounts.get(source.id) else null
         val loaded = try {
             when {
                 source.id == PRESET_ID -> withContext(io) { openPreset().use { parseM3u(source.id, it) } }
                 source.kind == SourceKind.PACK -> fetchPack()
+                source.kind == SourceKind.XTREAM ->
+                    fetchXtream(source.id, login ?: throw SourceFetchException(XTREAM_LOGIN_MISSING))
                 else -> fetchLoaded(source.url, source.id, expect = source.kind).second
             }
+        } catch (e: XtreamAdapter.Expired) {
+            // The date the server gave, for the row (Spec 109 stage 9); the channels stay.
+            val account = (source.account ?: XtreamAccountInfo()).let { it.copy(expiresAtMs = e.expiresAtMs ?: it.expiresAtMs) }
+            return record(source.copy(lastError = describe(e), account = account))
         } catch (e: IOException) {
             return record(source.copy(lastError = describe(e)))
         }
         emptyReason(loaded)?.let { return record(source.copy(lastError = it)) }
-        // A cut-short guide (bad XML, or a network drop or timeout mid-body: the parser keeps what
-        // it read) loses to a complete snapshot that still covers today and tomorrow. Otherwise
-        // (after midnight; kept losing, every open would refetch) it wins, filled from the cached
-        // snapshot ([fillFrom]: an early cut must not blank today, nor an hourly retry what the last fill kept).
-        val partial = (loaded as? Loaded.Guide)?.snapshot?.takeIf { !it.complete }
-        val cached = partial?.let { guides.guides.value[source.id] }
-        if (cached != null && cached.complete && coversDays(cached, nowMs(), zone())) {
-            return record(source.copy(lastError = GUIDE_INCOMPLETE))
+        val saving = if (loaded is Loaded.Guide) {
+            guideToSave(source.id, loaded) ?: return record(source.copy(lastError = GUIDE_INCOMPLETE))
+        } else {
+            loaded
         }
-        val saving = if (partial != null && cached != null) Loaded.Guide(fillFrom(partial, cached)) else loaded
         return try {
             save(source, saving, publish)
             val saved = record(
@@ -509,14 +802,56 @@ class LiveSourceManager internal constructor(
                     lastRefreshMs = nowMs(),
                     lastError = incompleteNote(saving),
                     channelCount = count(source, saving),
-                    playlistAttrs = playlistAttrs(loaded)
+                    playlistAttrs = playlistAttrs(loaded),
+                    account = (loaded as? Loaded.Channels)?.account?.copyGuide(source.account) ?: source.account
                 )
             )
             // Probed once the refresh is recorded: a cancel meanwhile only keeps the old header guides.
             val header = headerGuides(loaded)
-            if (header == saved.headerGuides) saved else record(saved.copy(headerGuides = header))
+            val withHeader = if (header == saved.headerGuides) saved else record(saved.copy(headerGuides = header))
+            if (login != null) refreshXtreamGuide(withHeader, login) else withHeader
         } catch (e: IOException) {
             record(source.copy(lastError = describe(e, saving = true)))
+        }
+    }
+
+    /**
+     * [loaded] as it is saved over source [id]'s cached guide; null when it is cut short (bad XML,
+     * or a network drop or timeout mid-body: the parser keeps what it read) and loses to a complete
+     * snapshot that still covers today and tomorrow. Otherwise (after midnight; kept losing, every
+     * open would refetch) it wins, filled from the cached snapshot ([fillFrom]: an early cut must
+     * not blank today, nor an hourly retry what the last fill kept).
+     */
+    private fun guideToSave(id: String, loaded: Loaded.Guide): Loaded.Guide? {
+        val partial = loaded.snapshot.takeIf { !it.complete } ?: return loaded
+        val cached = guides.guides.value[id] ?: return loaded
+        if (cached.complete && coversDays(cached, nowMs(), zone())) return null
+        return Loaded.Guide(fillFrom(partial, cached))
+    }
+
+    /**
+     * Fetches the Xtream login's own guide (`xmltv.php`, Spec 109 S2 / D4 Q2) after its channels,
+     * caches it under the source id and records how many of the login's channels it covers. Any
+     * failure (none served, not a guide, too large, a cut-short one that loses) keeps the cached
+     * guide and leaves the login's status alone: the guide is extra, the channels are the source.
+     * The URL carries the password: it is built here, fetched, and dropped (never logged or recorded).
+     */
+    private suspend fun refreshXtreamGuide(source: LiveSource, login: XtreamLogin): LiveSource {
+        val url = XtreamAdapter.xmltvUrl(login) ?: return source
+        val guide = try {
+            fetchLoaded(url, source.id, expect = SourceKind.XMLTV).second as? Loaded.Guide
+        } catch (e: IOException) {
+            logFailure("xtream guide", e)
+            null
+        }
+        val saving = guide?.takeIf { emptyReason(it) == null }?.let { guideToSave(source.id, it) } ?: return source
+        return try {
+            guides.put(source.id, saving.snapshot)
+            val covered = guideMatches(source.id, null, saving.snapshot, channels.latest().filter { it.sourceId == source.id })
+            record(source.copy(account = (source.account ?: XtreamAccountInfo()).copy(guideChannels = covered)))
+        } catch (e: IOException) {
+            logFailure("save xtream guide", e)
+            source
         }
     }
 
@@ -535,7 +870,8 @@ class LiveSourceManager internal constructor(
      * manifest is expanded into its catalog channels. Throws IOException / [SourceFetchException].
      */
     private suspend fun fetchLoaded(url: String, sourceId: String, expect: SourceKind?): Pair<SourceKind, Loaded> {
-        val (kind, parsed) = fetcher.fetch(url) { detected, body ->
+        // Source caps: this read streams a playlist or guide into its bounded parser (Spec 137).
+        val (kind, parsed) = fetcher.fetch(url, sourceCaps = true) { detected, body ->
             if (expect != null && detected != expect) throw SourceFetchException(noLongerReason(expect))
             val found = detected ?: throw SourceFetchException(UNRECOGNISED)
             found to parse(found, sourceId, body)
@@ -549,9 +885,9 @@ class LiveSourceManager internal constructor(
 
     /**
      * The channel pack from the list repo: the monitor's states first, then the pool, joined by
-     * URL ([ChannelPack]). Each file is one [SourceFetcher.fetch] (its call timeout and its text cap:
-     * a TSV is detected as no kind, and a body detected as any kind is refused before it is read,
-     * since a guide-like head would raise the cap to the guide's).
+     * URL ([ChannelPack]). Each file is one [SourceFetcher.fetch] (its call timeout and its text cap,
+     * whatever the head): a TSV is detected as no kind, so a body detected as any kind is refused
+     * before it is read (the format changed).
      * Throws IOException / [SourceFetchException] (a missing column, a cut-short body).
      */
     private suspend fun fetchPack(): Loaded.Pack {
@@ -580,7 +916,7 @@ class LiveSourceManager internal constructor(
         }
         SourceKind.STREMIO -> Parsed.Addon(stremio.readManifest(body))
         // Never detected from a body (SourceFetcher.detectKind).
-        SourceKind.PACK -> throw SourceFetchException(UNRECOGNISED)
+        SourceKind.PACK, SourceKind.XTREAM -> throw SourceFetchException(UNRECOGNISED)
     }
 
     /**
@@ -588,11 +924,16 @@ class LiveSourceManager internal constructor(
      * channel, the addon's answer now (D6, never cached: addon stream URLs expire), within
      * [STREAM_LOOKUP_MS] so a dead addon cannot eat the per-channel budget (D7, ~30 s). Throws
      * IOException / [SourceFetchException] when the addon cannot answer; the player (L6) treats
-     * that like a failed stream.
+     * that like a failed stream. Spec 147 F27: [channel] may be a screen's stale copy, so its source
+     * and its current streams are read here: a removed source's channel throws [SOURCE_GONE] whatever
+     * its kind (its stored Xtream URL carries the login), and an edited login's channel plays its
+     * new URL, not the copy's.
      */
     suspend fun streamsFor(channel: Channel): List<LiveStream> {
-        val providerId = channel.providerId ?: return channel.streams
-        val source = store.get(channel.sourceId) ?: throw SourceFetchException("Source removed")
+        val source = store.get(channel.sourceId) ?: throw SourceFetchException(SOURCE_GONE)
+        val providerId = channel.providerId ?: return channels.latest()
+            .firstOrNull { it.key == channel.key && it.sourceId == channel.sourceId }?.streams
+            ?: throw SourceFetchException(SOURCE_GONE)
         return withTimeoutOrNull(STREAM_LOOKUP_MS) { stremio.streams(source.url, providerId) }
             ?: throw SourceFetchException("Addon did not answer")
     }
@@ -639,22 +980,27 @@ class LiveSourceManager internal constructor(
         is Loaded.Channels -> loaded.list.size
         // Every pack channel, listed or waiting for a scan (the PACK row's count, D6).
         is Loaded.Pack -> loaded.channels.size
-        is Loaded.Guide -> {
-            val all = channels.latest()
-            metadata.load()
-            withContext(io) {
-                EpgMatcher.match(
-                    ChannelEnricher.listable(ChannelEnricher.enrich(all, metadata.metadata.value)),
-                    listOf(EpgSource(source.id, source.country, loaded.snapshot)),
-                    channels.overrides.value
-                ).values.count { it.epgSourceId == source.id }
-            }
+        is Loaded.Guide -> guideMatches(source.id, source.country, loaded.snapshot, channels.latest())
+    }
+
+    /** How many of the visible channels among [among] guide [snapshot] (source [id], [country]) gives a guide to. */
+    private suspend fun guideMatches(id: String, country: String?, snapshot: EpgSnapshot, among: List<Channel>): Int {
+        metadata.load()
+        return withContext(io) {
+            EpgMatcher.match(
+                ChannelEnricher.listable(ChannelEnricher.enrich(among, metadata.metadata.value)),
+                listOf(EpgSource(id, country, snapshot)),
+                channels.overrides.value
+            ).values.count { it.epgSourceId == id }
         }
     }
 
     private fun emptyReason(loaded: Loaded): String? = when (loaded) {
-        is Loaded.Channels if loaded.list.isEmpty() ->
-            if (loaded.addonName != null) "No channels in this addon" else "No channels in this playlist"
+        is Loaded.Channels if loaded.list.isEmpty() -> when {
+            loaded.addonName != null -> "No channels in this addon"
+            loaded.account != null -> "No live channels on this account"
+            else -> "No channels in this playlist"
+        }
         is Loaded.Guide if loaded.snapshot.channels.isEmpty() -> "No channels in this guide"
         is Loaded.Pack if loaded.channels.isEmpty() -> "No channels in the channel pack"
         else -> null
@@ -668,6 +1014,8 @@ class LiveSourceManager internal constructor(
         SourceKind.XMLTV -> "No longer an XMLTV guide"
         SourceKind.STREMIO -> "No longer a Stremio addon"
         SourceKind.PACK -> ChannelPack.FORMAT_CHANGED
+        // Never fetched by URL ([refreshLocked] lists it through the adapter).
+        SourceKind.XTREAM -> XtreamAdapter.NOT_XTREAM
     }
 
     private fun parseM3u(sourceId: String, body: InputStream): Loaded.Channels {
@@ -839,6 +1187,14 @@ class LiveSourceManager internal constructor(
 
         private const val UNRECOGNISED = "Not a playlist, guide or Stremio addon"
         private const val ALREADY_ADDED = "Already added"
+        const val XTREAM_FILL_IN = "Fill in server, username and password"
+        /** A restored or damaged list holds the record but not its login (logins stay off backups, Spec 109 Q3). */
+        const val XTREAM_LOGIN_MISSING = "Login not on this TV; use Edit login"
+        /** Edit login with the password left unchanged and a new server: the stored one goes only to its own server. */
+        private const val NOT_WEB_ADDRESS = "Not a web address"
+        const val XTREAM_RETYPE_PASSWORD = "Type the password again for the new server"
+        /** An edit of a source removed meanwhile. */
+        const val SOURCE_GONE = "Source removed"
         /** A guide refresh that kept part of a cut-short file (Sources shows it as partial, not failed). */
         internal const val GUIDE_INCOMPLETE = "Guide file incomplete; kept what was read"
         private const val TAG = "LiveSourceManager"
@@ -959,6 +1315,11 @@ class LiveSourceManager internal constructor(
             val last = source.lastRefreshMs ?: return true
             return when (source.kind) {
                 SourceKind.M3U, SourceKind.STREMIO, SourceKind.PACK -> nowMs - last >= MAX_AGE_MS
+                // Its guide, once one is cached, must cover today and tomorrow, retried hourly (a failing
+                // xmltv.php keeps the old guide, and each retry relists the channels); none cached (the
+                // server serves none) is no reason to refetch.
+                SourceKind.XTREAM -> nowMs - last >= MAX_AGE_MS ||
+                    (snapshot != null && !coversDays(snapshot, nowMs, zone) && nowMs - last >= GUIDE_MARGIN_MS)
                 SourceKind.XMLTV -> snapshot == null || nowMs - last >= MAX_AGE_MS ||
                     !coversDays(snapshot, nowMs, zone) ||
                     (!snapshot.complete && nowMs - last >= GUIDE_MARGIN_MS)

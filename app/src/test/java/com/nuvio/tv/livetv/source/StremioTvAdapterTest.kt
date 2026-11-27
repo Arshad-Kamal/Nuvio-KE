@@ -72,7 +72,8 @@ class StremioTvAdapterTest {
         { "a1" },
         io,
         pack = PackStore(tmp.root, io),
-        scans = PackScanStore(tmp.root, io)
+        scans = PackScanStore(tmp.root, io),
+        accounts = XtreamAccountStore(tmp.root, io)
     )
 
     @Test

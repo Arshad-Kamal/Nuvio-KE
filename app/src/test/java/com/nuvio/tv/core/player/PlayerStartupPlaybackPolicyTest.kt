@@ -52,6 +52,64 @@ class PlayerStartupPlaybackPolicyTest {
         assertFalse(action.startsPlayback)
     }
 
+    // Spec 108 F1: initializePlayer clears shouldEnforceAutoplayOnFirstReady for a paused build,
+    // so this is the state its first tunneled READY really sees.
+    @Test
+    fun pausedBuildTunneledFirstReadyMarksFirstFrameWithoutStarting() {
+        val transition = PlayerStartupPlaybackPolicy.onStateReady(
+            baseState(
+                shouldEnforceAutoplayOnFirstReady = false,
+                userPausedManually = true,
+                startPaused = true,
+                isTunneledPlayback = true,
+            )
+        )
+
+        assertTrue(transition.nextState.hasRenderedFirstFrame)
+        val action = transition.action as PlayerStartupPlaybackPolicy.ReadyAction.TunneledFirstReady
+        assertFalse(action.startsPlayback)
+    }
+
+    // A paused build the user resumed before READY: its tunneled READY marks the frame and starts.
+    @Test
+    fun unpausedTunneledReadyWithoutFirstFrameMarksItAndStarts() {
+        val transition = PlayerStartupPlaybackPolicy.onStateReady(
+            baseState(shouldEnforceAutoplayOnFirstReady = false, isTunneledPlayback = true)
+        )
+
+        assertTrue(transition.nextState.hasRenderedFirstFrame)
+        val action = transition.action as PlayerStartupPlaybackPolicy.ReadyAction.TunneledFirstReady
+        assertTrue(action.startsPlayback)
+    }
+
+    @Test
+    fun pausedTunneledReadyAfterFirstFrameDoesNothing() {
+        val transition = PlayerStartupPlaybackPolicy.onStateReady(
+            baseState(
+                shouldEnforceAutoplayOnFirstReady = false,
+                hasRenderedFirstFrame = true,
+                userPausedManually = true,
+                startPaused = true,
+                isTunneledPlayback = true,
+            )
+        )
+
+        assertEquals(PlayerStartupPlaybackPolicy.ReadyAction.None, transition.action)
+    }
+
+    @Test
+    fun tunneledReadyAfterFirstFrameResumesPlayback() {
+        val transition = PlayerStartupPlaybackPolicy.onStateReady(
+            baseState(
+                shouldEnforceAutoplayOnFirstReady = false,
+                hasRenderedFirstFrame = true,
+                isTunneledPlayback = true,
+            )
+        )
+
+        assertEquals(PlayerStartupPlaybackPolicy.ReadyAction.PostFirstFrameResume, transition.action)
+    }
+
     @Test
     fun firstReadyStartPausedDoesNothing() {
         val transition = PlayerStartupPlaybackPolicy.onStateReady(

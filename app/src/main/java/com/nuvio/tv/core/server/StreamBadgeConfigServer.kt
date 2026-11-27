@@ -19,11 +19,14 @@ import java.nio.charset.StandardCharsets
  * POSTs {sourceUrl}. GET /api/settings feeds the page's badge list. The page
  * edits badge rules only, so rules are all this server reads and saves. One instance is one QR
  * session: every route lives under `/b/<token>/` (Spec 68 X3).
+ *
+ * [updateRules] applies its transform to the stored rules atomically and returns the saved rules
+ * (Spec 130 F4); it blocks the request thread until the write lands.
  */
 class StreamBadgeConfigServer(
     private val token: String,
     private val currentRulesProvider: () -> StreamBadgeRules,
-    private val onRulesChanged: (StreamBadgeRules) -> Unit,
+    private val updateRules: ((StreamBadgeRules) -> StreamBadgeRules) -> StreamBadgeRules,
     private val context: Context? = null,
     private val logoProvider: (() -> ByteArray?)? = null,
     port: Int = DEFAULT_PORT
@@ -40,6 +43,8 @@ class StreamBadgeConfigServer(
         val path = pathAfterToken(session.uri, PATH_PREFIX, token)
             ?: return session.notFoundOutsideSession()
         return when {
+            // Spec 130 F8: the page's relative URLs (logo.png) need the trailing slash.
+            session.method == Method.GET && path.isEmpty() && !session.uri.endsWith("/") -> redirectToPage()
             session.method == Method.GET && path.isEmpty() -> serveWebPage()
             session.method == Method.GET && path == "logo.png" -> pngOrNotFound(logoProvider?.invoke())
             session.method == Method.GET && path == "api/settings" -> serveSettings()
@@ -49,6 +54,12 @@ class StreamBadgeConfigServer(
             else -> notFoundResponse()
         }
     }
+
+    /** Location is built from the checked token, never echoed from the request. */
+    private fun redirectToPage(): Response =
+        newFixedLengthResponse(Response.Status.FOUND, NanoHTTPD.MIME_PLAINTEXT, "").apply {
+            addHeader("Location", "$PATH_PREFIX$token/")
+        }
 
     private fun serveWebPage(): Response =
         newFixedLengthResponse(
@@ -82,10 +93,9 @@ class StreamBadgeConfigServer(
                 return@withJsonBody errorResponse(badgeImportFailedMessage())
             }
 
-            // Re-read after the slow fetch: rule changes made meanwhile (another
-            // import, a delete) must not be reverted by a stale snapshot.
-            val rules = currentRulesProvider().normalized().upsert(parsedImport, activate = true)
-            onRulesChanged(rules)
+            // Applied to the stored rules after the slow fetch: rule changes made meanwhile
+            // (another import, a delete) must not be reverted by a stale snapshot.
+            val rules = updateRules { it.upsert(parsedImport, activate = true) }
             rulesResponse("imported", rules)
         }
 
@@ -111,21 +121,20 @@ class StreamBadgeConfigServer(
     }
 
     private fun handleBadgeActive(session: IHTTPSession): Response =
-        updateRules(session, "saved", StreamBadgeRules::setActiveSource)
+        updateFromBody(session, "saved", StreamBadgeRules::setActiveSource)
 
     private fun handleBadgeDelete(session: IHTTPSession): Response =
-        updateRules(session, "deleted", StreamBadgeRules::removeSource)
+        updateFromBody(session, "deleted", StreamBadgeRules::removeSource)
 
-    /** Applies [update] for the posted {sourceUrl} to the current rules, saves, and echoes them. */
-    private fun updateRules(
+    /** Applies [update] for the posted {sourceUrl} to the stored rules, saves, and echoes them. */
+    private fun updateFromBody(
         session: IHTTPSession,
         status: String,
         update: StreamBadgeRules.(sourceUrl: String) -> StreamBadgeRules
     ): Response =
         session.withJsonBody(::invalidRequestBodyMessage) { parsed ->
             val sourceUrl = parsed.stringField("sourceUrl").orEmpty()
-            val rules = currentRulesProvider().normalized().update(sourceUrl)
-            onRulesChanged(rules)
+            val rules = updateRules { it.update(sourceUrl) }
             rulesResponse(status, rules)
         }
 
@@ -184,7 +193,7 @@ class StreamBadgeConfigServer(
 
         fun startOnAvailablePort(
             currentRulesProvider: () -> StreamBadgeRules,
-            onRulesChanged: (StreamBadgeRules) -> Unit,
+            updateRules: ((StreamBadgeRules) -> StreamBadgeRules) -> StreamBadgeRules,
             context: Context? = null,
             logoProvider: (() -> ByteArray?)? = null,
             startPort: Int = DEFAULT_PORT,
@@ -193,7 +202,7 @@ class StreamBadgeConfigServer(
             StreamBadgeConfigServer(
                 token = newSessionToken(),
                 currentRulesProvider = currentRulesProvider,
-                onRulesChanged = onRulesChanged,
+                updateRules = updateRules,
                 context = context,
                 logoProvider = logoProvider,
                 port = port

@@ -41,6 +41,8 @@ import com.nuvio.tv.core.network.dns.AppDns
 import com.nuvio.tv.core.network.NetworkTransportReader
 import com.nuvio.tv.core.network.access.AccessHeaderInterceptor
 import com.nuvio.tv.core.network.tls.AddonTlsTrust
+import com.nuvio.tv.core.posters.RATING_POSTERS_GUARD
+import com.nuvio.tv.core.posters.RatingPosterHostGate
 import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
@@ -450,6 +452,12 @@ object NetworkModule {
     @Singleton
     internal fun provideAddonHostGuard(): AddonHostGuard = AddonHostGuard()
 
+    /** Spec 114 P0-3: the rating-poster host's own guard, so addon hosts, Trust and the Addons page never see it. */
+    @Provides
+    @Singleton
+    @Named(RATING_POSTERS_GUARD)
+    internal fun provideRatingPosterHostGuard(): AddonHostGuard = AddonHostGuard()
+
     @Provides
     @Singleton
     @Api
@@ -558,7 +566,10 @@ object NetworkModule {
     @Provides
     @Singleton
     @Image
-    fun provideImageOkHttpClient(): OkHttpClient {
+    internal fun provideImageOkHttpClient(
+        @ApplicationContext context: Context,
+        @Named(RATING_POSTERS_GUARD) ratingPosterGuard: AddonHostGuard,
+    ): OkHttpClient {
         val imageDispatcher = Dispatcher().apply {
             maxRequests = 32
             maxRequestsPerHost = 16
@@ -569,6 +580,12 @@ object NetworkModule {
             .connectTimeout(4, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .callTimeout(12, TimeUnit.SECONDS)
+            // Spec 114 P0-3: the rating-poster host's 429 pause + breaker; first, so one card's timeout counts once.
+            .addInterceptor(
+                RatingPosterHostGate(
+                    AddonHostGuardInterceptor(ratingPosterGuard, deviceOnline = { NetworkTransportReader.hasInternet(context) })
+                )
+            )
             .addInterceptor { chain ->
                 try {
                     chain.proceed(chain.request())

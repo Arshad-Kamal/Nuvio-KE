@@ -436,11 +436,8 @@ class M3uParserTest {
     }
 
     @Test(timeout = 20_000)
-    fun `a flooded item parses in linear time`() {
-        // 50k: a per-line map copy (the r1 quadratic bug) still blows the timeout, and the flood fits the
-        // default 512 MB test heap alongside the full suite (200k ran out of memory there).
-        val n = 50_000
-        val text = buildString {
+    fun `a flooded item keeps every directive within its item budget, and a bigger flood is dropped`() {
+        fun flood(n: Int) = buildString {
             append("#EXTINF:-1,C\n")
             repeat(n) {
                 append("#KODIPROP:k$it=v\n#EXTVLCOPT:o$it=v\n#EXTHTTP:{\"H$it\":\"v\"}\n")
@@ -448,6 +445,15 @@ class M3uParserTest {
             }
             append("https://example.org/c.mpd\n")
         }
+        // 50k (~6.6 MiB): past Spec 137 D7's item budget, so the item goes, in linear time (the timeout),
+        // and the next item is intact. The budget also caps how many lines one item can make the r1
+        // quadratic bug (a per-line map copy) cost.
+        val dropped = M3uParser.parse(flood(50_000) + "#EXTINF:-1,D\nhttps://example.org/d.m3u8\n").entries
+        assertEquals(listOf("D"), dropped.map { it.title })
+        // ~135 chars a round: 1,500 rounds fit M3uParser.MAX_ITEM_CHARS (256 Ki).
+        val n = 1_500
+        val text = flood(n)
+        assertTrue(text.length < M3uParser.MAX_ITEM_CHARS)
         val e = M3uParser.parse(text).entries.single()
         assertEquals(n + 1, e.kodiProps.size) // + stream_headers itself, last line wins
         assertEquals(n, e.tags.size)

@@ -235,10 +235,15 @@ object LiveTvModel {
         val withLost = ChannelEnricher.enrich(shifted, meta).filter { !it.nsfw && it.key !in hidden }
         val listable = ChannelEnricher.listable(withLost)
         val tagsByKey = HashMap<String, ChannelTags>(withLost.size * 2)
+        // Spec 143 P2: equal tags share one instance (most channels repeat a few country/category/language sets).
+        // Keyed in order: Set equality ignores it, and the pickers' "Your channels" read the sets' order.
+        val tagPool = HashMap<Triple<String, List<String>, List<String>>, ChannelTags>()
         val labels = HashMap<String, String>()
         for (ch in withLost) {
             val names = categoryNames(ch)
-            tagsByKey[ch.key] = tags(ch, names)
+            tagsByKey[ch.key] = tags(ch, names).let { t ->
+                tagPool.getOrPut(Triple(t.country, t.categories.toList(), t.languages.toList())) { t }
+            }
             for (c in names) labels.putIfAbsent(c.lowercase(Locale.ROOT), c)
         }
         return Lineup(listable, numbers, withLost, tagsByKey, labels)
@@ -328,9 +333,18 @@ object LiveTvModel {
         )
     }
 
-    /** Guide sources in source order, id -> country: all [guideRefs] needs of the source list. */
-    fun guideCountries(sources: List<LiveSource>): List<Pair<String, String?>> =
-        sources.filter { it.kind == SourceKind.XMLTV }.map { it.id to it.country }
+    /**
+     * Guide sources in source order, id -> country: all [guideRefs] needs of the source list. An
+     * Xtream login's own guide (Spec 109 S2.2) counts, country null: its channels match by tvg-id
+     * (`epg_channel_id`) only, never by name.
+     */
+    fun guideCountries(sources: List<LiveSource>): List<Pair<String, String?>> = sources.mapNotNull {
+        when (it.kind) {
+            SourceKind.XMLTV -> it.id to it.country
+            SourceKind.XTREAM -> it.id to null
+            else -> null
+        }
+    }
 
     /** The guide each listable channel uses (D9 chain over every cached guide source). */
     fun guideRefs(

@@ -43,7 +43,8 @@ internal fun PlayerRuntimeController.releasePlayer(flushPlaybackState: Boolean) 
     _uiState.update { it.copy(showStreamSourceIndicator = false) }
     hidePlayerEngineSwitchInfoJob?.cancel()
     hideSubtitleDelayOverlayJob?.cancel()
-    subtitleAutoSyncLoadJob?.cancel()
+    subtitleManualSyncLoadJob?.cancel()
+    cancelAutomaticSubtitleSync() // Spec 108
     stopSidecarAddonSubtitle(clearView = true)
     subtitleTimingRefreshJob?.cancel()
     subtitleTimingRefreshJob = null

@@ -31,6 +31,7 @@ private const val RAPID_NAV_SETTLE_MS = 400L
 internal const val MODERN_CONTINUE_WATCHING_ROW_KEY = "continue_watching"
 internal const val MODERN_UPCOMING_ROW_KEY = "upcoming_section"
 internal const val MODERN_FEATURED_ROW_KEY = "featured"
+internal const val MODERN_SCOUT_ROW_KEY = "scout_picks"
 
 @Immutable
 data class HeroPreview(
@@ -44,6 +45,8 @@ data class HeroPreview(
     val runtimeText: String? = null,
     /** Continue Watching status beside the hero progress bar ("8 min left", "Next Up"). */
     val secondaryHighlightText: String? = null,
+    /** Spec 100 D2: Picked for you only, the watched title in "Because you watched X" (the same line). */
+    val pickReason: String? = null,
     val imdbText: String?,
     /** TMDB-sourced items' TMDB score; shown only without [imdbText] (26/B2). */
     val tmdbText: String? = null,
@@ -114,7 +117,9 @@ data class ModernCarouselItem(
     val payload: ModernPayload,
     val metaPreview: MetaPreview? = null,
     val cornerLabel: String? = null,
-    val progressFraction: Float? = null
+    val progressFraction: Float? = null,
+    /** Spec 122 V3: pack ids of a previewed filter hit, drawn as the card's band (D1); empty when clean. */
+    val filterHits: List<String> = emptyList()
 )
 
 @Immutable
@@ -130,7 +135,11 @@ data class HeroCarouselRow(
     val apiType: String? = null,
     val supportsSkip: Boolean = false,
     val hasMore: Boolean = false,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    /** The source row's page (CatalogRow.currentPage): the load-more trigger's key (RowLoadMoreTrigger). */
+    val currentPage: Int = 0,
+    /** An MDBList row (Spec 105 S5b1, D1): the title leads with MDBList's glyph; its suffix always names MDBList. */
+    val mdbList: Boolean = false
 )
 
 @Immutable
@@ -415,7 +424,8 @@ internal fun buildContinueWatchingItem(
         },
         imageUrl = imageUrl,
         heroPreview = heroPreview.copy(imageUrl = imageUrl ?: heroPreview.imageUrl),
-        payload = ModernPayload.ContinueWatching(item)
+        payload = ModernPayload.ContinueWatching(item),
+        filterHits = item.filterHits
     )
 }
 
@@ -523,7 +533,8 @@ internal fun catalogCarouselItem(
             trailerReleaseInfo = item.releaseInfo,
             trailerApiType = item.apiType
         ),
-        metaPreview = item
+        metaPreview = item,
+        filterHits = item.filterHits
     )
 }
 

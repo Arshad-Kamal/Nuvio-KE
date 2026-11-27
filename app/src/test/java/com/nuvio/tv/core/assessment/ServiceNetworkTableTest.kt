@@ -39,7 +39,7 @@ class ServiceNetworkTableTest {
     )
 
     private fun limits(safe: Int, tierMaxChunkMb: Int = 16) =
-        DeviceLimits(safe, tierMaxChunkMb, perfModeSupported = true, afrSupported = null)
+        DeviceLimits(safe, tierMaxChunkMb, Int.MAX_VALUE, perfModeSupported = true, afrSupported = null)
 
     // ── service key + codec ─────────────────────────────────────────────────
 

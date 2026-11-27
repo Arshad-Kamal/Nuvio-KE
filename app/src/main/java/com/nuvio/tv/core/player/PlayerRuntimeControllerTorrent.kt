@@ -1,10 +1,10 @@
 package com.nuvio.tv.core.player
 
 import android.util.Log
+import androidx.annotation.StringRes
 import com.nuvio.tv.R
 import com.nuvio.tv.core.torrent.TorrentService
 import com.nuvio.tv.core.torrent.TorrentState
-import com.nuvio.tv.core.torrent.formatTorrentMB
 import com.nuvio.tv.core.torrent.formatTorrentSpeed
 import com.nuvio.tv.domain.model.Stream
 import kotlinx.coroutines.CancellationException
@@ -120,15 +120,16 @@ internal fun PlayerRuntimeController.observeTorrentState() {
                 is TorrentState.Streaming -> {
                     val speed = formatTorrentSpeed(context, torrentState.downloadSpeed)
                     val peerInfo = context.getString(com.nuvio.tv.R.string.player_torrent_peer_info, torrentState.seeds, torrentState.peers)
-                    val mbLoaded = formatTorrentMB(context, torrentState.preloadedBytes)
-                    val statsHidden = _uiState.value.hideTorrentStats
+                    val message = torrentStatusLineRes(
+                        renderedFirstFrame = hasRenderedFirstFrame,
+                        statsHidden = _uiState.value.hideTorrentStats,
+                        statsKnown = torrentState.torrentSize > 0L
+                    )?.let { context.getString(it, peerInfo, speed) }
 
                     if (!hasRenderedFirstFrame) {
-                        // Initial load: show preloaded MB with progress bar
-                        // TorrServer preloads ~5MB before streaming starts
+                        // Initial load: progress bar over TorrServer's first ~5 MB preload.
                         val preloadTarget = 5_242_880L // 5MB
                         val progress = (torrentState.preloadedBytes.toFloat() / preloadTarget).coerceIn(0f, 1f)
-                        val message = if (statsHidden) null else context.getString(com.nuvio.tv.R.string.player_torrent_buffered_status, mbLoaded, peerInfo, speed)
                         recordLoadingDiagnosticEvent(
                             phase = "torrent_preloading",
                             message = message,
@@ -154,7 +155,6 @@ internal fun PlayerRuntimeController.observeTorrentState() {
                     } else {
                         // During playback: update stats, rebuffer message is
                         // handled by the progress loop in PlaybackEvents
-                        val message = if (statsHidden) null else context.getString(com.nuvio.tv.R.string.player_torrent_status, peerInfo, speed)
                         _uiState.update {
                             it.copy(
                                 loadingProgress = null,
@@ -193,6 +193,74 @@ internal fun PlayerRuntimeController.observeTorrentState() {
 }
 
 /**
+ * Spec 138 D6: the torrent status line's string; null = no line. Before the first frame the short
+ * swarm line (seeds · peers · speed) shows whatever Hide torrent stats says, so a slow swarm reads
+ * differently from a dead one (the bar shows the buffered part); until TorrServer's first stats poll
+ * ([statsKnown] false: Streaming is published with zeros) it keeps "Connecting to peers…". During
+ * playback the setting governs (as does the rebuffer line in PlaybackEvents).
+ */
+@StringRes
+internal fun torrentStatusLineRes(renderedFirstFrame: Boolean, statsHidden: Boolean, statsKnown: Boolean): Int? = when {
+    !renderedFirstFrame && !statsKnown -> R.string.player_torrent_connecting_peers
+    !renderedFirstFrame -> R.string.player_torrent_status
+    statsHidden -> null
+    else -> R.string.player_torrent_status
+}
+
+/** Spec 138: the Streaming state of the torrent TorrServer serves at [url]; null for a non-torrent stream or one it moved on from. */
+private fun PlayerRuntimeController.torrentStreamingAt(url: String): TorrentState.Streaming? {
+    if (!isTorrentStream || url.isEmpty()) return null
+    val state = torrentService.state.value as? TorrentState.Streaming ?: return null
+    return state.takeIf { it.localUrl == url }
+}
+
+/** Spec 138: [url] is the torrent stream TorrServer serves now (decides a start's torrent rules at arm). */
+internal fun PlayerRuntimeController.isTorrentStartAt(url: String): Boolean = torrentStreamingAt(url) != null
+
+/**
+ * Spec 138: TorrServer's stats for the torrent behind [url], from its 1 s poll; null when [url] is
+ * not that torrent, or before the first poll answered (TorrentService publishes Streaming with
+ * zeros first; torrent size 0 = no stats yet), so a window's baseline is a real sample.
+ */
+internal fun PlayerRuntimeController.torrentSwarmSample(url: String): PlayerStartupWatchdogPolicy.SwarmSample? {
+    val state = torrentStreamingAt(url)?.takeIf { it.torrentSize > 0L } ?: return null
+    return PlayerStartupWatchdogPolicy.SwarmSample(
+        cachedBytes = state.preloadedBytes,
+        downloadSpeed = state.downloadSpeed
+    )
+}
+
+/**
+ * Spec 138 D2: a read timeout on the local TorrServer URL (its response waits for the first
+ * piece) does not end a torrent start the startup watchdog is still judging; the watchdog owns
+ * that give-up (60 s idle, 180 s while the swarm progresses). F1: under the watchdog's box no
+ * load error ends it before the box's grace stop ([PlayerStartupWatchdogPolicy.torrentStartLoadHold]).
+ * Read on the playback thread (load error callbacks) from main-thread fields: a stale read can end
+ * the hold one check early (the retry count applies again) or keep it one check longer.
+ * Idempotent; installed at every torrent launch.
+ */
+private fun PlayerRuntimeController.installTorrentStartLoadHold() {
+    val policy = mediaSourceFactory.loadErrorHandlingPolicy
+    // A held URI from an earlier torrent must not carry into this start.
+    policy.clearHeldError()
+    policy.startupLoadHold = { uri ->
+        val error = _uiState.value.error
+        PlayerStartupWatchdogPolicy.torrentStartLoadHold(
+            host = uri.host,
+            port = uri.port,
+            torrServerPort = torrentService.serverPort,
+            isCurrentStream = uri.toString() == currentStreamUrl,
+            torrentStream = isTorrentStream,
+            renderedFirstFrame = hasRenderedFirstFrame,
+            watchdogJobActive = startupWatchdogJob?.isActive == true,
+            inBackground = isInBackground,
+            errorShown = error != null,
+            errorIsWatchdogBox = error?.fromStartupWatchdog == true
+        )
+    }
+}
+
+/**
  * Launches a torrent stream for source/episode stream switching.
  */
 internal fun PlayerRuntimeController.launchTorrentSourceStream(
@@ -227,6 +295,7 @@ internal fun PlayerRuntimeController.launchTorrentStream(
     loadSavedProgress: Boolean
 ) {
     torrentStreamJob?.cancel()
+    installTorrentStartLoadHold()
     // No link until TorrServer answers: a failure before then must not be recorded under, or name
     // the host of, the source played before this torrent (Spec 75 S6 red team ed9fd20e).
     currentStreamUrl = ""

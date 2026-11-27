@@ -730,12 +730,19 @@ class AddonManagerViewModel @Inject internal constructor(
             .distinct()
             .toList()
 
-        layoutPreferenceDataStore.setHomeCatalogOrderKeys(validCatalogOrder)
+        // The phone page never carries MDBList rows (Spec 105 S5a): they keep their slots and hidden state.
+        layoutPreferenceDataStore.updateHomeCatalogOrderKeys { stored ->
+            HomeCatalogOrdering.keepLocalMdbListKeys(stored, validCatalogOrder)
+        }
         // One write (L5-09/30): addon-catalog keys from the proposal plus its collection
         // keys; collection keys are never addon disable keys, so the two never overlap.
-        layoutPreferenceDataStore.setDisabledHomeCatalogKeys(
-            validDisabledCatalogs + pending.proposedDisabledCollectionKeys
-        )
+        layoutPreferenceDataStore.updateDisabledHomeCatalogKeys { stored ->
+            HomeCatalogOrdering.keepLocalMdbListDisabled(
+                local = stored.toSet(),
+                incomingOrder = validCatalogOrder,
+                incoming = validDisabledCatalogs + pending.proposedDisabledCollectionKeys
+            ).toList()
+        }
     }
 
     private fun observeCatalogPreferences() {

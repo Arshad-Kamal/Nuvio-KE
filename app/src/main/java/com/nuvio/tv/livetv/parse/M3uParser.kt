@@ -54,65 +54,187 @@ data class M3uPlaylist(
  * logged: values can hold licence keys and credentials (KT-SEC-02). A missing `#EXTM3U` header is tolerated, URLs are not validated
  * (some hold unfilled placeholders such as `[DEVICE_ID]`), Xtream movie and series items are skipped
  * ([XtreamUrls.isVod], Spec 78 D1), and at most [MAX_ENTRIES] entries and
- * [MAX_EPG_URLS] header EPG URLs are kept. The caller caps the download size.
+ * [MAX_EPG_URLS] header EPG URLs are kept. The caller caps the download size (512 MiB, far more than
+ * memory could hold), so memory is bounded here (Spec 137): [MAX_LINE_CHARS] per line,
+ * [MAX_ITEM_CHARS] per item, [MAX_HEADER_CHARS] over the `#EXTM3U` lines and [MAX_KEPT_CHARS] over
+ * the kept items; movie and series items cost only their own item while read.
  */
 object M3uParser {
     const val MAX_ENTRIES = 100_000
     /** Bounds untrusted input only: Free-TV's header names 101 guides (Spec 55 S1 picks among them). */
     const val MAX_EPG_URLS = 200
+    /** Spec 137 D2: chars kept of one line (real lines are ~0.1-4 KiB); a longer line drops its item. */
+    const val MAX_LINE_CHARS = 64 * 1024
+    /** Spec 137 D7: chars of one item's lines (`#EXTINF`, directives, URL); past it the item is dropped. */
+    const val MAX_ITEM_CHARS = 256 * 1024
+    /** Spec 137 D8: chars of the `#EXTM3U` lines read (Free-TV's 101-guide header is ~10 KiB); later ones are ignored. */
+    const val MAX_HEADER_CHARS = 64 * 1024
+    /**
+     * Spec 137 D3: chars of the kept items' lines; the item that passes it ends the parse with what was kept, as
+     * [MAX_ENTRIES] does. A UTF-8 file under the old 32 MiB download cap never reaches it.
+     */
+    const val MAX_KEPT_CHARS = 32L * 1024 * 1024
 
     fun parse(text: String, maxEntries: Int = MAX_ENTRIES): M3uPlaylist =
         parse(StringReader(text), maxEntries)
 
-    fun parse(reader: Reader, maxEntries: Int = MAX_ENTRIES): M3uPlaylist {
+    fun parse(reader: Reader, maxEntries: Int = MAX_ENTRIES, maxKeptChars: Long = MAX_KEPT_CHARS): M3uPlaylist {
         val epgUrls = LinkedHashSet<String>()
         val playlistAttrs = LinkedHashMap<String, String>()
         val entries = ArrayList<M3uEntry>()
         var pending = Pending()
-        val buffered = reader as? BufferedReader ?: BufferedReader(reader)
+        // Chars of the current item's lines so far, and of every kept item.
+        var itemChars = 0
+        var keptChars = 0L
+        var headerChars = 0
+        // Spec 137 D7: an item was dropped; ignore lines until the end of its URL line, or until the
+        // next #EXTINF when the dropped item had its own; [extinfOwed]: it had not, so the next is its own.
+        var skipping = false
+        var extinfOwed = false
+        val lines = LineReader(reader, MAX_LINE_CHARS)
         var first = true
         while (entries.size < maxEntries) {
-            var line = buffered.readLine() ?: break
+            var line = lines.next() ?: break
             if (first) {
                 line = line.removePrefix("\uFEFF")
                 first = false
             }
             line = line.trim()
-            if (line.isEmpty()) continue
+            val header = line.startsWith("#EXTM3U", ignoreCase = true)
+            val extinf = line.startsWith("#EXTINF", ignoreCase = true)
+            val url = line.isNotEmpty() && !line.startsWith("#")
+            val directive = if (url || extinf) null else ITEM_DIRECTIVES.firstOrNull { line.startsWith(it, ignoreCase = true) }
+            // Spec 137 D7: an over-long line that is blank as far as it was kept is of no known kind: it drops the item.
+            val overlongBlank = line.isEmpty() && lines.overlong
+            // Blank lines, comments and other ignored # lines hold nothing, so only header and item lines are charged.
+            if (header) {
+                if (!lines.overlong && headerChars + line.length <= MAX_HEADER_CHARS) {
+                    headerChars += line.length
+                    readHeader(line, epgUrls, playlistAttrs)
+                }
+                continue
+            }
+            if (!url && !extinf && directive == null && (!overlongBlank || itemChars == 0)) continue
+            if (skipping) {
+                when {
+                    url -> {
+                        skipping = false
+                        extinfOwed = false
+                        continue
+                    }
+                    extinf && extinfOwed -> {
+                        extinfOwed = false
+                        continue
+                    }
+                    extinf -> skipping = false
+                    else -> continue
+                }
+            }
+            // A new #EXTINF starts a new item; directives seen before it (KODIPROP) stay bound,
+            // unless an earlier #EXTINF never got its URL: then its directives are dropped.
+            if (extinf && pending.extinf != null) {
+                pending = Pending()
+                itemChars = 0
+            }
+            itemChars += line.length
+            if (lines.overlong || itemChars > MAX_ITEM_CHARS) {
+                // Dropped at its URL line, the item is over; else its rest, URL included, is skipped.
+                skipping = !url
+                extinfOwed = !url && !extinf && pending.extinf == null
+                pending = Pending()
+                itemChars = 0
+                continue
+            }
             when {
-                line.startsWith("#EXTM3U", ignoreCase = true) -> {
-                    val attrs = parseAttributes(line.substring("#EXTM3U".length))
-                    listOfNotNull(attrs["x-tvg-url"], attrs["url-tvg"])
-                        .flatMap { it.split(',') }
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() }
-                        .forEach { if (epgUrls.size < MAX_EPG_URLS) epgUrls += it }
-                    playlistAttrs += attrs - EPG_ATTRS
+                extinf -> pending.extinf = parseExtinf(line)
+                directive != null -> {
+                    val value = line.substring(directive.length)
+                    when (directive) {
+                        EXTGRP -> pending.extGroup = value.trim().ifEmpty { null }
+                        EXTVLCOPT -> pending.addVlcOpt(value)
+                        KODIPROP -> pending.addKodiProp(value)
+                        else -> pending.addExtHttp(value.trim()) // EXTHTTP
+                    }
                 }
-                line.startsWith("#EXTINF", ignoreCase = true) -> {
-                    // A new #EXTINF starts a new item; directives seen before it (KODIPROP) stay bound,
-                    // unless an earlier #EXTINF never got its URL: then its directives are dropped.
-                    if (pending.extinf != null) pending = Pending()
-                    pending.extinf = parseExtinf(line)
-                }
-                line.startsWith("#EXTGRP:", ignoreCase = true) ->
-                    pending.extGroup = line.substring("#EXTGRP:".length).trim().ifEmpty { null }
-                line.startsWith("#EXTVLCOPT:", ignoreCase = true) ->
-                    pending.addVlcOpt(line.substring("#EXTVLCOPT:".length))
-                line.startsWith("#KODIPROP:", ignoreCase = true) ->
-                    pending.addKodiProp(line.substring("#KODIPROP:".length))
-                line.startsWith("#EXTHTTP:", ignoreCase = true) ->
-                    pending.addExtHttp(line.substring("#EXTHTTP:".length).trim())
-                line.startsWith("#") -> Unit
                 else -> {
-                    val (url, pipeHeaders) = splitPipeHeaders(line)
+                    val (streamUrl, pipeHeaders) = splitPipeHeaders(line)
                     // Spec 78 D1: an Xtream movie or series item is not a channel; it never counts toward maxEntries.
-                    if (!XtreamUrls.isVod(url)) entries += pending.toEntry(url, pipeHeaders)
+                    if (!XtreamUrls.isVod(streamUrl)) {
+                        keptChars += itemChars
+                        if (keptChars > maxKeptChars) break
+                        entries += pending.toEntry(streamUrl, pipeHeaders)
+                    }
                     pending = Pending()
+                    itemChars = 0
                 }
             }
         }
         return M3uPlaylist(epgUrls.toList(), entries, playlistAttrs)
+    }
+
+    /** One `#EXTM3U` line into [epgUrls] (`x-tvg-url` / `url-tvg`, comma lists split) and [playlistAttrs] (the rest). */
+    private fun readHeader(line: String, epgUrls: MutableSet<String>, playlistAttrs: MutableMap<String, String>) {
+        val attrs = parseAttributes(line.substring("#EXTM3U".length))
+        listOfNotNull(attrs["x-tvg-url"], attrs["url-tvg"])
+            .flatMap { it.split(',') }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .forEach { if (epgUrls.size < MAX_EPG_URLS) epgUrls += it }
+        playlistAttrs += attrs - EPG_ATTRS
+    }
+
+    /**
+     * Lines of [reader] split as [BufferedReader.readLine] splits them (`\n`, `\r\n`, `\r`), read in bulk
+     * (Spec 137 D2). At most [maxChars] of a line are kept; the rest is read and dropped, and [overlong]
+     * says so for the line [next] just returned.
+     */
+    internal class LineReader(private val reader: Reader, private val maxChars: Int) {
+        private val buf = CharArray(16 * 1024)
+        private var pos = 0
+        private var end = 0
+        /** The last line ended in `\r`: a `\n` that follows belongs to it. */
+        private var skipLf = false
+        private val line = StringBuilder()
+        var overlong = false
+            private set
+
+        /** The next line without its terminator; null at the end of input. */
+        fun next(): String? {
+            line.setLength(0)
+            overlong = false
+            var read = false
+            while (true) {
+                if (pos == end) {
+                    end = reader.read(buf, 0, buf.size)
+                    pos = 0
+                    if (end < 0) {
+                        end = 0
+                        return if (read) line.toString() else null
+                    }
+                    continue
+                }
+                if (skipLf) {
+                    skipLf = false
+                    if (buf[pos] == '\n') {
+                        pos++
+                        continue
+                    }
+                }
+                val start = pos
+                while (pos < end && buf[pos] != '\n' && buf[pos] != '\r') pos++
+                if (pos > start) {
+                    read = true
+                    val room = maxChars - line.length
+                    if (pos - start > room) overlong = true
+                    line.append(buf, start, minOf(pos - start, room))
+                }
+                if (pos < end) {
+                    skipLf = buf[pos] == '\r'
+                    pos++
+                    return line.toString()
+                }
+            }
+        }
     }
 
     private data class Extinf(val title: String, val attrs: Map<String, String>)
@@ -348,6 +470,14 @@ object M3uParser {
 
     /** `#EXTINF` attributes [M3uEntry] has fields for. */
     private val MAPPED_ATTRS = setOf("tvg-id", "tvg-name", "tvg-logo", "group-title", "tvg-chno")
+
+    private const val EXTGRP = "#EXTGRP:"
+    private const val EXTVLCOPT = "#EXTVLCOPT:"
+    private const val KODIPROP = "#KODIPROP:"
+    private const val EXTHTTP = "#EXTHTTP:"
+
+    /** The directives [parse] binds to the next item (`#EXTINF` aside); any other `#` line is ignored. */
+    private val ITEM_DIRECTIVES = listOf(EXTGRP, EXTVLCOPT, KODIPROP, EXTHTTP)
 
     /** `#EXTM3U` attributes kept as [M3uPlaylist.epgUrls]. */
     private val EPG_ATTRS = setOf("x-tvg-url", "url-tvg")

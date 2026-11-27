@@ -63,7 +63,9 @@ class TmdbKeyPanelViewModelTest {
             // A key saved on this TV, so Remove key has one to remove.
             every { state } returns MutableStateFlow(TmdbKeyState(userKey = SAVED_KEY, effectiveKey = SAVED_KEY))
         }
-        return TmdbSettingsViewModel(dataStore, mockk(relaxed = true), provider, keyEntry, starter)
+        val scout = mockk<com.nuvio.tv.core.scout.ScoutPicksRepository> { every { enabled(any()) } returns flowOf(true) }
+        val profiles = mockk<com.nuvio.tv.core.profile.ProfileManager> { every { activeProfileId } returns MutableStateFlow(1) }
+        return TmdbSettingsViewModel(dataStore, mockk(relaxed = true), provider, keyEntry, starter, scout, profiles)
     }
 
     /** A send from phone page [n] (1-based), as its server's handler thread makes it. */

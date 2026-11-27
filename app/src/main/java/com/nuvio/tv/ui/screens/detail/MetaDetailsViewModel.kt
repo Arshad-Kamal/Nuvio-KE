@@ -10,6 +10,8 @@ import com.nuvio.tv.core.health.AddonHealthStore
 import com.nuvio.tv.core.health.HealthOutcome
 import com.nuvio.tv.core.player.StreamAutoPlayPolicy
 import com.nuvio.tv.core.profile.ActiveRatingCap
+import com.nuvio.tv.core.profile.activeProfileIdOrNull
+import com.nuvio.tv.core.profile.profileNameOrNull
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.tmdb.TmdbDetailFacts
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
@@ -29,6 +31,7 @@ import com.nuvio.tv.domain.model.isEpisodeWatched
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.LibraryEntryInput
 import com.nuvio.tv.domain.model.Meta
+import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.MetaTrailer
 import com.nuvio.tv.domain.model.NextToWatch
 import com.nuvio.tv.domain.model.TmdbSettings
@@ -41,7 +44,13 @@ import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.data.local.WatchedItemsPreferences
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.core.tracking.TrackingListStatus
+import com.nuvio.tv.data.simkl.SimklDuplicateEntriesException
+import com.nuvio.tv.data.simkl.SimklListing
+import com.nuvio.tv.data.simkl.SimklRemovalNeedsConfirmException
+import com.nuvio.tv.ui.screens.library.libraryTrackerListLabel
 import com.nuvio.tv.core.util.isUnreleased
+import java.io.IOException
 import java.time.LocalDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -56,6 +65,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
@@ -114,7 +124,15 @@ class MetaDetailsViewModel @Inject constructor(
     private val healthStore: AddonHealthStore,
     private val addonRepository: AddonRepository,
     private val parentalGuideRepository: ParentalGuideRepository,
-    private val activeRatingCap: ActiveRatingCap
+    private val activeRatingCap: ActiveRatingCap,
+    private val contentFilter: com.nuvio.tv.data.repository.CatalogContentFilter,
+    private val activeContentFilter: com.nuvio.tv.core.contentfilter.ActiveContentFilter,
+    private val titleTagLookup: com.nuvio.tv.core.contentfilter.TitleTagLookup,
+    private val profileDataStore: com.nuvio.tv.data.local.ProfileDataStore,
+    private val detailSimklRelated: DetailSimklRelated,
+    private val detailSimklLists: DetailSimklLists,
+    private val detailMdbListLists: DetailMdbListLists,
+    private val detailMdbListRatings: DetailMdbListRatings
 ) : ViewModel() {
     private val itemId: String = savedStateHandle["itemId"] ?: ""
     private val itemType: String = savedStateHandle["itemType"] ?: ""
@@ -122,6 +140,9 @@ class MetaDetailsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MetaDetailsUiState())
     val uiState: StateFlow<MetaDetailsUiState> = _uiState.asStateFlow()
+
+    /** Spec 106 F1: the Simkl page address of the title last looked up (item id to address), for the picker's link. */
+    private var simklPageAddress: Pair<String, String>? = null
 
     /** The loaded meta's episode list, re-emitted only when it changes. */
     private val metaVideos = _uiState.map { it.meta?.videos }.distinctUntilChanged()
@@ -292,6 +313,12 @@ class MetaDetailsViewModel @Inject constructor(
                 source = source,
                 capMs = capMs,
                 republishOnDedup = isHero,
+                // Spec 141 D2: a new scrape's line reads searching, never an older scrape's Ready.
+                onRankPending = if (isHero) {
+                    { prefetchSelectionSupplier.clearSignal(key) }
+                } else {
+                    null
+                },
                 rank = { groups ->
                     prefetchSelectionSupplier.rankAndPrewarm(
                         groups = groups,
@@ -434,6 +461,12 @@ class MetaDetailsViewModel @Inject constructor(
     private var idleTimerJob: Job? = null
     private var trailerFetchJob: Job? = null
     private var moreLikeThisJob: Job? = null
+    // The running load: a new one (Retry) cancels it, so a load still waiting on its content-filter
+    // check (up to 8 s, Spec 117 P8) can never publish over the newer one.
+    private var loadMetaJob: Job? = null
+    // Spec 117 P8: the current load's content filter, set by loadMeta before any meta arrives and read
+    // only on that load's coroutine (loads never overlap: loadMetaJob). Starts closed: nothing checked.
+    private var filterGate: DetailFilterGate = DetailFilterGate.broken(profileName = null)
     private var tmdbDetailsJob: Job? = null
     private var aboutJob: Job? = null
     /** The last TMDB detail facts and the meta id they belong to; main thread only. */
@@ -467,6 +500,8 @@ class MetaDetailsViewModel @Inject constructor(
         observeMetaViewSettings()
         observeTrailerAutoplaySettings()
         observeLibraryState()
+        observeMdbListLists()
+        observeMdbListRatings()
         observeWatchProgress()
         observeWatchedEpisodes()
         observeMovieWatched()
@@ -583,6 +618,16 @@ class MetaDetailsViewModel @Inject constructor(
             is MetaDetailsEvent.OnPickerMembershipToggled -> togglePickerMembership(event.listKey)
             MetaDetailsEvent.OnPickerSave -> savePickerMembership()
             MetaDetailsEvent.OnPickerDismiss -> dismissListPicker()
+            is MetaDetailsEvent.OnSimklListPicked -> pickSimklList(event.list)
+            MetaDetailsEvent.OnSimklRemove -> removeFromSimkl()
+            MetaDetailsEvent.OnSimklRemoveConfirmed -> confirmSimklRemoval()
+            MetaDetailsEvent.OnSimklRemoveCancelled -> _uiState.update { state ->
+                state.copy(simklPicker = state.simklPicker?.copy(confirmingRemoval = false, focusRemove = true))
+            }
+            MetaDetailsEvent.OnSimklPickerDismiss -> _uiState.update { it.copy(simklPicker = null) }
+            MetaDetailsEvent.OnMdbListListsClick -> openMdbListPanel()
+            is MetaDetailsEvent.OnMdbListRowToggled -> toggleMdbListRow(event.rowId)
+            MetaDetailsEvent.OnMdbListPanelDismiss -> _uiState.update { it.copy(mdbList = it.mdbList.copy(panel = null)) }
             MetaDetailsEvent.OnClearMessage -> clearMessage()
             MetaDetailsEvent.OnLifecyclePause -> handleLifecyclePause()
             MetaDetailsEvent.OnLifecycleResume -> handleLifecycleResume()
@@ -859,7 +904,8 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun loadMeta() {
-        viewModelScope.launch {
+        loadMetaJob?.cancel()
+        loadMetaJob = viewModelScope.launch {
             // Metadata timing instrument. Grep anchor: MetaTiming. metaLoadStartMs
             // is read in applyLoadedMeta (always the next step on the
             // meta) to measure addon-meta-ready and total text-ready latency.
@@ -882,13 +928,15 @@ class MetaDetailsViewModel @Inject constructor(
                     sharedTrailerAudioUrl = null,
                     sharedTrailerErrorMessage = null,
                     selectedSharedTrailer = null,
-                    ratingBlock = null
+                    ratingBlock = null,
+                    filterBlock = null
                 )
             }
             // Spec 64: read before any meta arrives, so applyLoadedMeta's gate and the screen's
             // cast/studio rule always see this load's limit.
             val ratingLimit = activeRatingCap.currentLimit()
             _uiState.update { it.copy(ratingLimit = ratingLimit) }
+            filterGate = openFilterGate()
 
             val metaLookupId = resolveMetaLookupId(itemId = itemId, itemType = itemType)
             // Update effective content ID as early as possible so watch-progress
@@ -1133,6 +1181,16 @@ class MetaDetailsViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false, meta = null, error = null, ratingBlock = block) }
             return
         }
+        // Spec 117 P8: then the content filters, likewise before anything starts and sticky for the load.
+        // May wait (up to 8 s) for the title's TMDB tags; the loading state stays up meanwhile.
+        val gateStartMs = android.os.SystemClock.elapsedRealtime()
+        val filterBlock = _uiState.value.filterBlock ?: filterGate.judge(meta, titleTagLookup)
+        // The tag wait is the filter's, not the addon's: kept out of MetaTiming and the metadata health record.
+        metaLoadStartMs += android.os.SystemClock.elapsedRealtime() - gateStartMs
+        if (filterBlock != null) {
+            _uiState.update { it.copy(isLoading = false, meta = null, error = null, filterBlock = filterBlock) }
+            return
+        }
         // nt4: fire the stream prefetch off the meta NOW, before the progress
         // reads below. The play target is already determined here (a movie's id,
         // or the series nextToWatch computed from the addon episode list), so this
@@ -1189,45 +1247,79 @@ class MetaDetailsViewModel @Inject constructor(
         loadEpisodeRatingsAsync(meta)
     }
 
+    /**
+     * Spec 117 P8: the active profile's content filter for this load, with the name its messages use
+     * (the previewed profile's while the primary previews). A broken pack file (a build defect,
+     * PackFileTest) checks nothing, so every title reads "Couldn't check this title" (fails closed).
+     */
+    private suspend fun openFilterGate(): DetailFilterGate {
+        val active = try {
+            activeContentFilter.current()
+        } catch (e: IOException) {
+            return brokenFilterGate(e)
+        } catch (e: IllegalArgumentException) {
+            return brokenFilterGate(e)
+        }
+        return DetailFilterGate.of(active, profileNameOf(active?.previewProfileId))
+    }
+
+    private suspend fun brokenFilterGate(e: Exception): DetailFilterGate {
+        Log.w(TAG, "Content filter unreadable, titles unchecked: ${e.javaClass.simpleName}")
+        return DetailFilterGate.broken(profileNameOf(null))
+    }
+
+    /** Profile [profileId]'s name, else the active profile's; null when unreadable. */
+    private suspend fun profileNameOf(profileId: Int?): String? =
+        (profileId ?: profileDataStore.activeProfileIdOrNull())?.let { profileDataStore.profileNameOrNull(it) }
+
+    /**
+     * More like this: Simkl's list when it is the profile's effective source (Spec 106 S4b, E6; TMDB's switch governs
+     * TMDB only), falling back to TMDB's when Simkl has nothing; else TMDB's, behind its switch.
+     */
     private fun loadMoreLikeThisAsync(meta: Meta) {
         moreLikeThisJob?.cancel()
         moreLikeThisJob = viewModelScope.launch {
-            val settings = tmdbSettingsDataStore.settings.first()
-            if (!shouldLoadMoreLikeThis(settings)) {
-                _uiState.update { it.copy(moreLikeThis = emptyList(), moreLikeThisSource = null) }
+            // Simkl unreachable, refused or slow -> empty (then TMDB's list); cancellation rethrown (KT-CONC-03).
+            val fromSimkl = detailSimklRelated.load(meta)?.let { shownRelated(it) }.orEmpty()
+            if (fromSimkl.isNotEmpty()) {
+                publishMoreLikeThis(meta, fromSimkl, MoreLikeThisSource.SIMKL)
                 return@launch
             }
-            val source = MoreLikeThisSource.TMDB
-            val tmdbContentType = resolveTmdbContentType(meta)
-            val tmdbId = resolveTmdbIdFor(meta)
+            val settings = tmdbSettingsDataStore.settings.first()
+            val tmdbId = if (shouldLoadMoreLikeThis(settings)) resolveTmdbIdFor(meta) else null
             if (tmdbId.isNullOrBlank()) {
-                _uiState.update { it.copy(moreLikeThis = emptyList(), moreLikeThisSource = null) }
+                publishMoreLikeThis(meta, emptyList(), MoreLikeThisSource.TMDB)
                 return@launch
             }
 
             // The service owns the guarantee: failure -> empty list, cancellation rethrown (KT-CONC-03).
             val rawRecommendations = tmdbMetadataService.fetchMoreLikeThis(
                 tmdbId = tmdbId,
-                contentType = tmdbContentType,
+                contentType = resolveTmdbContentType(meta),
                 language = settings.language
             )
+            publishMoreLikeThis(meta, shownRelated(rawRecommendations), MoreLikeThisSource.TMDB)
+        }
+    }
 
-            val recommendations = if (hideUnreleasedContent) {
-                val today = LocalDate.now()
-                rawRecommendations.filterNot { it.isUnreleased(today) }
+    /** Unreleased titles out when that setting is on, then the content filter (Spec 117). */
+    private suspend fun shownRelated(items: List<MetaPreview>): List<MetaPreview> {
+        val released = if (hideUnreleasedContent) {
+            val today = LocalDate.now()
+            items.filterNot { it.isUnreleased(today) }
+        } else {
+            items
+        }
+        return filterDetailRow(released, contentFilter::open)
+    }
+
+    /** The row for [meta], unless another title opened meanwhile; no source label on an empty row. */
+    private fun publishMoreLikeThis(meta: Meta, items: List<MetaPreview>, source: MoreLikeThisSource) {
+        _uiState.update { state ->
+            if (state.meta == null || state.meta.id == meta.id) {
+                state.copy(moreLikeThis = items, moreLikeThisSource = source.takeIf { items.isNotEmpty() })
             } else {
-                rawRecommendations
-            }
-
-            _uiState.update { state ->
-                if (state.meta == null || state.meta.id == meta.id) {
-                    state.copy(
-                        moreLikeThis = recommendations,
-                        moreLikeThisSource = source.takeIf { recommendations.isNotEmpty() }
-                    )
-                } else {
-                    state
-                }
+                state
             }
         }
     }
@@ -1285,12 +1377,13 @@ class MetaDetailsViewModel @Inject constructor(
             language = language
         )
 
-        val filteredItems = if (hideUnreleasedContent) {
+        val released = if (hideUnreleasedContent) {
             val today = LocalDate.now()
             items.filterNot { it.isUnreleased(today) }
         } else {
             items
         }
+        val filteredItems = filterDetailRow(released, contentFilter::open)
 
         _uiState.update { state ->
             state.copy(collection = filteredItems, collectionName = collectionRef.name)
@@ -1816,6 +1909,7 @@ class MetaDetailsViewModel @Inject constructor(
         if (_uiState.value.defaultLibraryTogglePending) return
         val meta = _uiState.value.meta ?: return
         viewModelScope.launch {
+            if (detailSimklLists.isLibrarySource()) return@launch openSimklPicker(meta)
             val input = meta.toLibraryEntryInput()
             val wasInLibrary = _uiState.value.isInLibrary
             _uiState.update { it.copy(defaultLibraryTogglePending = true) }
@@ -1840,10 +1934,253 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
-    // Long-press list picker: the app's own library is its only row.
+    /**
+     * Spec 106 D2, F1/F2: Simkl as the Library source opens its list picker on what this TV shows (no call); the link
+     * back fills in when Simkl answers (once per page). A pick closes it and writes.
+     */
+    private suspend fun openSimklPicker(meta: Meta) {
+        val input = meta.toLibraryEntryInput()
+        val known = simklPageAddress?.takeIf { it.first == input.itemId }?.second
+        val picker = try {
+            detailSimklLists.picker(input)
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            showMessage(error.message ?: context.getString(R.string.detail_error_update_library_failed), isError = true)
+            return
+        }
+        _uiState.update { it.copy(simklPicker = picker.copy(pageAddress = known)) }
+        if (known != null) return
+        // Network failures come back as null; anything else only costs the link line.
+        val address = try {
+            detailSimklLists.pageAddress(input)
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            null
+        } ?: return
+        simklPageAddress = input.itemId to address
+        _uiState.update { state -> state.copy(simklPicker = state.simklPicker?.copy(pageAddress = address)) }
+    }
+
+    /** F3: closes the picker, then "Added to"/"Moved to" the list; OK on the current list only closes it. */
+    private fun pickSimklList(list: TrackingListStatus) {
+        val picker = _uiState.value.simklPicker ?: return
+        _uiState.update { it.copy(simklPicker = null) }
+        if (list == picker.listing.list) return
+        simklWrite { input ->
+            val before = detailSimklLists.move(input, list)
+            val name = libraryTrackerListLabel(localizedContext, list)
+            showMessage(localizedContext.getString(if (before == null) R.string.detail_simkl_added else R.string.detail_simkl_moved, name))
+        }
+    }
+
+    /** F1b: asks first when the removal would lose something (unless Simkl lists the title twice: that refuses anyway). */
+    private fun removeFromSimkl() {
+        val picker = _uiState.value.simklPicker ?: return
+        if (picker.listing.removalNeedsConfirm && !picker.listing.duplicated) {
+            _uiState.update { it.copy(simklPicker = picker.copy(confirmingRemoval = true)) }
+            return
+        }
+        sendSimklRemoval(picker, agreed = null)
+    }
+
+    private fun confirmSimklRemoval() {
+        val picker = _uiState.value.simklPicker?.takeIf { it.confirmingRemoval } ?: return
+        sendSimklRemoval(picker, agreed = picker.listing)
+    }
+
+    /** Removal refused because Simkl now holds more than was agreed: the confirm shows again with what it holds now. */
+    private fun sendSimklRemoval(picker: SimklListPickerUi, agreed: SimklListing?) {
+        _uiState.update { it.copy(simklPicker = null) }
+        simklWrite(
+            onRefused = { error ->
+                when (error) {
+                    is SimklRemovalNeedsConfirmException -> {
+                        _uiState.update {
+                            it.copy(simklPicker = picker.copy(listing = error.listing, confirmingRemoval = true, focusRemove = false))
+                        }
+                        true
+                    }
+                    is SimklDuplicateEntriesException -> {
+                        showMessage(localizedContext.getString(R.string.detail_simkl_remove_duplicate), isError = true)
+                        true
+                    }
+                    else -> false
+                }
+            }
+        ) { input ->
+            detailSimklLists.remove(input, agreed)
+            showMessage(localizedContext.getString(R.string.detail_simkl_removed))
+        }
+    }
+
+    /**
+     * One Simkl list write, one at a time (the Library button's pending flag). A failure [onRefused] does not handle
+     * shows the detail page's error message; nothing changed.
+     */
+    private fun simklWrite(onRefused: (Exception) -> Boolean = { false }, write: suspend (LibraryEntryInput) -> Unit) {
+        if (_uiState.value.defaultLibraryTogglePending) return
+        val meta = _uiState.value.meta ?: return
+        _uiState.update { it.copy(defaultLibraryTogglePending = true) }
+        viewModelScope.launch {
+            try {
+                write(meta.toLibraryEntryInput())
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (!onRefused(error)) {
+                    showMessage(error.message ?: context.getString(R.string.detail_error_update_library_failed), isError = true)
+                }
+            } finally {
+                _uiState.update { it.copy(defaultLibraryTogglePending = false) }
+            }
+        }
+    }
+
+    /**
+     * Spec 105 S3b: the page's MDBList state follows the loaded title (key session, watchlist, pause). Membership is read
+     * once per session (each working key: connect, reconnect or a key replaced in place); a new session drops what the
+     * old one knew ([DetailMdbListUi.withLive]).
+     */
+    private fun observeMdbListLists() {
+        viewModelScope.launch {
+            _uiState.map { state -> state.meta?.let { it.id to it.apiType } }
+                .distinctUntilChanged()
+                .flatMapLatest { key ->
+                    val input = _uiState.value.meta?.takeIf { key != null }?.toLibraryEntryInput()
+                    if (input == null) flowOf(null) else detailMdbListLists.observe(input).map { input to it }
+                }
+                .collect { pair ->
+                    val (input, live) = pair ?: (null to DetailMdbListLive())
+                    val newSession = live.session != _uiState.value.mdbList.live.session
+                    _uiState.update { state -> state.copy(mdbList = state.mdbList.withLive(live)) }
+                    if (newSession) {
+                        mdbListMembershipJob?.cancel()
+                        if (live.connected && input != null) loadMdbListMembership(input, live.session)
+                    }
+                }
+        }
+    }
+
+    /**
+     * Spec 105 S4 C1: the line's sources follow the profile's switch, sources and key (the skeleton reserves the line
+     * before the title loads); each title's scores load once (the cache, else one call), and again only after a
+     * failure, when the sources change ([DetailMdbListRatingsUi.loaded]). A failure, the daily pause or no scores leaves the line empty (D1: the facts
+     * line keeps its IMDb then).
+     */
+    private fun observeMdbListRatings() {
+        viewModelScope.launch {
+            combine(
+                detailMdbListRatings.sources(),
+                _uiState.map { state -> state.meta?.let { it.id to it.apiType } }.distinctUntilChanged()
+            ) { sources, titleKey -> sources to titleKey }
+                .collectLatest { (sources, titleKey) ->
+                    _uiState.update { it.copy(mdbListRatings = it.mdbListRatings.withSources(sources, titleKey)) }
+                    if (sources.isEmpty() || titleKey == null || _uiState.value.mdbListRatings.loaded) return@collectLatest
+                    val scores = try {
+                        detailMdbListRatings.scores(titleKey.first, titleKey.second)
+                    } catch (error: Exception) {
+                        if (error is CancellationException) throw error
+                        Log.w(TAG, "MDBList ratings unavailable: ${error.javaClass.simpleName}")
+                        return@collectLatest
+                    }
+                    _uiState.update { it.copy(mdbListRatings = it.mdbListRatings.withScores(titleKey, scores)) }
+                }
+        }
+    }
+
+    private var mdbListMembershipJob: Job? = null
+    private var mdbListPanelOpening = false
+
+    private fun loadMdbListMembership(input: LibraryEntryInput, session: Long) {
+        mdbListMembershipJob = viewModelScope.launch {
+            val membership = try {
+                detailMdbListLists.membership(input)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                Log.w(TAG, "MDBList membership unavailable: ${error.javaClass.simpleName}")
+                return@launch
+            }
+            _uiState.update { it.copy(mdbList = it.mdbList.withLoadedMembership(session, membership)) }
+        }
+    }
+
+    /**
+     * C3: opens on the lists and the title's membership; either missing = D22's toast, no panel. The page's own
+     * membership read is awaited first, so an open never sends a second one while it runs.
+     */
+    private fun openMdbListPanel() {
+        val meta = _uiState.value.meta ?: return
+        val session = _uiState.value.mdbList.live.session
+        if (mdbListPanelOpening || _uiState.value.mdbList.panel != null || session == 0L) return
+        mdbListPanelOpening = true
+        val input = meta.toLibraryEntryInput()
+        viewModelScope.launch {
+            try {
+                mdbListMembershipJob?.join()
+                if (_uiState.value.mdbList.membership == null) {
+                    val membership = detailMdbListLists.membership(input)
+                    _uiState.update { it.copy(mdbList = it.mdbList.withLoadedMembership(session, membership)) }
+                }
+                val lists = detailMdbListLists.panelLists(input)
+                val panel = MdbListPanelUi(lists, detailMdbListLists.watchlistIsLibrary())
+                _uiState.update { state ->
+                    val mdbList = state.mdbList
+                    if (mdbList.live.session != session || mdbList.membership == null) state
+                    else state.copy(mdbList = mdbList.copy(panel = panel))
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                Log.w(TAG, "MDBList lists unavailable: ${error.javaClass.simpleName}")
+                showMessage(localizedContext.getString(R.string.detail_mdblist_load_failed), isError = true)
+            } finally {
+                mdbListPanelOpening = false
+            }
+        }
+    }
+
+    /**
+     * C3's OK on a row: one write; the check flips when MDBList confirms (the watchlist through S3a's view, a list here,
+     * with its count). Paused (D5) or already running: nothing. A failure keeps the check and names the list.
+     */
+    private fun toggleMdbListRow(rowId: Long) {
+        val meta = _uiState.value.meta ?: return
+        val state = _uiState.value.mdbList
+        val panel = state.panel ?: return
+        if (rowId in state.pending || state.isPaused(System.currentTimeMillis())) return
+        val watchlist = rowId == MDBLIST_WATCHLIST_ROW
+        val name = if (watchlist) localizedContext.getString(R.string.detail_mdblist_watchlist)
+            else panel.lists.firstOrNull { it.id == rowId }?.name ?: return
+        val membership = state.membership ?: return
+        val on = if (watchlist) !state.live.onWatchlist else rowId !in membership
+        val input = meta.toLibraryEntryInput()
+        val session = state.live.session
+        _uiState.update { it.copy(mdbList = it.mdbList.copy(pending = it.mdbList.pending + rowId)) }
+        viewModelScope.launch {
+            try {
+                if (watchlist) {
+                    detailMdbListLists.setOnWatchlist(input, on)
+                } else {
+                    detailMdbListLists.setOnList(rowId, input, on)
+                    _uiState.update { it.copy(mdbList = it.mdbList.withListChange(session, rowId, on)) }
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                Log.w(TAG, "MDBList list write failed: ${error.javaClass.simpleName}")
+                showMessage(localizedContext.getString(R.string.detail_mdblist_update_failed, name), isError = true)
+            } finally {
+                _uiState.update { it.copy(mdbList = it.mdbList.copy(pending = it.mdbList.pending - rowId)) }
+            }
+        }
+    }
+
+    // Long-press list picker: the app's own library is its only row (with Simkl as the source, Simkl's picker, D2).
     private fun openListPicker() {
         val meta = _uiState.value.meta ?: return
         viewModelScope.launch {
+            if (detailSimklLists.isLibrarySource()) {
+                // As OK does: no picker while a Simkl write is still out (its pick would be dropped).
+                if (!_uiState.value.defaultLibraryTogglePending) openSimklPicker(meta)
+                return@launch
+            }
             _uiState.update { it.copy(pickerPending = true, pickerError = null) }
             runCatching {
                 val input = meta.toLibraryEntryInput()
@@ -1938,7 +2275,7 @@ class MetaDetailsViewModel @Inject constructor(
             _uiState.update { it.copy(isMovieWatchedPending = true) }
             runCatching {
                 if (_uiState.value.isMovieWatched) {
-                    watchProgressRepository.removeFromHistory(_effectiveContentId.value)
+                    watchProgressRepository.removeFromHistory(_effectiveContentId.value, contentType = "movie")
                     showMessage(localizedContext.getString(R.string.detail_movie_marked_unwatched))
                 } else {
                     watchProgressRepository.markAsCompleted(buildCompletedMovieProgress(meta))
@@ -1972,7 +2309,15 @@ class MetaDetailsViewModel @Inject constructor(
             runCatching {
                 if (isWatched) {
                     _optimisticUnmarks += season to episode
-                    watchProgressRepository.removeFromHistory(_effectiveContentId.value, season = season, episode = episode)
+                    // The video id and type this screen marks with (buildCompletedEpisodeProgress): trackers use them when no stored
+                    // progress names the episode (Spec 106 S5b).
+                    watchProgressRepository.removeFromHistory(
+                        _effectiveContentId.value,
+                        season = season,
+                        episode = episode,
+                        contentType = meta.apiType,
+                        videoId = video.id
+                    )
                     showMessage(localizedContext.getString(R.string.detail_episode_marked_unwatched))
                 } else {
                     _optimisticUnmarks -= season to episode
@@ -2103,7 +2448,9 @@ class MetaDetailsViewModel @Inject constructor(
             } else {
                 watchProgressRepository.removeFromHistoryBatch(
                     contentId = _effectiveContentId.value,
-                    episodes = episodeKeys
+                    episodes = episodeKeys,
+                    videoIds = targets.associate { (it.season!! to it.episode!!) to it.id },
+                    contentType = meta.apiType
                 )
             }
         }.onFailure { error ->

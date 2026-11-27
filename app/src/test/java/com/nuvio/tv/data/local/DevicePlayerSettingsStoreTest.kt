@@ -298,6 +298,7 @@ class DevicePlayerSettingsStoreTest {
         call("setSubtitleSize") { setSubtitleSize(130) }
         call("setSubtitleVerticalOffset") { setSubtitleVerticalOffset(8) }
         call("setSubtitleBold") { setSubtitleBold(true) }
+        call("setSubtitleFont") { setSubtitleFont("font-1", "Montserrat Medium") }
         call("setSubtitleTextColor") { setSubtitleTextColor(1) }
         call("setSubtitleBackgroundColor") { setSubtitleBackgroundColor(2) }
         call("setSubtitleEdgeStyle") { setSubtitleEdgeStyle(SubtitleEdgeStyle.DROP_SHADOW) }
@@ -310,6 +311,7 @@ class DevicePlayerSettingsStoreTest {
         call("setUseForcedSubtitles") { setUseForcedSubtitles(true) }
         call("setSubtitleShowOnlyPreferredLanguages") { setSubtitleShowOnlyPreferredLanguages(true) }
         call("setSubtitleStripSdh") { setSubtitleStripSdh(true) }
+        call("setSubtitleAutoSyncEnabled") { setSubtitleAutoSyncEnabled(true) }
         call("setLastPlaybackDiagnostics") { setLastPlaybackDiagnostics(LastPlaybackDiagnostics.EMPTY) }
 
         // Drift guard: a new public writer must join this test (and pick its store).

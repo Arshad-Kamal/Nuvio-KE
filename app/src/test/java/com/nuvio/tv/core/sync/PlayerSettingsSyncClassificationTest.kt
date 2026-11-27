@@ -57,6 +57,7 @@ class PlayerSettingsSyncClassificationTest {
         "stream_reuse_last_link_cache_hours",
         "stream_reuse_last_link_enabled",
         "subtitle_background_color",
+        "subtitle_auto_sync_enabled",
         "subtitle_bold",
         "subtitle_edge_style",
         "subtitle_hdr_brightness_percent",
@@ -110,15 +111,17 @@ class PlayerSettingsSyncClassificationTest {
 
     /**
      * Spec 33 D1: the live local-only keys are exactly the device-wide set, except the per-profile
-     * diagnostics (tokenised URL, wiped on sign-out); every device key is declared and local-only.
+     * diagnostics (tokenised URL, wiped on sign-out) and subtitle font choice (Spec 132: a file on
+     * this TV); every device key is declared and local-only.
      */
     @Test
-    fun `device keys are exactly the live local-only keys minus diagnostics`() {
+    fun `device keys are exactly the live local-only keys minus the per-profile ones`() {
         val declared = declaredKeyNames()
         val liveLocal = declared.filter {
             isLocalOnlyProfileSetting("player_settings", it) && !it.startsWith("migration_")
         }.toSet()
-        assertEquals(liveLocal - "last_playback_diagnostics_json", DEVICE_PLAYER_KEYS)
-        assertTrue("last_playback_diagnostics_json" in declared)
+        val profileLocal = setOf("last_playback_diagnostics_json", "subtitle_font_id", "subtitle_font_name")
+        assertEquals(liveLocal - profileLocal, DEVICE_PLAYER_KEYS)
+        assertTrue(declared.containsAll(profileLocal))
     }
 }

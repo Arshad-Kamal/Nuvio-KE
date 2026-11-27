@@ -64,7 +64,9 @@ data class AppExtrasDto(
     @SerialName("directors") val directors: List<AppExtrasCastMemberDto>? = null,
     @SerialName("writers") val writers: List<AppExtrasCastMemberDto>? = null,
     @SerialName("releaseDates") val releaseDates: MetaReleaseDatesEnvelopeDto? = null,
-    @SerialName("certification") val certification: String? = null
+    @SerialName("certification") val certification: String? = null,
+    /** Country -> code (Spec 102); any shape, read by [readCertifications] so an odd one never fails the meta. */
+    @SerialName("certifications") val certifications: JsonElement? = null
 )
 
 @Serializable

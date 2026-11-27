@@ -8,6 +8,7 @@ plugins {
 }
 
 import java.io.File
+import java.net.URI
 import java.util.Properties
 
 fun parseBooleanProperty(value: String?): Boolean {
@@ -104,8 +105,8 @@ android {
         applicationId = "com.nuvio.tv.ke"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1442
-        versionName = "1.2.2"
+        versionCode = 1475
+        versionName = "1.3.0"
         resValue("string", "app_name", "Nuvio KE")
         // JUnit4 instrumented tests (Spec 55 C5: StripListRowFocusTest); AGP sets no runner by default.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -121,6 +122,20 @@ android {
         buildConfigField("String", "UPDATE_OWNER", buildConfigString(localProperties.getProperty("UPDATE_OWNER").takeUnless { it.isNullOrBlank() } ?: "Arshad-Kamal"))
         buildConfigField("String", "UPDATE_REPO", buildConfigString(localProperties.getProperty("UPDATE_REPO").takeUnless { it.isNullOrBlank() } ?: "Nuvio-KE"))
         buildConfigField("String", "TV_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("TV_LOGIN_WEB_BASE_URL", "https://nuvio.tv/tv-login")}\"")
+        // Spec 116 D2: the report Worker's origin; empty = no Send a report row (a fork built from
+        // the public source never posts to Arshad's bucket). The value is public by design (guard.py
+        // PUBLIC_ENDPOINT_KEYS); only https is accepted.
+        val reportUrl = localProperties.getProperty("REPORT_URL", "").trim()
+        if (reportUrl.isNotEmpty()) {
+            // An origin only: no userinfo, query or fragment (nothing secret can ride it into the APK).
+            val uri = runCatching { URI(reportUrl) }.getOrNull()
+            if (uri == null || uri.scheme != "https" || uri.host.isNullOrEmpty() || uri.rawUserInfo != null ||
+                uri.rawQuery != null || uri.rawFragment != null || (uri.rawPath ?: "").trimEnd('/').isNotEmpty()
+            ) {
+                throw GradleException("REPORT_URL in local.properties must be an https:// origin such as https://host (or empty)")
+            }
+        }
+        buildConfigField("String", "REPORT_URL", buildConfigString(reportUrl))
         buildConfigField("boolean", "DOVI_NATIVE_ENABLED", enableDoviNative.toString())
         buildConfigField("boolean", "DOVI_EXTRACTOR_HOOK_READY", doviExtractorHookReady.toString())
         buildConfigField("boolean", "DV_MKV_NATIVE_PIPELINE", dvMkvNativePipeline.toString())
@@ -298,6 +313,25 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+}
+
+// Spec 109 D26 (Arshad, escalation ef0f692f): unit tests marked LargeHeap (XtreamSourceTest's two 32 MiB+
+// accounts) run in their own test JVM, after the main one and never beside it, each on the default heap: the
+// full suite's one JVM ran out of heap on them. The main task skips them; its finalizer runs them, and a
+// failure there fails the build, so `testFullDebugUnitTest` still gates them.
+val largeHeapCategory = "com.nuvio.tv.livetv.source.LargeHeap"
+val largeHeapTests = tasks.register<Test>("testFullDebugLargeHeapUnitTest") {
+    description = "Runs the fullDebug unit tests marked LargeHeap in their own JVM (Spec 109 D26)."
+    group = "verification"
+    val main = tasks.named<Test>("testFullDebugUnitTest").get()
+    testClassesDirs = main.testClassesDirs
+    classpath = main.classpath
+    // Every class: a LargeHeap test anywhere runs here, as the main task skips it everywhere.
+    useJUnit { includeCategories(largeHeapCategory) }
+}
+tasks.withType<Test>().matching { it.name == "testFullDebugUnitTest" }.configureEach {
+    useJUnit { excludeCategories(largeHeapCategory) }
+    finalizedBy(largeHeapTests)
 }
 
 

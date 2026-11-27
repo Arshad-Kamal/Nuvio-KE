@@ -1,5 +1,7 @@
 package com.nuvio.tv.livetv.parse
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,5 +78,38 @@ class XtreamUrlsTest {
             "http://xt.example/p/1003.ts",
             "udp://239.0.0.1:1234"
         ).forEach { assertFalse(it, XtreamUrls.isLive(it)) }
+    }
+
+    /** Spec 78's isVod as it was, its file check a Regex (Spec 137 D9 replaced it with a char scan). */
+    private fun regexIsVod(url: String): Boolean {
+        if (!url.contains("/movie/") && !url.contains("/series/")) return false
+        val segments = url.toHttpUrlOrNull()?.pathSegments ?: return false
+        return segments.size == 4 && segments[0].let { it == "movie" || it == "series" } &&
+            segments[1].isNotBlank() && segments[2].isNotBlank() && Regex("""\d+(\.[A-Za-z0-9]+)?""").matches(segments[3])
+    }
+
+    @Test
+    fun `isVod accepts exactly what the old regex accepted (Spec 137 D9)`() {
+        val files = listOf(
+            "12", "0", "12.mkv", "12.MP4", "12.m3u8", "12.ts", "12.", ".mkv", "12.mk-v", "12.mkv.bak", "12..mkv",
+            "a12", "12a", "12.mkv ", " 12", "12%20", "1%2E2", "12.%E2%80%8B", "%D9%A1%D9%A2", "", "12;x", "12.a_b"
+        )
+        val urls = files.flatMap { file ->
+            listOf(
+                "http://xt.example:8080/movie/u/p/$file",
+                "https://xt.example/series/u/p/$file?token=t",
+                "http://xt.example/series/u/p/$file#frag"
+            )
+        } + listOf(
+            XtreamFixtures.MOVIE, XtreamFixtures.SERIES, XtreamFixtures.LIVE_TS, XtreamFixtures.LIVE_M3U8,
+            XtreamFixtures.LIVE_BARE, XtreamFixtures.LIVE_BARE_LIVE_PREFIX,
+            "http://xt.example/movie/u/p/12/", "http://xt.example/movie/u/p", "http://xt.example/movie//p/12.mkv",
+            "http://xt.example/movie/%20/p/12.mkv", "http://xt.example/MOVIE/u/p/12.mkv", "http://xt.example/live/movie/p/12",
+            "http://xt.example/movie/u/p/./12.mkv", "http://xt.example/movie/u/p/../12.mkv", "http://xt.example\\movie\\u\\p\\12.mkv",
+            "http://u:pw@xt.example/movie/u/p/12.mkv", "rtmp://xt.example/movie/u/p/12.mp4", "movie/u/p/12.mkv",
+            "not a url /movie/u/p/1.mkv", "http:///movie/u/p/12.mkv", "http://[::1]/series/u/p/7"
+        )
+        urls.forEach { assertEquals(it, regexIsVod(it), XtreamUrls.isVod(it)) }
+        assertTrue(urls.count(XtreamUrls::isVod) > 20)
     }
 }

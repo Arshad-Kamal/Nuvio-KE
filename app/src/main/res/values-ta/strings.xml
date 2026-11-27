@@ -594,7 +594,7 @@
     <string name="settings_p2p_title">பீடூபீ ஸ்ட்ரீமிங்</string>
     <string name="settings_p2p_subtitle">பியர்-டு-பியர் (டோரண்ட்) ஸ்ட்ரீம்களை அனுமதி</string>
     <string name="settings_p2p_hide_stats_title">டோரண்ட் புள்ளிவிவரங்களை மறை</string>
-    <string name="settings_p2p_hide_stats_subtitle">ஏற்றுதல் மற்றும் இயக்கத்தின் போது பஃபர், சீட்ஸ், பியர்ஸ் மற்றும் பதிவிறக்க வேகத்தை மறை</string>
+    <string name="settings_p2p_hide_stats_subtitle">இயக்கத்தின் போது பஃபர், சீட்ஸ், பியர்ஸ் மற்றும் பதிவிறக்க வேகத்தை மறை</string>
     <string name="stream_filter_all">அனைத்தும்</string>
 
     <!-- PlayerScreen -->

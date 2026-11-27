@@ -684,7 +684,7 @@
     <string name="settings_p2p_title">Fonte P2P</string>
     <string name="settings_p2p_subtitle">Permitir Fonte peer-to-peer (torrent)</string>
     <string name="settings_p2p_hide_stats_title">Ocultar estatísticas do torrent</string>
-    <string name="settings_p2p_hide_stats_subtitle">Ocultar buffer, seeds, peers e velocidade de download durante o carregamento e reprodução</string>
+    <string name="settings_p2p_hide_stats_subtitle">Ocultar buffer, seeds, peers e velocidade de download durante a reprodução</string>
     <string name="stream_filter_all">Tudo</string>
     <string name="stream_episode_label">T%1$d:E%2$d</string>
     

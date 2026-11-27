@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +23,12 @@ class PlaybackActivity internal constructor(sessionOpen: Flow<Boolean>) {
     constructor() : this(PlayerSessionTracker.isSessionOpen)
 
     private val livePlayers = MutableStateFlow<Set<Any>>(emptySet())
+
+    /**
+     * Spec 147 D1 (R4-5): emits when the main player opens (once per closed-to-open change, and at once
+     * if it is open when collected). A [LivePlayer] frees its idle ExoPlayer then.
+     */
+    val mainPlayerOpened: Flow<Unit> = sessionOpen.distinctUntilChanged().filter { it }.map { }
 
     val playing: Flow<Boolean> =
         combine(sessionOpen, livePlayers) { open, live -> open || live.isNotEmpty() }.distinctUntilChanged()

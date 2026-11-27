@@ -12,6 +12,7 @@ import com.nuvio.tv.data.remote.api.TmdbDiscoverResult
 import com.nuvio.tv.data.remote.api.TmdbListItem
 import com.nuvio.tv.data.remote.api.TmdbPersonCreditCast
 import com.nuvio.tv.data.remote.api.TmdbPersonCreditCrew
+import com.nuvio.tv.data.repository.CatalogContentFilter
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
@@ -43,7 +44,8 @@ class TmdbCollectionSourceResolver @Inject constructor(
     private val tmdbApi: TmdbApi,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
     private val apiKeys: TmdbApiKeySource,
-    private val activeRatingCap: ActiveRatingCap
+    private val activeRatingCap: ActiveRatingCap,
+    private val contentFilter: CatalogContentFilter
 ) {
     private fun string(resId: Int): String = appContext.getString(resId)
 
@@ -67,7 +69,7 @@ class TmdbCollectionSourceResolver @Inject constructor(
         val row = try {
             withContext(Dispatchers.IO) {
                 val language = tmdbSettingsDataStore.settings.first().language
-                when (source.sourceType) {
+                suspend fun fetch(page: Int): CatalogRow = when (source.sourceType) {
                     TmdbCollectionSourceType.LIST -> resolveList(source, language, page)
                     TmdbCollectionSourceType.COLLECTION -> resolveCollection(source, language)
                     TmdbCollectionSourceType.PERSON,
@@ -75,6 +77,23 @@ class TmdbCollectionSourceResolver @Inject constructor(
                     TmdbCollectionSourceType.COMPANY,
                     TmdbCollectionSourceType.NETWORK,
                     TmdbCollectionSourceType.DISCOVER -> resolveDiscover(source, language, page)
+                }
+                // Spec 117 P6: the content filter's one-shot gate (P5); a broken pack file throws
+                // into the Error below, never an unfiltered row.
+                val gate = contentFilter.open()
+                val fetched = fetch(page)
+                when {
+                    gate == null -> fetched
+                    page > 1 -> {
+                        val (shownPage, items) = gate.showLoadMore(
+                            first = fetched,
+                            itemsOf = CatalogRow::items,
+                            hasMore = CatalogRow::hasMore,
+                            fetchNext = { fetch(it.currentPage + 1) }
+                        )
+                        shownPage.copy(items = items)
+                    }
+                    else -> fetched.copy(items = gate.applyAll(listOf(fetched.items)).single())
                 }
             }
         } catch (e: CancellationException) {
@@ -188,7 +207,8 @@ class TmdbCollectionSourceResolver @Inject constructor(
                 tmdbPreview(
                     id = it.id, type = ContentType.MOVIE, title = title,
                     posterPath = it.posterPath, backdropPath = it.backdropPath, overview = it.overview,
-                    date = it.releaseDate, voteAverage = it.voteAverage, voteCount = it.voteCount
+                    date = it.releaseDate, voteAverage = it.voteAverage, voteCount = it.voteCount,
+                    genreIds = it.genreIds, adult = it.adult
                 )
             }
             .sortedFor(source.sortBy)
@@ -353,7 +373,8 @@ class TmdbCollectionSourceResolver @Inject constructor(
         return tmdbPreview(
             id = id, type = contentType, title = title,
             posterPath = posterPath, backdropPath = backdropPath, overview = overview,
-            date = releaseDate ?: firstAirDate, voteAverage = voteAverage, voteCount = voteCount
+            date = releaseDate ?: firstAirDate, voteAverage = voteAverage, voteCount = voteCount,
+            genreIds = genreIds, adult = adult
         )
     }
 
@@ -367,7 +388,7 @@ class TmdbCollectionSourceResolver @Inject constructor(
             id = id, type = mediaType.contentType(), title = title,
             posterPath = posterPath, backdropPath = backdropPath, overview = overview,
             date = if (mediaType == TmdbCollectionMediaType.TV) firstAirDate else releaseDate,
-            voteAverage = voteAverage, voteCount = voteCount
+            voteAverage = voteAverage, voteCount = voteCount, genreIds = genreIds, adult = adult
         )
     }
 
@@ -380,7 +401,7 @@ class TmdbCollectionSourceResolver @Inject constructor(
             id = id, type = mediaType.contentType(), title = title,
             posterPath = posterPath, backdropPath = backdropPath, overview = overview,
             date = if (mediaType == TmdbCollectionMediaType.TV) firstAirDate else releaseDate,
-            voteAverage = voteAverage, voteCount = voteCount
+            voteAverage = voteAverage, voteCount = voteCount, genreIds = genreIds, adult = adult
         )
     }
 
@@ -393,7 +414,7 @@ class TmdbCollectionSourceResolver @Inject constructor(
             id = id, type = mediaType.contentType(), title = title,
             posterPath = posterPath, backdropPath = backdropPath, overview = overview,
             date = if (mediaType == TmdbCollectionMediaType.TV) firstAirDate else releaseDate,
-            voteAverage = voteAverage, voteCount = voteCount
+            voteAverage = voteAverage, voteCount = voteCount, genreIds = genreIds, adult = adult
         )
     }
 
@@ -410,7 +431,9 @@ class TmdbCollectionSourceResolver @Inject constructor(
         overview: String?,
         date: String?,
         voteAverage: Double?,
-        voteCount: Int?
+        voteCount: Int?,
+        genreIds: List<Int>?,
+        adult: Boolean?
     ): MetaPreview = MetaPreview(
         id = "tmdb:$id",
         type = type,
@@ -426,7 +449,9 @@ class TmdbCollectionSourceResolver @Inject constructor(
         imdbRating = null,
         tmdbRating = voteAverage?.toFloat(),
         voteCount = voteCount,
-        genres = emptyList()
+        genres = emptyList(),
+        tmdbGenreIds = genreIds.orEmpty(),
+        tmdbAdult = adult == true
     )
 
     private fun matchesMediaType(expected: TmdbCollectionMediaType, actual: String?): Boolean {

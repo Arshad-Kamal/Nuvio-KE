@@ -30,9 +30,17 @@ class SourceStore internal constructor(dir: File, private val io: CoroutineDispa
     @Inject
     constructor(@ApplicationContext context: Context) : this(File(context.filesDir, "livetv"), Dispatchers.IO)
 
-    private val file = JsonFile(File(dir, "sources.json"), SourceList.serializer())
+    private val path = File(dir, "sources.json")
+    private val file = JsonFile(path, SourceList.serializer())
     private val mutex = Mutex()
     private var loaded = false
+
+    /**
+     * True when `sources.json` existed at load but could not be read, so the list reads as empty
+     * until a write replaces the file; false once loaded otherwise or written.
+     */
+    @Volatile var unreadable = false
+        private set
 
     private val _sources = MutableStateFlow<List<LiveSource>>(emptyList())
     val sources: StateFlow<List<LiveSource>> = _sources.asStateFlow()
@@ -67,12 +75,15 @@ class SourceStore internal constructor(dir: File, private val io: CoroutineDispa
 
     private fun write(updated: List<LiveSource>) {
         file.write(SourceList(sources = updated))
+        unreadable = false
         _sources.value = updated
     }
 
     private fun ensureLoaded() {
         if (loaded) return
-        _sources.value = file.read()?.sources.orEmpty()
+        val list = file.read()
+        unreadable = list == null && path.exists()
+        _sources.value = list?.sources.orEmpty()
         loaded = true
     }
 }

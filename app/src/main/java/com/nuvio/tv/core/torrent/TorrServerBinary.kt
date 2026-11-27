@@ -11,6 +11,10 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,11 +30,47 @@ class TorrServerBinary @Inject constructor(
 ) {
     companion object {
         private const val TAG = "TorrServerBinary"
+        const val HOST = "127.0.0.1"
+        /** The port TorrServer is started on when it is free; [serverPort] is the one in use. */
         const val PORT = 8091
         private const val STARTUP_TIMEOUT_MS = 15_000L
         private const val HEALTH_CHECK_INTERVAL_MS = 200L
         private const val STOP_GRACE_MS = 3_000L
+
+        /**
+         * Spec 148: [preferred] when TorrServer can listen on it at [HOST] (another app holding it
+         * there or on all interfaces aborts TorrServer; one holding only the LAN address does not),
+         * else a free port from the OS. Probed and released before TorrServer binds: a port taken
+         * in between still fails that start as before.
+         */
+        internal fun pickPort(preferred: Int): Int =
+            if (canListen(preferred)) preferred else listenOnLoopback(0) { it.localPort }
+
+        private fun canListen(port: Int): Boolean = try {
+            listenOnLoopback(port) { }
+            true
+        } catch (_: IOException) {
+            false
+        }
+
+        // Bound as TorrServer's own check and listener (--ip HOST: net.Listen("tcp", HOST:port),
+        // SO_REUSEADDR set by Go).
+        private inline fun <T> listenOnLoopback(port: Int, use: (ServerSocket) -> T): T =
+            ServerSocket().use {
+                it.reuseAddress = true
+                it.bind(InetSocketAddress(InetAddress.getByName(HOST), port))
+                use(it)
+            }
     }
+
+    // Spec 148: the port of the TorrServer this app started last; set by start() (serialized by
+    // TorrentService's start mutex), read by every request. Kept after stop() so the next start
+    // finds a server still answering there.
+    @Volatile
+    private var port: Int = PORT
+
+    /** The port TorrServer listens on: [PORT], or a free port when [PORT] was taken at start. */
+    val serverPort: Int get() = port
 
     // Written by start()/stop() on different IO threads.
     @Volatile
@@ -51,7 +91,7 @@ class TorrServerBinary @Inject constructor(
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    val baseUrl: String get() = "http://127.0.0.1:$PORT"
+    val baseUrl: String get() = "http://$HOST:$port"
 
     private val binaryFile: File
         get() = File(context.applicationInfo.nativeLibraryDir, "libtorrserver.so")
@@ -62,10 +102,16 @@ class TorrServerBinary @Inject constructor(
     val isBinaryAvailable: Boolean
         get() = binaryFile.exists()
 
+    /**
+     * TorrServer answers /echo with its version ("MatriX.141"); Spec 148: requiring it keeps another
+     * app's HTTP server on the port from passing as ours.
+     */
     fun isRunning(): Boolean {
         return try {
             val request = Request.Builder().url("$baseUrl/echo").build()
-            healthClient.newCall(request).execute().use { it.isSuccessful }
+            healthClient.newCall(request).execute().use {
+                it.isSuccessful && it.body.string().startsWith("MatriX")
+            }
         } catch (e: Exception) {
             false
         }
@@ -89,15 +135,22 @@ class TorrServerBinary @Inject constructor(
             binaryFile.setExecutable(true)
         }
 
+        // Spec 148 (F26): on the Shield another app holds 8091 after a reboot.
+        val chosen = pickPort(PORT)
+        if (chosen != PORT) Log.w(TAG, "Port $PORT in use; starting TorrServer on $chosen")
+        port = chosen
+
         val pb = ProcessBuilder(
             binaryFile.absolutePath,
-            "--port", PORT.toString(),
+            // Spec 148 D2: loopback only; nothing off the device uses TorrServer.
+            "--ip", HOST,
+            "--port", chosen.toString(),
             "--path", configDir.absolutePath
         )
         pb.directory(configDir)
         pb.redirectErrorStream(true)
 
-        Log.d(TAG, "Starting TorrServer on port $PORT from ${binaryFile.absolutePath}")
+        Log.d(TAG, "Starting TorrServer on port $chosen from ${binaryFile.absolutePath}")
         val proc = pb.start()
         process = proc
 

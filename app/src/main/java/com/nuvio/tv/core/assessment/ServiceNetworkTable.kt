@@ -186,7 +186,7 @@ fun choose(table: ServiceTable, filmMbps: Double?, saved: PlaybackConfig, limits
     val floorMb = fitFloorMb(limits, film)
     val fitting = table.rows.mapNotNull { row ->
         val piped = saved.withRow(row, table.http2)
-        val roomMb = MemoryBudget.maxSafeTargetMb(limits.safeMb, piped.parallelOverheadMb)
+        val roomMb = MemoryBudget.maxSafeTargetMb(limits.safeMb, piped.parallelOverheadMb, limits.tierMaxTargetMb)
         val wanted = piped.copy(targetBufferMb = minOf(saved.targetBufferMb, maxOf(floorMb, roomMb)))
         val fitted = fitPlaybackConfig(wanted, limits, film)
         val kept = !row.parallel ||

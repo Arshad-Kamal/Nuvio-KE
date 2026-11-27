@@ -415,6 +415,7 @@ fun NuvioNavHost(
                 optionalStringArg("contentLanguage"),
                 optionalStringArg("subtitles"),
                 optionalStringArg("releaseVideo", default = "false"),
+                optionalStringArg("handPicked", default = "false"),
                 optionalStringArg("launchStartedAtMs"),
                 optionalStringArg("sourcesFoundMs")
             )
@@ -1049,7 +1050,8 @@ private fun StreamPlaybackInfo.toPlayerRoute(
             contentLanguage = contentLanguage,
             subtitles = subtitles,
             launchStartedAtMs = launchStartedAtMs ?: SystemClock.elapsedRealtime(),
-            sourcesFoundMs = sourcesFoundMs
+            sourcesFoundMs = sourcesFoundMs,
+            handPicked = handPicked
         )
     }
 }

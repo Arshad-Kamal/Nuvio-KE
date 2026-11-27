@@ -155,6 +155,13 @@ data class SubtitleStyleSettings(
     val size: Int = DEFAULT_SIZE, // Percentage (50-200)
     val verticalOffset: Int = 5, // Percentage from bottom (-20 to 50)
     val bold: Boolean = false,
+    /**
+     * Spec 132: the chosen [UserSubtitleFont.id], or null for Default. Per profile but local to this
+     * TV (the files are); an id whose file is gone draws Default.
+     */
+    val fontId: String? = null,
+    /** The chosen font's family when picked, so the Font row can name it after its file is gone. */
+    val fontName: String? = null,
     val textColor: Int = Color.White.toArgb(),
     val backgroundColor: Int = Color.Transparent.toArgb(),
     val edgeStyle: SubtitleEdgeStyle = SubtitleEdgeStyle.OUTLINE,
@@ -406,6 +413,9 @@ data class PlayerSettings(
     // since Spec 31 S2, so it keeps its stored or default value.
     val externalPlayerSendSkipSegments: Boolean = false,
     val addonSubtitlesEnabled: Boolean = false,
+    // Spec 108: AutoSync retimes the selected addon subtitle; on by default (D10), a stored value
+    // wins, and it only acts while addonSubtitlesEnabled is on.
+    val subtitleAutoSyncEnabled: Boolean = true,
 
     // Networking
     val bufferEngineEnabled: Boolean = false,
@@ -628,7 +638,7 @@ class PlayerSettingsDataStore @Inject constructor(
         private const val CENTER_MIX_LEVEL_DB_MAX = 30
     }
 
-    /** Profile-scoped keys (synced ones and last_playback_diagnostics_json). */
+    /** Profile-scoped keys (synced ones, last_playback_diagnostics_json and subtitle_font_id / _name). */
     private fun store(profileId: Int = profileManager.activeProfileId.value) =
         factory.get(profileId, FEATURE)
 
@@ -720,6 +730,7 @@ class PlayerSettingsDataStore @Inject constructor(
     // untouched (never read or rewritten). Don't reuse.
     private val externalPlayerSendSkipSegmentsKey = booleanPreferencesKey("external_player_send_skip_segments")
     private val addonSubtitlesEnabledKey = booleanPreferencesKey("addon_subtitles_enabled")
+    private val subtitleAutoSyncEnabledKey = booleanPreferencesKey("subtitle_auto_sync_enabled")
 
     // Network Keys
     // Retired 2026-10-06 (VOD disk cache cut; it never activated): vod_cache_enabled,
@@ -752,6 +763,8 @@ class PlayerSettingsDataStore @Inject constructor(
     private val subtitleSizeKey = intPreferencesKey("subtitle_size")
     private val subtitleVerticalOffsetKey = intPreferencesKey("subtitle_vertical_offset")
     private val subtitleBoldKey = booleanPreferencesKey("subtitle_bold")
+    private val subtitleFontIdKey = stringPreferencesKey("subtitle_font_id")
+    private val subtitleFontNameKey = stringPreferencesKey("subtitle_font_name")
     private val subtitleTextColorKey = intPreferencesKey("subtitle_text_color")
     private val subtitleBackgroundColorKey = intPreferencesKey("subtitle_background_color")
     // Pre-edge-style toggle: read as the fallback for subtitleEdgeStyleKey, written in step with it.
@@ -991,6 +1004,7 @@ class PlayerSettingsDataStore @Inject constructor(
                 streamReuseLastLinkCacheHours = (prefs[streamReuseLastLinkCacheHoursKey] ?: 24).coerceIn(1, 168),
                 externalPlayerSendSkipSegments = prefs[externalPlayerSendSkipSegmentsKey] ?: false,
                 addonSubtitlesEnabled = prefs[addonSubtitlesEnabledKey] ?: false,
+                subtitleAutoSyncEnabled = prefs[subtitleAutoSyncEnabledKey] ?: true,
                 useParallelConnections = prefs[useParallelConnectionsKey] ?: PlayerSettings.DEFAULT_USE_PARALLEL_CONNECTIONS,
                 bufferEngineEnabled = prefs[bufferEngineEnabledKey] ?: false,
                 parallelNetworkEnabled = prefs[parallelNetworkEnabledKey] ?: false,
@@ -1033,6 +1047,8 @@ class PlayerSettingsDataStore @Inject constructor(
                     size = prefs[subtitleSizeKey] ?: SubtitleStyleSettings.DEFAULT_SIZE,
                     verticalOffset = prefs[subtitleVerticalOffsetKey] ?: 5,
                     bold = prefs[subtitleBoldKey] ?: false,
+                    fontId = prefs.subtitleFontId(),
+                    fontName = prefs.subtitleFontId()?.let { prefs[subtitleFontNameKey] },
                     textColor = prefs[subtitleTextColorKey] ?: Color.White.toArgb(),
                     backgroundColor = prefs[subtitleBackgroundColorKey] ?: Color.Transparent.toArgb(),
                     edgeStyle = resolveSubtitleEdgeStyle(prefs[subtitleEdgeStyleKey], prefs[subtitleOutlineEnabledKey]),
@@ -1050,7 +1066,10 @@ class PlayerSettingsDataStore @Inject constructor(
                     maxBufferMs = prefs[maxBufferMsKey] ?: BufferSettings.DEFAULT_MAX_BUFFER_MS,
                     bufferForPlaybackMs = prefs[bufferForPlaybackMsKey] ?: BufferSettings.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
                     bufferForPlaybackAfterRebufferMs = prefs[bufferForPlaybackAfterRebufferMsKey] ?: BufferSettings.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
-                    targetBufferSizeMb = prefs[targetBufferSizeMbKey]?.coerceAtLeast(0) ?: BufferSettings.DEFAULT_TARGET_BUFFER_SIZE_MB,
+                    // Spec 147 D4: every reader (player, assessment, displays) sees the RAM tier's ceiling.
+                    targetBufferSizeMb = MemoryBudget.tierCappedTargetMb(
+                        prefs[targetBufferSizeMbKey]?.coerceAtLeast(0) ?: BufferSettings.DEFAULT_TARGET_BUFFER_SIZE_MB
+                    ),
                     backBufferDurationMs = prefs[backBufferDurationMsKey] ?: BufferSettings.DEFAULT_BACK_BUFFER_DURATION_MS,
                     retainBackBufferFromKeyframe = prefs[retainBackBufferFromKeyframeKey] ?: true
                 )
@@ -1455,6 +1474,12 @@ class PlayerSettingsDataStore @Inject constructor(
         }
     }
 
+    suspend fun setSubtitleAutoSyncEnabled(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[subtitleAutoSyncEnabledKey] = enabled
+        }
+    }
+
     private fun parseMpvHardwareDecodeMode(value: String?): MpvHardwareDecodeMode {
         return when (value) { "HARDWARE_COPY" -> MpvHardwareDecodeMode.HARDWARE_COPY; "HARDWARE_DIRECT" -> MpvHardwareDecodeMode.HARDWARE_DIRECT; "DISABLED" -> MpvHardwareDecodeMode.DISABLED; "LEGACY_DIRECT_COPY" -> MpvHardwareDecodeMode.LEGACY_DIRECT_COPY; else -> MpvHardwareDecodeMode.AUTO_SAFE }
     }
@@ -1524,6 +1549,21 @@ class PlayerSettingsDataStore @Inject constructor(
     suspend fun setSubtitleSize(size: Int) { store().edit { it[subtitleSizeKey] = size.coerceIn(50, 200) } }
     suspend fun setSubtitleVerticalOffset(offset: Int) { store().edit { it[subtitleVerticalOffsetKey] = offset.coerceIn(-20, 50) } }
     suspend fun setSubtitleBold(bold: Boolean) { store().edit { it[subtitleBoldKey] = bold } }
+    /** Spec 132: the stored font id; blank reads as none (Default), and then so does its name. */
+    private fun Preferences.subtitleFontId(): String? = this[subtitleFontIdKey]?.takeIf { it.isNotBlank() }
+
+    /** Spec 132: the font [id] and its family [name]; a null (or blank) id is Default and removes both. */
+    suspend fun setSubtitleFont(id: String?, name: String?) {
+        store().edit { prefs ->
+            if (id.isNullOrBlank()) {
+                prefs.remove(subtitleFontIdKey)
+                prefs.remove(subtitleFontNameKey)
+            } else {
+                prefs[subtitleFontIdKey] = id
+                if (name.isNullOrBlank()) prefs.remove(subtitleFontNameKey) else prefs[subtitleFontNameKey] = name
+            }
+        }
+    }
     suspend fun setSubtitleTextColor(color: Int) { store().edit { it[subtitleTextColorKey] = color } }
     suspend fun setSubtitleBackgroundColor(color: Int) { store().edit { it[subtitleBackgroundColorKey] = color } }
     suspend fun setSubtitleEdgeStyle(style: SubtitleEdgeStyle) {

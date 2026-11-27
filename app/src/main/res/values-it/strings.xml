@@ -475,7 +475,7 @@
 <string name="settings_p2p_title">Streaming P2P</string>
 <string name="settings_p2p_subtitle">Consenti flussi peer-to-peer (torrent)</string>
 <string name="settings_p2p_hide_stats_title">Nascondi statistiche torrent</string>
-<string name="settings_p2p_hide_stats_subtitle">Nascondi buffer, seed, peer e velocità di download durante il caricamento e la riproduzione</string>
+<string name="settings_p2p_hide_stats_subtitle">Nascondi buffer, seed, peer e velocità di download durante la riproduzione</string>
 
     <!-- PlayerScreen -->
 <string name="player_no_external_player">Nessun player esterno trovato</string>

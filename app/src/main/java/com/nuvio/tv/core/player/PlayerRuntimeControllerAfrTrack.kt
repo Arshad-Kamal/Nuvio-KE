@@ -175,7 +175,7 @@ internal fun PlayerRuntimeController.maybeRunTrackFormatAfr(rawFps: Float, forma
     scope.launch {
         try {
             withTimeoutOrNull(deadlineMs) {
-                val playerSettings = playerSettingsDataStore.playerSettings.first()
+                val playerSettings = sessionPlayerSettings.first()
                 val snapped = FrameRateUtils.snapToStandardRate(rawFps)
                 val prefer23976TrackBias = rawFps in 23.95f..23.999f
                 val targetFrameRate = FrameRateUtils.refineFrameRateForDisplay(
@@ -207,17 +207,27 @@ internal fun PlayerRuntimeController.maybeRunTrackFormatAfr(rawFps: Float, forma
                 // loading instead of following it. Dimensions come from the
                 // same format used for the switch below, so a later hit
                 // preflights with the size that actually applied.
-                AfrFpsCache.cacheFrameRate(
-                    streamUrl,
-                    streamHeaders,
-                    FrameRateUtils.FrameRateDetection(
-                        raw = rawFps,
-                        snapped = snapped,
-                        videoWidth = format.width.takeIf { it > 0 },
-                        videoHeight = format.height.takeIf { it > 0 }
-                    ),
-                    streamFilename
-                )
+                // Spec 131 D10: not for a stream rejected as a placeholder meanwhile (the clip's rate
+                // under the film's filename would switch every later play of the release), nor once a
+                // new stream started (the failover's switch resets the reject flag before this resumes;
+                // a torrent switch changes the URL at once but bumps the generation only at its init).
+                if (trackAfrMayCache(
+                        startGeneration, afrTrackGeneration, placeholderRejectedForStream,
+                        sameStreamUrl = streamUrl == currentStreamUrl
+                    )
+                ) {
+                    AfrFpsCache.cacheFrameRate(
+                        streamUrl,
+                        streamHeaders,
+                        FrameRateUtils.FrameRateDetection(
+                            raw = rawFps,
+                            snapped = snapped,
+                            videoWidth = format.width.takeIf { it > 0 },
+                            videoHeight = format.height.takeIf { it > 0 }
+                        ),
+                        streamFilename
+                    )
+                }
 
                 // A rebuild since the launch (a recovery rung, the Spec 85 mpv hop) started a new
                 // stream generation: its own start owns the display switch and the settle hold.
@@ -338,6 +348,21 @@ internal fun PlayerRuntimeController.resumePlaybackAfterTrackAfrIfHeld() {
     // Spec 62 H1: a preflight settle hold still running starts playback from its own timer.
     if (afrSettleHoldInFlight) return
     Log.d(PlayerRuntimeController.TAG, "Track AFR: settle complete; starting held playback")
-    player.playWhenReady = true
+    // One play call (Spec 142 D2, F14): from this coroutine Media3 reports onIsPlayingChanged(true)
+    // synchronously, the progress job's first tick runs inside it (Main.immediate) and the runtime
+    // check may pause on its warning; a second play call here would undo that pause.
     player.play()
 }
+
+/**
+ * Spec 131 D10: whether the track-format AFR coroutine started at [startGeneration] may still cache its
+ * detection: the same stream (its URL unchanged, [sameStreamUrl], and [currentGeneration], bumped by every
+ * new stream's init) and not rejected as a placeholder. A rebuild of the same stream also bumps the
+ * generation; its own track AFR caches then.
+ */
+internal fun trackAfrMayCache(
+    startGeneration: Int,
+    currentGeneration: Int,
+    placeholderRejected: Boolean,
+    sameStreamUrl: Boolean
+): Boolean = sameStreamUrl && startGeneration == currentGeneration && !placeholderRejected

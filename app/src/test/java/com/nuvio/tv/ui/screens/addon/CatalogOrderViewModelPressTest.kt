@@ -10,6 +10,10 @@ import com.nuvio.tv.data.local.CollectionsDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.ProfileDataStoreFactory
 import com.nuvio.tv.data.local.TestPreferencesDataStore
+import com.nuvio.tv.data.mdblist.MdbListHomeIndex
+import com.nuvio.tv.data.mdblist.MdbListHomeList
+import com.nuvio.tv.data.mdblist.MdbListHomeListKind
+import com.nuvio.tv.data.mdblist.MdbListHomeRows
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.Collection
@@ -60,6 +64,17 @@ class CatalogOrderViewModelPressTest {
     )
     private val layout: LayoutPreferenceDataStore
     private val sync = mockk<HomeCatalogSettingsSyncService>(relaxed = true)
+    private val mdbListIndex = MutableStateFlow<MdbListHomeIndex?>(null)
+    private val mdbListRows = mockk<MdbListHomeRows> { every { index() } returns mdbListIndex }
+    private val watchlist = "mdblist_watchlist"
+    private val weekend = "mdblist_11"
+
+    private fun connectMdbList() {
+        mdbListIndex.value = MdbListHomeIndex(
+            watchlistTitle = "Watchlist",
+            lists = listOf(MdbListHomeList(MdbListHomeListKind.OWN, 11, "Weekend", itemCount = 41))
+        )
+    }
 
     init {
         val factory = mockk<ProfileDataStoreFactory>()
@@ -79,7 +94,8 @@ class CatalogOrderViewModelPressTest {
             addonRepository = SingleAddonRepository(),
             collectionsDataStore = collections,
             layoutPreferenceDataStore = layout,
-            homeCatalogSettingsSyncService = sync
+            homeCatalogSettingsSyncService = sync,
+            mdbListHomeRows = mdbListRows
         )
     }
 
@@ -269,6 +285,117 @@ class CatalogOrderViewModelPressTest {
             assertFalse(items.getValue("collection_c").pinnedByFollow)
             assertEquals(0, items.getValue("collection_c").folderCount)
         }
+
+    @Test
+    fun `MDBList rows are listed from the kept index, saved slots kept, new ones first`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            layout.setHomeCatalogOrderKeys(listOf(one, weekend, two, three))
+            layout.setDisabledHomeCatalogKeys(listOf(weekend))
+            connectMdbList()
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            val items = viewModel.uiState.value.items
+            assertEquals(listOf(watchlist, one, weekend, two, three), items.map { it.key })
+            val row = items.first { it.key == weekend }
+            assertTrue(row.isMdbList)
+            assertEquals("Weekend", row.catalogName)
+            assertTrue(row.isDisabled)
+            assertEquals("Watchlist", items.first().catalogName)
+            assertFalse(items.first { it.key == one }.isMdbList)
+            assertEquals(MdbListRowFacts(MdbListRowKind.OWN, 41), row.mdbList)
+            assertEquals(null, items.first { it.key == one }.mdbList)
+        }
+
+    @Test
+    fun `follow mode lets MDBList rows move between addon blocks`() = runTest(mainDispatcherRule.dispatcher) {
+        layout.setFollowAddonsOrder(true)
+        layout.setHomeCatalogOrderKeys(listOf(one, two, three, weekend))
+        connectMdbList()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.items.first { it.key == weekend }.pinnedByFollow)
+        viewModel.moveUp(weekend)
+        advanceUntilIdle()
+
+        assertEquals(listOf(watchlist, weekend, one, two, three), layout.homeCatalogOrderKeys.first())
+        verify(exactly = 0) { sync.triggerPush() } // the synced payload never carries MDBList rows
+    }
+
+    @Test
+    fun `an MDBList move that also rewrites synced keys pushes once`() = runTest(mainDispatcherRule.dispatcher) {
+        layout.setFollowAddonsOrder(true)
+        layout.setHomeCatalogOrderKeys(listOf(three, one, two, weekend)) // a custom addon order, snapped in follow mode
+        connectMdbList()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.moveUp(weekend)
+        advanceUntilIdle()
+
+        assertEquals(listOf(watchlist, weekend, one, two, three), layout.homeCatalogOrderKeys.first())
+        verify(exactly = 1) { sync.triggerPush() }
+    }
+
+    @Test
+    fun `hiding and renaming an MDBList row write without a sync push`() = runTest(mainDispatcherRule.dispatcher) {
+        connectMdbList()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleCatalogEnabled(weekend)
+        viewModel.renameCatalog(weekend, "Friday films")
+        advanceUntilIdle()
+
+        assertEquals(setOf(one, weekend), layout.disabledHomeCatalogKeys.first().toSet())
+        assertEquals(mapOf(weekend to "Friday films"), layout.customCatalogTitles.first())
+        val row = viewModel.uiState.value.items.first { it.key == weekend }
+        assertEquals("Friday films", row.catalogName)
+        assertEquals("Weekend", row.originalName)
+        verify(exactly = 0) { sync.triggerPush() }
+    }
+
+    @Test
+    fun `without the index a press keeps MDBList keys and their hidden state`() = runTest(mainDispatcherRule.dispatcher) {
+        layout.setHomeCatalogOrderKeys(listOf(weekend, one, two, three))
+        layout.setDisabledHomeCatalogKeys(listOf(weekend, one))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.items.none { it.isMdbList })
+        viewModel.moveDown(one)
+        viewModel.toggleCatalogEnabled(two)
+        advanceUntilIdle()
+
+        assertEquals(listOf(weekend, two, one, three), layout.homeCatalogOrderKeys.first())
+        assertEquals(setOf(weekend, one, two), layout.disabledHomeCatalogKeys.first().toSet())
+    }
+
+    @Test
+    fun `MDBList rows carry their kind and count for the source line`() {
+        val facts = mdbListRowFacts(
+            MdbListHomeIndex(
+                watchlistTitle = "Watchlist",
+                lists = listOf(
+                    MdbListHomeList(MdbListHomeListKind.OWN, 1, "Own", itemCount = 41),
+                    MdbListHomeList(MdbListHomeListKind.OWN, 2, "Filtered", itemCount = 900, dynamic = true),
+                    MdbListHomeList(MdbListHomeListKind.LIKED, 3, "Liked", itemCount = 250),
+                    MdbListHomeList(MdbListHomeListKind.EXTERNAL, 3, "Imported", itemCount = 40)
+                )
+            )
+        )
+        assertEquals(
+            mapOf(
+                watchlist to MdbListRowFacts(MdbListRowKind.WATCHLIST, null),
+                "mdblist_1" to MdbListRowFacts(MdbListRowKind.OWN, 41),
+                "mdblist_2" to MdbListRowFacts(MdbListRowKind.DYNAMIC, 900),
+                "mdblist_3" to MdbListRowFacts(MdbListRowKind.LIKED, 250),
+                "mdblist_ext_3" to MdbListRowFacts(MdbListRowKind.IMPORTED, 40)
+            ),
+            facts
+        )
+    }
 
     private class SingleAddonRepository : AddonRepository {
         private val addon = Addon(

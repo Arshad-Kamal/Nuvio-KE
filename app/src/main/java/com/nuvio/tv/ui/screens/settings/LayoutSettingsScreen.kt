@@ -9,7 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.remember
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,6 +27,7 @@ import com.nuvio.tv.domain.model.TrailerAutoplayMode
 import com.nuvio.tv.domain.model.TrailerPreviewDelay
 import com.nuvio.tv.ui.components.marquee.LocalMarqueeToast
 import com.nuvio.tv.ui.screens.addon.QrCodeOverlay
+import com.nuvio.tv.ui.util.requestFocusAfterFrames
 
 /** Stage 8 chips (Q10), in order. */
 private enum class LayoutSection { HOME, DETAIL, STREAMS, CONTINUE_WATCHING }
@@ -61,6 +64,16 @@ fun LayoutSettingsContent(
     val listState = rememberLazyListState()
     // Each section opens at its top (the sections share one list).
     LaunchedEffect(section) { listState.scrollToItem(0) }
+
+    // Spec 130 F9: the QR overlay sits in this pane's focus tree, so closing it dropped focus to the
+    // Settings top tab; Close (or Back) hands it back to the Fusion badge URLs row.
+    val badgeUrlsFocus = remember { FocusRequester() }
+    var badgeQrClosed by remember { mutableStateOf(false) }
+    LaunchedEffect(badgeQrClosed, badges.isQrModeActive) {
+        if (!badgeQrClosed || badges.isQrModeActive) return@LaunchedEffect
+        badgeUrlsFocus.requestFocusAfterFrames()
+        badgeQrClosed = false
+    }
 
     LaunchedEffect(badges.serverError) {
         val error = badges.serverError ?: return@LaunchedEffect
@@ -109,6 +122,7 @@ fun LayoutSettingsContent(
                 onUseAddonFormatting = viewModel::setUseAddonFormatting,
                 onShowSizeBadges = viewModel::setShowFileSizeBadges,
                 onOpenBadgeUrls = viewModel::startStreamBadgeQrMode,
+                badgeUrlsFocus = badgeUrlsFocus,
                 entryFocus = initialFocusRequester
             )
             LayoutSection.CONTINUE_WATCHING -> continueWatchingItems(
@@ -148,7 +162,10 @@ fun LayoutSettingsContent(
             qrBitmap = badges.qrCodeBitmap,
             serverUrl = badges.serverUrl,
             instruction = stringResource(R.string.stream_badge_qr_instruction),
-            onClose = viewModel::stopStreamBadgeQrMode,
+            onClose = {
+                viewModel.stopStreamBadgeQrMode()
+                badgeQrClosed = true
+            },
             qrSize = 168.dp
         )
     }
@@ -374,6 +391,7 @@ private fun LazyListScope.streamsItems(
     onUseAddonFormatting: (Boolean) -> Unit,
     onShowSizeBadges: (Boolean) -> Unit,
     onOpenBadgeUrls: () -> Unit,
+    badgeUrlsFocus: FocusRequester,
     entryFocus: FocusRequester?
 ) {
     item(key = "layout_addon_formatting") {
@@ -410,7 +428,8 @@ private fun LazyListScope.streamsItems(
             } else {
                 stringResource(R.string.action_none)
             },
-            onClick = onOpenBadgeUrls
+            onClick = onOpenBadgeUrls,
+            modifier = Modifier.focusRequester(badgeUrlsFocus)
         )
     }
 }

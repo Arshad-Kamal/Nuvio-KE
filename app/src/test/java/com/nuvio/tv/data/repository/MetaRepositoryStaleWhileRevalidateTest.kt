@@ -2,6 +2,7 @@ package com.nuvio.tv.data.repository
 
 import android.content.Context
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.util.getOrStartShared
 import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.data.remote.dto.MetaDto
 import com.nuvio.tv.data.remote.dto.MetaResponseDto
@@ -13,7 +14,10 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -25,6 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Spec 95 M2 (D3-D5): an expired cached meta is served at once while one refresh runs. */
@@ -168,11 +173,12 @@ class MetaRepositoryStaleWhileRevalidateTest {
         repository.getMetaFromPrimaryAddon("series", contentId).last()
         clock[0] = start + pastFresh
         repository.getMetaFromPrimaryAddon("series", contentId).last()
-        // At pastFresh the refreshed v2 is fresh, so polling for it starts no refresh.
-        repeat(100) {
-            val name = (repository.getMetaFromPrimaryAddon("series", contentId).last() as NetworkResult.Success).data.name
-            if (name == "v2") return@repeat
-            Thread.sleep(20)
+        // Polls run at the first-fetch time, where every entry here reads fresh, so a poll
+        // never starts a refresh of its own (Spec 127: one racing the landing could send a
+        // second request).
+        clock[0] = start
+        awaitUntil("the refresh lands v2") {
+            (repository.getMetaFromPrimaryAddon("series", contentId).last() as NetworkResult.Success).data.name == "v2"
         }
         coVerify(exactly = 2) { api.getMeta(any()) }
 
@@ -180,10 +186,12 @@ class MetaRepositoryStaleWhileRevalidateTest {
         installed.value = listOf(addon(id = "other", url = "https://other.example"), addon())
         clock[0] = start + 2 * pastFresh
         repository.getMetaFromPrimaryAddon("series", contentId).last()
-        Thread.sleep(100)
-        coVerify(exactly = 2) { api.getMeta(any()) }
-        val next = repository.getMetaFromPrimaryAddon("series", contentId).toList()
-        assertTrue("the dropped entry makes the next read fetch", next.first() is NetworkResult.Loading)
+        clock[0] = start
+        awaitUntil("the dropped entry makes a read fetch") {
+            repository.getMetaFromPrimaryAddon("series", contentId).toList().first() is NetworkResult.Loading
+        }
+        // The stale read sent nothing: the third request is the fetch after the drop.
+        coVerify(exactly = 3) { api.getMeta(any()) }
     }
 
     @Test
@@ -207,24 +215,45 @@ class MetaRepositoryStaleWhileRevalidateTest {
 
     @Test
     fun `concurrent stale reads share one refresh request`() = runTest {
+        val id = "tt0903747"
         val calls = AtomicInteger()
         val gate = CompletableDeferred<Unit>()
         val api = mockk<AddonApi>()
         coEvery { api.getMeta(any()) } coAnswers {
             val n = calls.incrementAndGet()
             if (n > 1) gate.await()
-            metaResponse("v$n")
+            metaResponse("v$n", id)
         }
-        val (repository, clock) = newRepository(api)
+        // Counts the callers holding a shared request, so the gate opens only once all three
+        // refreshes joined the one in flight (Spec 127: a refresh reaching the in-flight map
+        // after the request finished but before it landed sends its own). The static mock is
+        // JVM-wide: this test's own id keeps other callers (Tmdb, earlier tests' leftover
+        // refreshes) out of the count.
+        val joins = AtomicInteger()
+        mockkStatic(IN_FLIGHT_REQUESTS)
+        try {
+            every {
+                any<ConcurrentHashMap<Any, Deferred<Any?>>>().getOrStartShared(
+                    any(),
+                    match { it.toString().endsWith(":$id") },
+                    any()
+                )
+            } answers { callOriginal().also { joins.incrementAndGet() } }
+            val (repository, clock) = newRepository(api)
 
-        repository.getMetaFromAllAddons("series", contentId).last()
-        clock[0] = start + pastFresh
-        repeat(3) { repository.getMetaFromAllAddons("series", contentId).last() }
-        coVerify(exactly = 2, timeout = VERIFY_TIMEOUT_MS) { api.getMeta(any()) }
-        gate.complete(Unit)
+            repository.getMetaFromAllAddons("series", id).last()
+            val joinsBefore = joins.get()
+            clock[0] = start + pastFresh
+            repeat(3) { repository.getMetaFromAllAddons("series", id).last() }
+            awaitUntil("three refreshes join the request") { joins.get() >= joinsBefore + 3 }
+            coVerify(exactly = 2, timeout = VERIFY_TIMEOUT_MS) { api.getMeta(any()) }
+            gate.complete(Unit)
 
-        awaitCachedName(repository, "v2")
-        coVerify(exactly = 2) { api.getMeta(any()) }
+            awaitCachedName(repository, "v2", id)
+            coVerify(exactly = 2) { api.getMeta(any()) }
+        } finally {
+            unmockkStatic(IN_FLIGHT_REQUESTS)
+        }
     }
 
     @Test
@@ -250,17 +279,20 @@ class MetaRepositoryStaleWhileRevalidateTest {
         assertEquals(null, repository.getCachedMeta("series", contentId))
     }
 
-    /** The refresh writes from the repository's own IO scope, outside the test's virtual time. */
-    private fun awaitCachedName(repository: MetaRepositoryImpl, name: String?) {
-        repeat(100) {
-            if (repository.getCachedMeta("series", contentId)?.name == name) return
+    /** Polls [condition] in real time: refreshes run in the repository's own IO scope. */
+    private inline fun awaitUntil(what: String, condition: () -> Boolean) {
+        repeat(250) {
+            if (condition()) return
             Thread.sleep(20)
         }
-        assertEquals(name, repository.getCachedMeta("series", contentId)?.name)
+        if (!condition()) throw AssertionError("timed out: $what")
     }
 
-    private fun metaResponse(name: String): Response<MetaResponseDto> =
-        Response.success(MetaResponseDto(meta = MetaDto(id = contentId, type = "series", name = name)))
+    private fun awaitCachedName(repository: MetaRepositoryImpl, name: String?, id: String = contentId) =
+        awaitUntil("cached name $name") { repository.getCachedMeta("series", id)?.name == name }
+
+    private fun metaResponse(name: String, id: String = contentId): Response<MetaResponseDto> =
+        Response.success(MetaResponseDto(meta = MetaDto(id = id, type = "series", name = name)))
 
     private fun addon(id: String = "test.addon", url: String = baseUrl) = Addon(
         id = id,
@@ -300,5 +332,6 @@ class MetaRepositoryStaleWhileRevalidateTest {
 
     private companion object {
         const val VERIFY_TIMEOUT_MS = 2_000L
+        const val IN_FLIGHT_REQUESTS = "com.nuvio.tv.core.util.InFlightRequestsKt"
     }
 }

@@ -1,5 +1,6 @@
 package com.nuvio.tv.core.player
 
+import com.nuvio.tv.core.player.autosync.AutoSyncCandidateScope
 import com.nuvio.tv.core.util.safeHost
 import android.util.Log
 import androidx.media3.common.C
@@ -950,6 +951,15 @@ internal fun PlayerRuntimeController.applyPersistedTrackPreference(
             trackSelection.subtitleAddonRestoredByPersistedPreference = true
             trackSelection.pendingRestoredAddonSubtitle = addonFallback
             selectAddonSubtitle(addonFallback)
+            // Spec 108: a rebuild's carried pick is checked only, never swapped.
+            maybeRunAutomaticSubtitleSync(
+                addonFallback,
+                if (source.channel == TrackSelectionResolver.Channel.ENGINE_SWITCH_CARRY) {
+                    AutoSyncCandidateScope.SELECTED_ONLY
+                } else {
+                    AutoSyncCandidateScope.STARTUP_SEARCH
+                }
+            )
             updatedAddonSubtitle = addonFallback
         }
         is TrackSelectionResolver.SubtitleStep.InternalNoMatch ->
@@ -964,6 +974,16 @@ internal fun PlayerRuntimeController.applyPersistedTrackPreference(
             trackSelection.subtitleAddonRestoredByPersistedPreference = true
             trackSelection.pendingRestoredAddonSubtitle = addonMatch
             selectAddonSubtitle(addonMatch)
+            // Spec 108: the user's own pick for this series: kept if it fits; only when it does not,
+            // another same-language subtitle that does. A rebuild's carried pick is checked only.
+            maybeRunAutomaticSubtitleSync(
+                addonMatch,
+                if (source.channel == TrackSelectionResolver.Channel.ENGINE_SWITCH_CARRY) {
+                    AutoSyncCandidateScope.SELECTED_ONLY
+                } else {
+                    AutoSyncCandidateScope.SELECTED_THEN_SEARCH
+                }
+            )
             updatedAddonSubtitle = addonMatch
             // Checked after the selection: MPV must report the addon track selected.
             keepSubtitle = subtitleStep.keepsPendingAfterSelect { isMpvAddonSubtitleTrackActive(addonMatch) }
@@ -1460,6 +1480,7 @@ internal fun PlayerRuntimeController.tryAutoSelectPreferredSubtitleFromAvailable
         Log.d(PlayerRuntimeController.TAG, "AUTO_SUB stop: preferred=none")
         if (isUsingMpvEngine()) {
             mpvView?.disableSubtitles()
+            clearAutoSyncedSubtitle() // Spec 108
         }
         return
     }
@@ -1507,6 +1528,7 @@ internal fun PlayerRuntimeController.tryAutoSelectPreferredSubtitleFromAvailable
                     "AUTO_SUB pick addon (primary) over internal (secondary): addon lang=${primaryAddonMatch.lang} vs internal variant=$trackVariant"
                 )
                 selectAddonSubtitle(primaryAddonMatch)
+                maybeRunAutomaticSubtitleSync(primaryAddonMatch) // Spec 108
                 return
             }
         }
@@ -1568,6 +1590,7 @@ internal fun PlayerRuntimeController.tryAutoSelectPreferredSubtitleFromAvailable
         )
         if (selectedMatchesPrimary) {
             trackSelection.autoSubtitleSelected = true
+            maybeRunAutomaticSubtitleSync(selectedAddon) // Spec 108: once per stream (startup claim)
             Log.d(PlayerRuntimeController.TAG, "AUTO_SUB stop: matching addon already selected (primary match)")
             return
         }
@@ -1615,6 +1638,7 @@ internal fun PlayerRuntimeController.tryAutoSelectPreferredSubtitleFromAvailable
         trackSelection.autoSubtitleSelected = true
         Log.d(PlayerRuntimeController.TAG, "AUTO_SUB pick addon lang=${addonMatch.lang} id=${addonMatch.id}")
         selectAddonSubtitle(addonMatch)
+        maybeRunAutomaticSubtitleSync(addonMatch) // Spec 108
     } else {
         Log.d(PlayerRuntimeController.TAG, "AUTO_SUB no addon match for targets=$targets")
     }

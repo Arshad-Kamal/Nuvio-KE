@@ -64,7 +64,8 @@ class CatalogRepositoryRatingCapTest {
             healthStore = mockk(relaxed = true),
             wireJson = wireJson,
             activeRatingCap = activeCap,
-            ratingFilter = CatalogRatingFilter(metaRepository)
+            ratingFilter = CatalogRatingFilter(metaRepository),
+            contentFilter = noContentFilter()
         )
     }
 
@@ -87,7 +88,7 @@ class CatalogRepositoryRatingCapTest {
 
     private fun CatalogRow.ids() = items.map { it.id }
 
-    private fun metaRated(rating: String?) = mockk<Meta> { every { ageRating } returns rating }
+    private fun metaRated(rating: String?) = mockk<Meta> { every { ageRating } returns rating; every { nonUsRatings } returns emptyMap() }
 
     @Test
     fun `home row keeps only titles rated at or under the cap`() = runTest {

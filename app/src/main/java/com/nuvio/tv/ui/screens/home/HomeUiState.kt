@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.runtime.Immutable
+import com.nuvio.tv.core.scout.ScoutRowItem
 import com.nuvio.tv.data.local.StartupAuthNotice
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
@@ -19,6 +20,18 @@ data class HomeUiState(
     val layoutPreferencesReady: Boolean = false,
     val error: String? = null,
     val installedAddonsCount: Int = 0,
+    /**
+     * Spec 145: the last catalog load found home catalogs to load (an addon catalog that passes
+     * the home filter). Written in the same update as [installedAddonsCount], so Home's
+     * first-paint gate never sees addons without it (Home's rows can't stand in: they arrive
+     * through a debounced pass and can lag a queued load).
+     */
+    val homeCatalogsExpected: Boolean = false,
+    /**
+     * Spec 145: [homeRows] reflect the collections pipeline's first pass (published by the row
+     * pass that built them; never goes back to false).
+     */
+    val collectionsLoaded: Boolean = false,
     val modernLandscapePostersEnabled: Boolean = false,
     val homeImdbRatingsVisibility: HomeImdbRatingsVisibility = HomeImdbRatingsVisibility.SHOW_ALL,
     val heroItems: List<MetaPreview> = emptyList(),
@@ -37,7 +50,9 @@ data class HomeUiState(
     val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
     val heroEnrichmentEnabled: Boolean = false,
     val startupAuthNotice: StartupAuthNotice? = null,
-    val homeRows: List<HomeRow> = emptyList()
+    val homeRows: List<HomeRow> = emptyList(),
+    /** Spec 100: the Picked for you row, already capped and filtered (ScoutHomeRow). */
+    val scoutPicks: List<ScoutRowItem> = emptyList()
 )
 
 @Immutable

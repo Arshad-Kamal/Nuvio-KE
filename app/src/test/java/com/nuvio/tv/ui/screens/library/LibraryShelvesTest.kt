@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.library
 
 import com.nuvio.tv.domain.model.LibraryEntry
+import com.nuvio.tv.core.tracking.TrackingListStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -16,7 +17,8 @@ class LibraryShelvesTest {
         type: String = "movie",
         addedAt: Long = 0L,
         genres: List<String> = emptyList(),
-        name: String = id
+        name: String = id,
+        list: TrackingListStatus? = null
     ) = LibraryEntry(
         id = id,
         type = type,
@@ -29,7 +31,8 @@ class LibraryShelvesTest {
         imdbRating = null,
         genres = genres,
         addonBaseUrl = null,
-        listedAt = addedAt
+        listedAt = addedAt,
+        trackerList = list
     )
 
     private fun shelves(
@@ -37,6 +40,32 @@ class LibraryShelvesTest {
         typeKey: String = LibraryTypeTab.ALL_KEY,
         watched: Set<String> = emptySet()
     ) = libraryShelves(entries, typeKey, { it.id in watched }, monthStart)
+
+    @Test
+    fun `a tracker library gets one shelf per list in Simkl's order, empty lists left out (Spec 106 G1)`() {
+        val entries = listOf(
+            // Enough Drama titles and recent adds for Q1's genre and Recently added shelves: list mode shows neither.
+            entry("p1", addedAt = 3_000L, genres = listOf("Drama"), list = TrackingListStatus.PLAN_TO_WATCH),
+            entry("w1", type = "series", addedAt = 100L, genres = listOf("Drama"), list = TrackingListStatus.WATCHING),
+            entry("c1", addedAt = 50L, genres = listOf("Drama"), list = TrackingListStatus.COMPLETED),
+            entry("p2", type = "series", addedAt = 4_000L, list = TrackingListStatus.PLAN_TO_WATCH),
+            entry("w2", type = "series", addedAt = 200L, list = TrackingListStatus.WATCHING)
+        )
+        val all = shelves(entries, watched = setOf("c1"))
+        assertEquals(
+            listOf(TrackingListStatus.WATCHING, TrackingListStatus.PLAN_TO_WATCH, TrackingListStatus.COMPLETED),
+            all.map { it.trackerList }
+        )
+        assertTrue(all.all { it.kind == LibraryShelfKind.TRACKER_LIST })
+        assertEquals(listOf("w2", "w1"), all[0].entries.map { it.id })
+        assertEquals(listOf("p2", "p1"), all[1].entries.map { it.id })
+        assertEquals("${LibraryTypeTab.ALL_KEY}:list:plan_to_watch", all[1].key)
+
+        // A type tab keeps the list shelves, holding only its own titles.
+        val series = shelves(entries, typeKey = "series")
+        assertEquals(listOf(listOf("w2", "w1"), listOf("p2")), series.map { shelf -> shelf.entries.map { it.id } })
+        assertEquals("series:list:watching", series[0].key)
+    }
 
     @Test
     fun `All lists the shelves in Q1 order, empty ones left out`() {

@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.library
 
 import androidx.compose.runtime.Immutable
+import com.nuvio.tv.data.local.watchedArtByContent
 import com.nuvio.tv.domain.model.WatchProgress
 import com.nuvio.tv.domain.model.WatchedItem
 import com.nuvio.tv.ui.screens.home.parseNextUpDismissKey
@@ -57,13 +58,17 @@ private val ProgressOrder: Comparator<WatchProgress> =
  * The History list: per title the newer of its latest progress entry and its latest watched mark
  * (equal times: the progress entry, which carries the art; markAsCompleted stamps both), newest first.
  * A title known only from the watched set (a manual mark, a sync, a Continue Watching removal)
- * still lists, with the watched title and poster.
+ * still lists, with the watched title, poster and backdrop: the newest of each across the title's
+ * marks (a tracker's marks carry none; WatchedArtworkHydrator fills the local ones). A progress
+ * backdrop equal to its poster (the meta had no landscape art) yields to a mark's real backdrop,
+ * so the landscape card is not a cropped poster.
  */
 internal fun libraryHistory(progress: List<WatchProgress>, watched: List<WatchedItem>): List<LibraryHistoryEntry> {
     val latestProgress = HashMap<String, WatchProgress>(progress.size)
     progress.forEach { p -> latestProgress.merge(p.contentId, p) { a, b -> maxOf(a, b, ProgressOrder) } }
     val latestWatched = HashMap<String, WatchedItem>()
     watched.forEach { w -> latestWatched.merge(w.contentId, w) { a, b -> maxOf(a, b, WatchedItemOrder) } }
+    val markArt = watchedArtByContent(watched)
     val ids = LinkedHashSet<String>(latestProgress.keys).apply { addAll(latestWatched.keys) }
     return ids.map { id ->
         val p = latestProgress[id]
@@ -74,8 +79,8 @@ internal fun libraryHistory(progress: List<WatchProgress>, watched: List<Watched
             id = id,
             type = p?.contentType ?: w?.contentType.orEmpty(),
             name = p?.name?.takeIf { it.isNotBlank() } ?: w?.title.orEmpty(),
-            poster = p?.poster ?: w?.poster,
-            backdrop = p?.backdrop,
+            poster = p?.poster ?: markArt[id]?.poster,
+            backdrop = p?.backdrop?.takeUnless { it == p.poster } ?: markArt[id]?.backdrop ?: p?.backdrop,
             logo = p?.logo,
             season = if (latestPlay != null) latestPlay.season else w?.season,
             episode = if (latestPlay != null) latestPlay.episode else w?.episode,

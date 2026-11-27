@@ -11,8 +11,10 @@ import com.nuvio.tv.data.mapper.toDomainOrNull
 import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.data.remote.dto.CatalogResponseDto
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.ContentRatingCap
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.NonUsRatingBoards
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.core.util.safeHost
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -44,7 +46,8 @@ import javax.inject.Singleton
  *    (deduplicates reloads within a session).
  * 2. Disk first-paint (first page only: skip == 0, no extra args; 128 entries, 7-day ceiling):
  *    stale-while-revalidate. A hit is served at once and the network ALWAYS revalidates; an
- *    identical fresh row is not re-emitted, and a network error keeps the served disk row.
+ *    identical fresh row is not re-emitted (see Spec 117 below for the one exception), and a
+ *    network error keeps the served disk row.
  * 3. OkHttp `http_cache_addon` (NetworkModule `ADDON_HTTP_CACHE_DIR`): standard Cache-Control from the addon.
  * [clearCaches] clears tiers 1 and 2; the Advanced "clear cache" action also evicts the OkHttp
  * caches and fires the Home refresh signal.
@@ -53,8 +56,15 @@ import javax.inject.Singleton
  * [CatalogRatingFilter] for the active profile's cap, read once per collection. A disk row
  * written before K1a has no ratings, so under a cap it emits empty until revalidation. Paging
  * fields stay the addon's; a load-more page the cap empties is followed by up to
- * [MAX_HIDDEN_PAGE_ADVANCE] more pages, and a row that is still empty after them is what
+ * [CatalogContentFilter.MAX_HIDDEN_PAGE_ADVANCE] more pages, and a row that is still empty after them is what
  * CatalogRow.mergeCatalogPage then reads as the end of the catalog.
+ *
+ * Spec 117 P5: with `packGate` on (every caller but Home, which filters when it draws, P5b) each
+ * capped row then passes [CatalogContentFilter], one emission per row: a disk row is gated without
+ * waiting, the rest wait for their titles' tags within one budget per call. A load-more page the
+ * packs empty advances like a capped one. A fresh row identical to the disk row is still emitted
+ * when the disk emission held titles whose tags had not come and the gated row now differs; when the
+ * revalidation fails, the disk row itself is re-gated with the wait instead.
  */
 @Singleton
 class CatalogRepositoryImpl @Inject constructor(
@@ -63,7 +73,8 @@ class CatalogRepositoryImpl @Inject constructor(
     private val healthStore: AddonHealthStore,
     private val wireJson: Json,
     private val activeRatingCap: ActiveRatingCap,
-    private val ratingFilter: CatalogRatingFilter
+    private val ratingFilter: CatalogRatingFilter,
+    private val contentFilter: CatalogContentFilter
 ) : CatalogRepository {
     companion object {
         private const val TAG = "CatalogRepository"
@@ -78,11 +89,12 @@ class CatalogRepositoryImpl @Inject constructor(
         private const val DISK_CACHE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000 // 7 days
         private const val DISK_CACHE_MAX_ENTRIES = 128
 
-        // Spec 64 K1b: extra pages fetched after a load-more page the cap hides entirely.
-        private const val MAX_HIDDEN_PAGE_ADVANCE = 3
-
         private data class CacheEntry(val row: CatalogRow, val storedAtMs: Long)
         private data class DiskEntry(val dtoJson: String, val storedAtMs: Long)
+
+        /** Which tier a full row came from: [getCatalog] gates a disk row without waiting. */
+        private enum class RowSource { MEMORY, DISK, NETWORK }
+        private data class SourcedRow(val row: CatalogRow, val source: RowSource)
     }
 
     // Access-ordered LinkedHashMap wrapped for LRU eviction; synchronized because catalog
@@ -121,28 +133,51 @@ class CatalogRepositoryImpl @Inject constructor(
         skip: Int,
         skipStep: Int,
         extraArgs: Map<String, String>,
-        supportsSkip: Boolean
+        supportsSkip: Boolean,
+        packGate: Boolean
     ): Flow<NetworkResult<CatalogRow>> = flow {
         emit(NetworkResult.Loading)
         val cap = activeRatingCap.current()
+        val gate = if (packGate) contentFilter.open() else null
         val isSearch = "search" in extraArgs
         fun fetchPage(pageSkip: Int) = fetchCatalog(
             addonBaseUrl, addonId, addonName, catalogId, catalogName, type, pageSkip, skipStep, extraArgs, supportsSkip
         )
+        // The cap first (a title it removes never reaches the packs), then the packs.
+        suspend fun visibleOf(page: CatalogRow, wait: Boolean): CatalogContentFilter.Gated {
+            val capped = ratingFilter.filter(page, cap, lookUpUnratedSeries = isSearch)
+            return gate?.apply(capped, wait) ?: CatalogContentFilter.Gated(capped, heldUndecided = false)
+        }
+        // The disk row served first (painted without waiting) and what its gate showed.
+        var diskRow: CatalogRow? = null
+        var diskShown: CatalogContentFilter.Gated? = null
+        var networkRowCame = false
         fetchPage(skip).collect { result ->
             if (result !is NetworkResult.Success) {
                 if (result is NetworkResult.Error) emit(result)
                 return@collect
             }
-            var page = result.data
-            var visible = ratingFilter.filter(page, cap, lookUpUnratedSeries = isSearch)
-            // A load-more page the cap empties gets no new focus target, so the UI never asks
-            // for the next one: fetch on, bounded, until a page shows something or the
+            val source = result.data.source
+            var page = result.data.row
+            if (source == RowSource.NETWORK) networkRowCame = true
+            // A fresh row identical to the disk row: dropped as before (no needless row swap), unless
+            // the disk emission held titles still waiting for tags and this pass shows them differently.
+            val heldDisk = diskShown.takeIf { source == RowSource.NETWORK && page == diskRow }
+            if (heldDisk != null && !heldDisk.heldUndecided) return@collect
+            var visible = visibleOf(page, wait = source != RowSource.DISK)
+            if (heldDisk != null && visible.showsSameAs(heldDisk)) return@collect
+            if (source == RowSource.DISK) {
+                diskRow = page
+                diskShown = visible
+            }
+            // A load-more page the cap or the packs empty gets no new focus target, so the UI never
+            // asks for the next one: fetch on, bounded, until a page shows something or the
             // catalog ends (a raw-empty page has hasMore = false, so it ends the loop and
             // is emitted as the last page). Page 1 is not advanced (its row is simply hidden).
+            // A previewed hit is kept, so it never empties a page.
             var advanced = 0
-            while (cap != null && skip > 0 && visible.items.isEmpty() && page.hasMore &&
-                advanced < MAX_HIDDEN_PAGE_ADVANCE
+            while ((cap != null || gate != null) && skip > 0 && visible.row.items.isEmpty() && page.hasMore &&
+                advanced < CatalogContentFilter.MAX_HIDDEN_PAGE_ADVANCE
             ) {
                 val next = fetchPage(page.nextSkip).first { it !is NetworkResult.Loading }
                 if (next is NetworkResult.Error) {
@@ -151,15 +186,23 @@ class CatalogRepositoryImpl @Inject constructor(
                     return@collect
                 }
                 if (next !is NetworkResult.Success) break
-                page = next.data
-                visible = ratingFilter.filter(page, cap, lookUpUnratedSeries = isSearch)
+                page = next.data.row
+                visible = visibleOf(page, wait = next.data.source != RowSource.DISK)
                 advanced++
             }
-            emit(NetworkResult.Success(visible))
+            emit(NetworkResult.Success(visible.row))
+        }
+        // The revalidation failed (fetchCatalog keeps the disk row on screen): titles the disk row
+        // held still get this load's wait, so they appear without a reload.
+        val held = diskShown
+        val heldRow = diskRow
+        if (!networkRowCame && held != null && heldRow != null && held.heldUndecided) {
+            val visible = visibleOf(heldRow, wait = true)
+            if (!visible.showsSameAs(held)) emit(NetworkResult.Success(visible.row))
         }
     }.flowOn(Dispatchers.IO)
 
-    /** The addon's full rows through the cache tiers (class KDoc); [getCatalog] filters them. */
+    /** The addon's full rows through the cache tiers (class KDoc), each tagged with its tier; [getCatalog] filters them. */
     private fun fetchCatalog(
         addonBaseUrl: String,
         addonId: String,
@@ -171,7 +214,7 @@ class CatalogRepositoryImpl @Inject constructor(
         skipStep: Int,
         extraArgs: Map<String, String>,
         supportsSkip: Boolean
-    ): Flow<NetworkResult<CatalogRow>> = flow {
+    ): Flow<NetworkResult<SourcedRow>> = flow {
         // Runs on IO (flowOn below): the disk-row decode, row building and cache-blob
         // encode must not run on the collecting (Main) thread.
         val url = buildCatalogUrl(addonBaseUrl, type, catalogId, skip, extraArgs)
@@ -181,7 +224,7 @@ class CatalogRepositoryImpl @Inject constructor(
         if (cached != null) {
             if (System.currentTimeMillis() - cached.storedAtMs <= CATALOG_CACHE_TTL_MS) {
                 Log.d(TAG, "Catalog cache hit type=$type catalogId=$catalogId skip=$skip host=${url.safeHost()}")
-                emit(NetworkResult.Success(cached.row))
+                emit(NetworkResult.Success(SourcedRow(cached.row, RowSource.MEMORY)))
                 return@flow
             } else {
                 catalogCache.remove(url)
@@ -214,7 +257,7 @@ class CatalogRepositoryImpl @Inject constructor(
             if (diskRow != null) {
                 Log.d(TAG, "Catalog disk hit (serving stale, revalidating) type=$type catalogId=$catalogId host=${url.safeHost()}")
                 servedDiskRow = diskRow
-                emit(NetworkResult.Success(diskRow))
+                emit(NetworkResult.Success(SourcedRow(diskRow, RowSource.DISK)))
             }
         }
 
@@ -260,12 +303,9 @@ class CatalogRepositoryImpl @Inject constructor(
                     }
                 }
 
-                // Emit the fresh row unless it is identical to the disk row already
-                // served (avoids a needless row swap / focus disruption). Compared
-                // unfiltered: equal full rows filter to equal rows (one cap per collection).
-                if (servedDiskRow == null || servedDiskRow != catalogRow) {
-                    emit(NetworkResult.Success(catalogRow))
-                }
+                // Always emitted: getCatalog decides whether a row identical to the disk row
+                // served is dropped (class KDoc).
+                emit(NetworkResult.Success(SourcedRow(catalogRow, RowSource.NETWORK)))
             }
             is NetworkResult.Error -> {
                 healthStore.recordAddonOutcome(addonBaseUrl, HealthOutcome.FAILURE, android.os.SystemClock.elapsedRealtime() - healthT0)
@@ -317,10 +357,9 @@ class CatalogRepositoryImpl @Inject constructor(
                     description = prior.description ?: item.description,
                     releaseInfo = prior.releaseInfo ?: item.releaseInfo,
                     imdbRating = prior.imdbRating ?: item.imdbRating,
-                    ageRating = prior.ageRating ?: item.ageRating,
                     landscapePoster = prior.landscapePoster ?: item.landscapePoster,
                     behaviorHints = prior.behaviorHints ?: item.behaviorHints
-                )
+                ).withRatingsMerged(item)
             }
         }
         val items = merged.values.toList()
@@ -488,4 +527,21 @@ class CatalogRepositoryImpl @Inject constructor(
 
         return catalogPath + baseQuery
     }
+}
+
+/**
+ * Spec 102: the age ratings of two copies of one title in one page. The strictest US code either
+ * copy knows (its rating or its non-US map's US entry) wins and the non-US ratings are dropped, as
+ * the mappers do; with none, both copies' non-US ratings count together ([NonUsRatingBoards.union]),
+ * so neither copy's stricter board is lost.
+ */
+internal fun MetaPreview.withRatingsMerged(duplicate: MetaPreview): MetaPreview {
+    val nonUs = NonUsRatingBoards.union(nonUsRatings, duplicate.nonUsRatings)
+    val usCode = listOfNotNull(
+        ContentRatingCap.usRatingCode(ageRating),
+        ContentRatingCap.usRatingCode(duplicate.ageRating),
+        NonUsRatingBoards.usCodeOf(nonUs)
+    ).maxByOrNull { ContentRatingCap.tierOf(it)?.ordinal ?: -1 }
+    if (usCode != null) return copy(ageRating = usCode, nonUsRatings = emptyMap())
+    return copy(ageRating = ageRating ?: duplicate.ageRating, nonUsRatings = nonUs)
 }

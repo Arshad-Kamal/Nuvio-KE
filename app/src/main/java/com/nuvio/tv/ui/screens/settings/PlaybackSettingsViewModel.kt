@@ -406,6 +406,10 @@ class PlaybackSettingsViewModel @Inject constructor(
         playerSettingsDataStore.setAddonSubtitlesEnabled(enabled)
     }
 
+    suspend fun setSubtitleAutoSyncEnabled(enabled: Boolean) {
+        playerSettingsDataStore.setSubtitleAutoSyncEnabled(enabled)
+    }
+
     suspend fun setSubtitleShowOnlyPreferredLanguages(enabled: Boolean) {
         playerSettingsDataStore.setSubtitleShowOnlyPreferredLanguages(enabled)
     }

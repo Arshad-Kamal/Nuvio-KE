@@ -16,6 +16,7 @@ import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.awaitKey
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.repository.CatalogContentFilter
 import com.nuvio.tv.ui.screens.collection.LatestWinsSerialBuilds
 import com.nuvio.tv.ui.screens.home.HomeRow
 import com.nuvio.tv.ui.screens.home.HomeScreenFocusState
@@ -49,6 +50,7 @@ class TmdbEntityBrowseViewModel @Inject constructor(
     private val watchProgressRepository: com.nuvio.tv.domain.repository.WatchProgressRepository,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
+    private val contentFilter: CatalogContentFilter,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -151,21 +153,29 @@ class TmdbEntityBrowseViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val language = tmdbSettingsDataStore.settings.first().language
-                val nextPage = targetRail.currentPage + 1
-                val pageResult = tmdbMetadataService.fetchEntityRailPage(
+                suspend fun fetch(page: Int) = page to tmdbMetadataService.fetchEntityRailPage(
                     entityKind = entityKind,
                     entityId = entityId,
                     mediaType = mediaType,
                     railType = railType,
                     language = language,
-                    page = nextPage
+                    page = page
                 )
-                // Merged into the rail as it is now: another rail may have appended meanwhile.
+                val fetched = fetch(targetRail.currentPage + 1)
+                // Spec 117 P6: the content filter's one-shot gate, advancing past pages it empties (P5).
+                val (landed, items) = contentFilter.open()?.showLoadMore(
+                    first = fetched,
+                    itemsOf = { it.second.items },
+                    hasMore = { it.second.hasMore },
+                    fetchNext = { fetch(it.first + 1) }
+                ) ?: (fetched to fetched.second.items)
+                // Merged into the rail as it is now: another rail may have appended meanwhile. A page
+                // still empty after the advance ends the rail (P5), as FolderDetail's merge does.
                 updateRail(mediaType, railType) { rail ->
                     rail.copy(
-                        items = (rail.items + pageResult.items).distinctBy { it.id },
-                        currentPage = nextPage,
-                        hasMore = pageResult.hasMore,
+                        items = (rail.items + items).distinctBy { it.id },
+                        currentPage = landed.first,
+                        hasMore = landed.second.hasMore && items.isNotEmpty(),
                         isLoading = false
                     )
                 }
@@ -194,7 +204,7 @@ class TmdbEntityBrowseViewModel @Inject constructor(
                     sourceType = sourceType,
                     fallbackName = entityName,
                     language = language
-                )
+                )?.let { data -> contentFilter.open()?.let { data.filteredBy(it) } ?: data }
                 if (browseData != null) {
                     if (_pageMode.value == null) _pageMode.value = entityEntryMode(browseData.header)
                     _uiState.value = TmdbEntityBrowseUiState.Success(
@@ -312,4 +322,13 @@ class TmdbEntityBrowseViewModel @Inject constructor(
             }
         )
     }
+}
+
+/**
+ * Spec 117 P6: every rail through [gate] (one wait for all their titles); a rail it empties is dropped,
+ * as a rail TMDB returns empty is (page 1 is never advanced, P5).
+ */
+internal suspend fun TmdbEntityBrowseData.filteredBy(gate: CatalogContentFilter.Gate): TmdbEntityBrowseData {
+    val shown = gate.applyAll(rails.map { it.items })
+    return copy(rails = rails.zip(shown).mapNotNull { (rail, items) -> rail.copy(items = items).takeIf { items.isNotEmpty() } })
 }

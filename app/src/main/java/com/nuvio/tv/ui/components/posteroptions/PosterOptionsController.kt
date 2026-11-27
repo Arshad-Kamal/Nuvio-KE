@@ -206,7 +206,7 @@ class PosterOptionsController @Inject constructor(
             }
             try {
                 if (currentlyWatched) {
-                    watchProgressRepository.removeFromHistory(canonical.id)
+                    watchProgressRepository.removeFromHistory(canonical.id, contentType = "movie")
                 } else {
                     watchProgressRepository.markAsCompleted(buildCompletedMovieProgress(canonical))
                 }
@@ -331,9 +331,13 @@ class PosterOptionsController @Inject constructor(
             return true
         }
 
+        // The video ids and type markSeriesWatched marks with: trackers use them when no stored progress names an episode
+        // (Spec 106 S5b).
         watchProgressRepository.removeFromHistoryBatch(
             contentId = item.id,
-            episodes = episodes.map { it.season!! to it.episode!! }
+            episodes = episodes.map { it.season!! to it.episode!! },
+            videoIds = episodes.associate { (it.season!! to it.episode!!) to it.id },
+            contentType = item.apiType
         )
         return true
     }

@@ -1,5 +1,9 @@
 package com.nuvio.tv.core.tmdb
 
+import com.nuvio.tv.data.remote.api.TmdbCollectionPart
+
+import com.nuvio.tv.data.remote.api.TmdbRecommendationResult
+
 import com.nuvio.tv.data.remote.api.TmdbAggregateCreditsResponse
 import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.data.remote.api.TmdbCollectionResponse
@@ -800,5 +804,30 @@ class TmdbMetadataServiceTest {
         service.fetchMovieCollection(87, "en")
 
         assertEquals(2, calls)
+    }
+
+    @Test
+    fun `More like this and collection cards carry TMDB's genre ids and adult flag for the content filter`() = runTest {
+        val api = mockk<TmdbApi>()
+        coEvery { api.getMovieImages(any(), any(), any()) } returns Response.error(404, "".toResponseBody(null))
+        coEvery { api.getMovieRecommendations(5, TEST_TMDB_KEY, "en", any()) } returns Response.success(
+            TmdbRecommendationsResponse(
+                results = listOf(
+                    TmdbRecommendationResult(id = 9, title = "Nine", voteCount = 50, genreIds = listOf(27, 53), adult = true),
+                    TmdbRecommendationResult(id = 10, title = "Ten", voteCount = 50)
+                )
+            )
+        )
+        coEvery { api.getCollectionDetails(87, TEST_TMDB_KEY, "en") } returns Response.success(
+            TmdbCollectionResponse(id = 87, parts = listOf(TmdbCollectionPart(id = 11, title = "Eleven", genreIds = listOf(16), adult = false)))
+        )
+        val service = TmdbMetadataService(api, StandardTestDispatcher(testScheduler), TEST_TMDB_KEYS)
+
+        val related = service.fetchMoreLikeThis("5", ContentType.MOVIE, "en").associateBy { it.id }
+        assertEquals(listOf(27, 53), related.getValue("tmdb:9").tmdbGenreIds)
+        assertEquals(true, related.getValue("tmdb:9").tmdbAdult)
+        assertEquals(emptyList<Int>(), related.getValue("tmdb:10").tmdbGenreIds)
+        assertEquals(false, related.getValue("tmdb:10").tmdbAdult)
+        assertEquals(listOf(16), service.fetchMovieCollection(87, "en").single().tmdbGenreIds)
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -93,6 +94,8 @@ internal class GuideCursor {
     var key: String? by mutableStateOf(null)
         private set
     var move: GuideMove? by mutableStateOf(null)
+    /** The grid itself holds focus (not a day chip): only then does Back return to now. */
+    var gridFocused: Boolean by mutableStateOf(false)
     private var lastIndex = 0
 
     // A new filter came while it listed nothing (the grid is not composed then): its rows start on the first.
@@ -107,10 +110,14 @@ internal class GuideCursor {
         if (!restartPending) focus(rows.first().channel.key, rows, guide, nowMs)
     }
 
-    /** Focus [key]'s row at the kept time cursor (the strip at now the first time); false when it is not shown. */
+    /**
+     * Focus [key]'s row at the kept time cursor (the strip at now the first time); false when it is not shown.
+     * An explicit focus wins over a pending restart (search closing back onto the row it left, Spec 111).
+     */
     fun focus(key: String, rows: List<LiveRow>, guide: GuideRows, nowMs: Long): Boolean {
         val index = rows.indexOfFirst { it.channel.key == key }
         if (index < 0) return false
+        restartPending = false
         val slots = guide.row(key)
         val bounds = guide.bounds
         val m = move
@@ -179,7 +186,9 @@ internal class GuideCursor {
  * The band (`.s67band`): beside the picture (the screen draws it at the band's picture size; this adds
  * its chrome and the tuned channel's caption) the focused programme, or the focused channel when its
  * row shows none: eyebrow "CH n · channel · category", title, times (the airing one with progress and
- * minutes left), the key hints for what OK and Back do there (Q3, Q5).
+ * minutes left), the key hints for what OK and Back do there (Q3, Q5); while [searching], Back closes
+ * search once at now and Hold OK's hint gives way (Spec 111 stage 7); else at now Back goes to the
+ * filters (BACK Filters, Spec 111 D7, D16).
  */
 @Composable
 internal fun LiveTvGuideBand(
@@ -191,7 +200,8 @@ internal fun LiveTvGuideBand(
     tunedNumber: String?,
     nowMs: Long,
     timeFormat: DateFormat,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    searching: Boolean = false
 ) {
     val marquee = NuvioTheme.marquee
     val live = marquee.liveTv
@@ -270,9 +280,19 @@ internal fun LiveTvGuideBand(
                 if (LiveTvGuideGrid.okWatches(slot, nowMs)) {
                     LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_ok)), stringResource(R.string.live_tv_hint_watch))
                 }
-                LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_hold_ok)), stringResource(R.string.live_tv_hint_options))
-                // Only where Back moves (a hole at now leaves focus on its nearest programme: Back acts as in List).
-                if (!atNow) LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_back)), stringResource(R.string.live_tv_now))
+                if (!searching) {
+                    LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_hold_ok)), stringResource(R.string.live_tv_hint_options))
+                }
+                // What Back does next: on the grid away from now, now (a hole at now leaves focus on its nearest
+                // programme, which counts as at now); else close search; else, from the grid, the filters
+                // (Spec 111 D7, D16). A day chip outside search: no hint (Back leaves as before).
+                val back = when (liveTvGuideBack(atNow, cursor.gridFocused, searching)) {
+                    LiveTvGuideBack.NOW -> R.string.live_tv_now
+                    LiveTvGuideBack.CLOSE_SEARCH -> R.string.live_tv_hint_close_search
+                    LiveTvGuideBack.FILTERS -> R.string.live_tv_hint_filters
+                    null -> null
+                }
+                back?.let { LiveTvKeyHint(listOf(stringResource(R.string.live_tv_hint_back)), stringResource(it)) }
             }
         }
     }
@@ -339,7 +359,8 @@ private fun guideDuration(ms: Long): String {
  * row has data that day (Q6); Down from the chips enters the cursor's row ([GuideCursor]). OK on the airing programme
  * or a row showing none watches its channel ([onWatch], Q3); hold OK opens its options ([onOptions]).
  * The picture follows the focused row through [onRowFocused] (the list's settle; never on moves along
- * a row, Q2). [compact] = 32 dp rows, titles only (Q8).
+ * a row, Q2). [compact] = 32 dp rows, titles only (Q8). While [search] is open the rows are its results,
+ * each marking what matched (Spec 111 stage 7).
  */
 @Composable
 internal fun LiveTvGuide(
@@ -360,7 +381,8 @@ internal fun LiveTvGuide(
     onUpFromTop: () -> Unit,
     onWatch: (LiveRow) -> Unit,
     onOptions: (LiveRow) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    search: LiveSearch? = null
 ) {
     val live = NuvioTheme.marquee.liveTv
     val rowHeight = if (compact) live.guideCompactRowHeight else live.guideRowHeight
@@ -371,6 +393,8 @@ internal fun LiveTvGuide(
     val focusIndex = rows.indexOfFirst { it.channel.key == cursor.key }
 
     LaunchedEffect(rows, guide) { cursor.sync(rows, guide, nowMs, openKey) }
+    // The cursor outlives the grid (an empty result or filter removes it): it never stays "focused".
+    DisposableEffect(cursor) { onDispose { cursor.gridFocused = false } }
     // The picture follows the row focus rests on (Q2); moves along a row keep it.
     LaunchedEffect(cursor.key, focused) {
         if (focused) rows.firstOrNull { it.channel.key == cursor.key }?.let(onRowFocused)
@@ -480,6 +504,7 @@ internal fun LiveTvGuide(
                     .focusRequester(contentRequester)
                     .onFocusChanged {
                         focused = it.isFocused
+                        cursor.gridFocused = it.isFocused
                         if (!it.isFocused) onFocusLeft()
                     }
                     .onPreviewKeyEvent { event ->
@@ -563,7 +588,8 @@ internal fun LiveTvGuide(
                                 height = rowHeight,
                                 dpPerMs = dpPerMs,
                                 stripWidth = stripWidth,
-                                timeFormat = timeFormat
+                                timeFormat = timeFormat,
+                                mark = search.mark(key)
                             )
                         }
                     }
@@ -693,7 +719,8 @@ private fun GuideRowView(
     height: Dp,
     dpPerMs: Dp,
     stripWidth: Dp,
-    timeFormat: DateFormat
+    timeFormat: DateFormat,
+    mark: LiveRowMark?
 ) {
     val marquee = NuvioTheme.marquee
     val live = marquee.liveTv
@@ -719,8 +746,9 @@ private fun GuideRowView(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            val markFill = if (channelFocused) live.searchMarkFocused else live.searchMark
             Text(
-                text = row.number,
+                text = liveTvMarked(row.number, mark?.takeIf { it.onNumber }?.range, markFill),
                 style = rulerStyle().copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
                 color = when {
                     channelFocused -> black.copy(alpha = SUFFIX_ALPHA)
@@ -734,7 +762,7 @@ private fun GuideRowView(
             val logo = if (compact) live.guideCompactLogoSize else live.guideLogoSize
             LiveTvChannelTile(channel = row.channel, size = logo, radius = logo / 4)
             Text(
-                text = row.channel.shownName,
+                text = liveTvMarked(row.channel.shownName, mark?.takeIf { !it.onNumber }?.range, markFill),
                 style = NuvioTheme.textStyles.cardLabel,
                 color = if (channelFocused) black else white,
                 maxLines = 1,

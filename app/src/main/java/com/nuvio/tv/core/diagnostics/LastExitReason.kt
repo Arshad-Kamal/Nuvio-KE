@@ -19,6 +19,13 @@ enum class AbnormalExitKind(val label: String) {
 data class AbnormalExit(val kind: AbnormalExitKind, val timestampMs: Long)
 
 /**
+ * Spec 116 D3.3: one process end for a report. [kind] is the [AbnormalExitKind] label, else
+ * `reason=N`; [anrTrace] is the ANR trace text (UTF-8, at most [LastExitReason.MAX_TRACE_BYTES]),
+ * raw: the report scrubs it.
+ */
+data class ExitRecord(val kind: String, val timestampMs: Long, val description: String, val anrTrace: String?)
+
+/**
  * Spec 70 R1: why earlier processes ended, from `ActivityManager.getHistoricalProcessExitReasons`
  * (API 30+; older devices have neither the log line nor the Settings row). Device-local only:
  * one logcat line per start and the Advanced › General row, no telemetry (KE removed crash
@@ -27,6 +34,7 @@ data class AbnormalExit(val kind: AbnormalExitKind, val timestampMs: Long)
 object LastExitReason {
     private const val TAG = "NuvioExit"
     private const val MAX_DESCRIPTION_CHARS = 160
+    const val MAX_TRACE_BYTES = 32 * 1024
     private val URL = Regex("""\b(?:\w+://|magnet:\?)\S+""")
 
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
@@ -64,6 +72,40 @@ object LastExitReason {
         return exits(context, maxNum = 0).firstNotNullOfOrNull { exit ->
             classify(exit.reason, exit.importance)?.let { AbnormalExit(it, exit.timestamp) }
         }
+    }
+
+    /**
+     * Spec 116 D3.3: every kept process end at or after [sinceMs], newest first, with the ANR trace
+     * text for an ANR. Empty below API 30. Blocking binder call and file read: run off the main thread.
+     */
+    fun recentExits(context: Context, sinceMs: Long): List<ExitRecord> {
+        if (!supported) return emptyList() // Spec 107: see exits().
+        return exits(context, maxNum = 0).filter { it.timestamp >= sinceMs }.map { exit ->
+            ExitRecord(
+                kind = classify(exit.reason, exit.importance)?.label ?: "reason=${exit.reason}",
+                timestampMs = exit.timestamp,
+                description = sanitizeDescription(exit.description),
+                anrTrace = if (exit.reason == ApplicationExitInfo.REASON_ANR) anrTrace(exit) else null,
+            )
+        }
+    }
+
+    /** The first [MAX_TRACE_BYTES] of the trace, or null when Android kept none or the read fails. */
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun anrTrace(exit: ApplicationExitInfo): String? = try {
+        exit.traceInputStream?.use { input ->
+            val bytes = ByteArray(MAX_TRACE_BYTES)
+            var read = 0
+            while (read < bytes.size) {
+                val n = input.read(bytes, read, bytes.size - read)
+                if (n < 0) break
+                read += n
+            }
+            String(bytes, 0, read, Charsets.UTF_8)
+        }
+    } catch (e: java.io.IOException) {
+        Log.w(TAG, "ANR trace read failed: ${e.javaClass.simpleName}")
+        null
     }
 
     /** Logs the previous process's end. Blocking binder call: run off the main thread. */

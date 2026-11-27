@@ -45,6 +45,7 @@ import com.nuvio.tv.ui.screens.home.MarqueeRowSection
 import com.nuvio.tv.ui.screens.home.MarqueeRowTile
 import com.nuvio.tv.ui.screens.home.MarqueeSkeletonRow
 import com.nuvio.tv.ui.screens.home.ModernCarouselItem
+import com.nuvio.tv.ui.screens.home.RowLoadMoreEntry
 import com.nuvio.tv.ui.screens.home.isPlaceholderCard
 import com.nuvio.tv.ui.screens.home.isWatchedTitle
 import com.nuvio.tv.ui.screens.collection.CollectionBadge
@@ -105,7 +106,7 @@ internal class SearchResultsBand(
     val focusedItemByRowRef = StableRef<MutableMap<String, Int>>(focusedItemByRow)
     val rowListStatesRef = StableRef<MutableMap<String, LazyListState>>(rowListStates)
     // Search rows never load more (searchCarouselRows); MarqueeRowSection still takes the map.
-    val noLoadMoreTotals = StableRef<MutableMap<String, Int>>(mutableMapOf())
+    val noLoadMoreEntries = StableRef<MutableMap<String, RowLoadMoreEntry>>(mutableMapOf())
     val rowFocusRequesters = mutableMapOf<String, FocusRequester>()
     val itemFocusRequestersByRow = mutableMapOf<String, StableRef<MutableMap<Int, FocusRequester>>>()
     private var lastFocusedRowKey: String? = viewModel.savedFocusRowKey
@@ -411,7 +412,7 @@ private fun SearchResultRowItem(
         focusStateCatalogRowScrollIndex = band.savedRowScroll(rowKey),
         focusedItemByRow = band.focusedItemByRowRef,
         rowListStates = band.rowListStatesRef,
-        loadMoreRequestedTotals = band.noLoadMoreTotals,
+        loadMoreEntries = band.noLoadMoreEntries,
         isVerticalRowsScrollingState = band.isScrolling,
         focus = band.focus,
         onRowItemFocused = band.onResultFocused,

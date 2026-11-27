@@ -176,6 +176,7 @@ fun MetaDetailsScreen(
     onSwitchProfile: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val mdbListButtonFocus = remember { FocusRequester() }
     // Re-entered with the page already loaded (back from the player or a pushed screen): the
     // page shows at once; only a load seen on this screen fades the page in.
     val contentLoadedOnEntry = remember { uiState.meta != null && !uiState.isLoading && uiState.error == null }
@@ -310,15 +311,25 @@ fun MetaDetailsScreen(
                 onBack = onBackPress,
                 onSwitchProfile = onSwitchProfile
             )
+            uiState.filterBlock != null -> DetailFilterBlockState(
+                block = uiState.filterBlock!!,
+                onBack = onBackPress,
+                onRetry = { viewModel.onEvent(MetaDetailsEvent.OnRetry) },
+                onSwitchProfile = onSwitchProfile
+            )
             // Loading: the handed-over Home backdrop under a first-frame skeleton (DetailStates.kt).
-            uiState.isLoading -> DetailLoadingState(backdropUrl = heroBackdropUrl)
+            uiState.isLoading -> DetailLoadingState(
+                backdropUrl = heroBackdropUrl,
+                ratingsLine = uiState.mdbListRatings.reserved
+            )
             uiState.error != null -> DetailErrorState(
                 message = uiState.error.orEmpty(),
                 onRetry = { viewModel.onEvent(MetaDetailsEvent.OnRetry) }
             )
             uiState.meta != null -> DetailContentEnter(
                 animate = !contentLoadedOnEntry,
-                backdropUrl = heroBackdropUrl
+                backdropUrl = heroBackdropUrl,
+                ratingsLine = uiState.mdbListRatings.reserved
             ) {
                 val meta = uiState.meta!!
                 val context = LocalContext.current
@@ -345,6 +356,10 @@ fun MetaDetailsScreen(
                     selectedSeason = uiState.selectedSeason,
                     episodesForSeason = uiState.episodesForSeason,
                     isInLibrary = uiState.isInLibrary,
+                    mdbList = uiState.mdbList,
+                    mdbListRatings = uiState.mdbListRatings,
+                    onMdbListListsClick = { viewModel.onEvent(MetaDetailsEvent.OnMdbListListsClick) },
+                    mdbListButtonFocus = mdbListButtonFocus,
                     nextToWatch = uiState.nextToWatch,
                     episodeProgressMap = uiState.episodeProgressMap,
                     watchedEpisodes = uiState.watchedEpisodes,
@@ -614,6 +629,37 @@ fun MetaDetailsScreen(
             )
         }
 
+        // Spec 106 F1/F2 (Library source = Simkl), or F1b's confirm in its place.
+        uiState.simklPicker?.let { picker ->
+            if (picker.confirmingRemoval) {
+                SimklRemoveConfirmPanel(
+                    title = uiState.meta?.name.orEmpty(),
+                    picker = picker,
+                    onConfirm = { viewModel.onEvent(MetaDetailsEvent.OnSimklRemoveConfirmed) },
+                    onCancel = { viewModel.onEvent(MetaDetailsEvent.OnSimklRemoveCancelled) }
+                )
+            } else {
+                SimklListPickerPanel(
+                    picker = picker,
+                    onPick = { list -> viewModel.onEvent(MetaDetailsEvent.OnSimklListPicked(list)) },
+                    onRemove = { viewModel.onEvent(MetaDetailsEvent.OnSimklRemove) },
+                    onDismiss = { viewModel.onEvent(MetaDetailsEvent.OnSimklPickerDismiss) }
+                )
+            }
+        }
+
+        // Spec 105 C3: in the tree (not a dialog window), so a failed write's toast below draws over it.
+        val mdbListPanel = uiState.mdbList.panel
+        if (mdbListPanel != null) {
+            MdbListListsPanel(
+                title = uiState.meta?.name.orEmpty(),
+                state = uiState.mdbList,
+                panel = mdbListPanel,
+                onToggle = { row -> viewModel.onEvent(MetaDetailsEvent.OnMdbListRowToggled(row)) },
+                onDismiss = { viewModel.onEvent(MetaDetailsEvent.OnMdbListPanelDismiss) }
+            )
+        }
+
         val message = uiState.userMessage
         if (!message.isNullOrBlank()) {
             Box(
@@ -689,6 +735,10 @@ private fun MetaDetailsContent(
     episodeWatchedPendingKeys: Set<String>,
     blurUnwatchedEpisodes: Boolean,
     showFullReleaseDate: Boolean,
+    mdbList: DetailMdbListUi = DetailMdbListUi(),
+    mdbListRatings: DetailMdbListRatingsUi = DetailMdbListRatingsUi(),
+    onMdbListListsClick: () -> Unit = {},
+    mdbListButtonFocus: FocusRequester = remember { FocusRequester() },
     overallRatingsVisibility: HomeImdbRatingsVisibility,
     detailImdbRatingsVisibility: DetailImdbRatingsVisibility,
     isMovieWatched: Boolean,
@@ -881,6 +931,16 @@ private fun MetaDetailsContent(
     }
     val selectedSeasonFocusRequester = remember { FocusRequester() }
     val heroPlayFocusRequester = remember { FocusRequester() }
+    // Spec 105 C3: closing the Lists panel hands focus back to the Lists button, or to Play when the button went with
+    // it (MDBList disconnected under the panel).
+    val mdbListPanelOpen = mdbList.panel != null
+    var mdbListPanelWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(mdbListPanelOpen) {
+        if (!mdbListPanelOpen && mdbListPanelWasOpen && !mdbListButtonFocus.requestFocusAfterFrames()) {
+            heroPlayFocusRequester.requestFocusAfterFrames()
+        }
+        mdbListPanelWasOpen = mdbListPanelOpen
+    }
     var pendingRestoreType by rememberSaveable { mutableStateOf<RestoreTarget?>(null) }
     var pendingRestoreEpisodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingRestoreCastPersonId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -1041,6 +1101,7 @@ private fun MetaDetailsContent(
     }
     val moreLikeThisSourceLabel = when (moreLikeThisSource) {
         MoreLikeThisSource.TMDB -> stringResource(R.string.detail_more_like_this_powered_by_tmdb)
+        MoreLikeThisSource.SIMKL -> stringResource(R.string.detail_more_like_this_powered_by_simkl)
         null -> null
     }
     var seasonOptionsDialogSeason by remember { mutableStateOf<Int?>(null) }
@@ -1239,6 +1300,11 @@ private fun MetaDetailsContent(
                         showImdbRating = showStandardOverallRatings,
                         showFullReleaseDate = showFullReleaseDate,
                         isInLibrary = isInLibrary,
+                        mdbListRatings = mdbListRatings,
+                        mdbListChip = mdbList.chipCount,
+                        showListsButton = mdbList.live.connected,
+                        onListsClick = onMdbListListsClick,
+                        listsFocusRequester = mdbListButtonFocus,
                         isMovieWatched = isMovieWatched,
                         isMovieWatchedPending = isMovieWatchedPending,
                         trailerAvailable = trailerButtonEnabled && !trailerUrl.isNullOrBlank(),
@@ -1434,7 +1500,8 @@ private fun MetaDetailsContent(
                                             title = item.name,
                                             imageUrl = item.backdropUrl,
                                             isWatched = relatedWatchedStatus["${item.id}|${item.apiType}"] == true,
-                                            value = item
+                                            value = item,
+                                            filterHits = item.filterHits
                                         )
                                     }
                                 }

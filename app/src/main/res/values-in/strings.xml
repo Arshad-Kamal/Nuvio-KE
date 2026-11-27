@@ -609,7 +609,7 @@
     <string name="settings_p2p_title">Streaming P2P</string>
     <string name="settings_p2p_subtitle">Izinkan stream peer-to-peer (torrent)</string>
     <string name="settings_p2p_hide_stats_title">Sembunyikan statistik torrent</string>
-    <string name="settings_p2p_hide_stats_subtitle">Sembunyikan buffer, seed, peer, dan kecepatan unduhan selama pemuatan dan pemutaran</string>
+    <string name="settings_p2p_hide_stats_subtitle">Sembunyikan buffer, seed, peer, dan kecepatan unduhan selama pemutaran</string>
     <string name="stream_filter_all">Semua</string>
 
     <!-- PlayerScreen -->

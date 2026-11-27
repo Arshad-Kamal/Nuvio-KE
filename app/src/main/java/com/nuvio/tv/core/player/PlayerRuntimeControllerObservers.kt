@@ -209,7 +209,15 @@ internal fun PlayerRuntimeController.fetchAddonSubtitles() {
                 val match = visibleSubtitles.firstOrNull { it.id == pendingAddon.id }
                     ?: visibleSubtitles.firstOrNull { PlayerSubtitleUtils.matchesLanguageCode(it.lang, pendingAddon.lang) }
                 if (match != null) {
+                    // mpv sets the selection only once its file loads; one still loading counts.
+                    val selectedBefore = _uiState.value.selectedAddonSubtitle?.let(::addonSubtitleKey)
+                        ?: mpvAddonSubtitleKeyInFlight()
                     autoSelectAddonSubtitleDeferringReload(match)
+                    // Spec 108: only a selection this changed gets its own (selected-only) run; an
+                    // unchanged one already has the restore's run, which must not be narrowed.
+                    if (deferredAutoAddonSubtitle == null && selectedBefore != addonSubtitleKey(match)) {
+                        runSelectedAutomaticSubtitleSync(match)
+                    }
                     return@launch
                 }
             }
@@ -279,6 +287,7 @@ internal fun PlayerRuntimeController.maybeAttachDeferredAddonSubtitle() {
     trackSelection.autoSubtitleSelected = true
     selectAddonSubtitle(subtitle)
     _uiState.update { it.copy(selectedAddonSubtitle = subtitle, selectedSubtitleTrackIndex = -1) }
+    runSelectedAutomaticSubtitleSync(subtitle) // Spec 108
 }
 
 /**
@@ -296,7 +305,8 @@ internal fun PlayerRuntimeController.resetSubtitlesForEpisodeSwitch() {
     pendingAddonSubtitleLanguage = null
     pendingAddonSubtitleTrackId = null
     pendingAudioSelectionAfterSubtitleRefresh = null
-    resetSubtitleAutoSyncState()
+    resetSubtitleManualSyncState()
+    cancelAutomaticSubtitleSync() // Spec 108
     attachedAddonSubtitleKeys = emptySet()
     stopSidecarAddonSubtitle(clearView = true)
     _uiState.update {
@@ -384,7 +394,7 @@ internal fun PlayerRuntimeController.observeEpisodeWatchProgress() {
 
 internal fun PlayerRuntimeController.observeSubtitleSettings() {
     scope.launch {
-        playerSettingsDataStore.playerSettings.collect { settings ->
+        sessionPlayerSettings.collect { settings ->
             currentPlayerSettings = settings
             val currentState = _uiState.value
             val showOnlyPreferredLanguagesChanged =
@@ -835,11 +845,17 @@ internal fun PlayerRuntimeController.cancelStartupWatchdog() {
  * prepared player kept buffering behind the error screen (+50 MB, 568 MB peak on the
  * 2 GB Shield). Until then a late first frame still retracts the error (T3). Exo engine
  * path only, matching the arm site; mpv's counterpart is [scheduleMpvStartupWatchdog].
+ *
+ * A torrent start (Spec 138) is judged on TorrServer's progress ([torrentSwarmSample]), not on
+ * the loopback bytes: it waits [PlayerStartupWatchdogPolicy.TORRENT_IDLE_LIMIT_MS], then up to
+ * [PlayerStartupWatchdogPolicy.TORRENT_CEILING_MS] while the swarm progresses, and its fire
+ * measures the swarm's bytes.
  */
 internal fun PlayerRuntimeController.scheduleStartupWatchdog() {
     cancelStartupWatchdog()
     // Armed before prepare(): only this start's load errors name its fire (Spec 113 F2b).
     startupLoadHttpError = null
+    startupGraceStopped = false
     startupWatchdogArmedAtMs = android.os.SystemClock.elapsedRealtime()
     startupWatchdogJob = scope.launch {
         // T3 (ysosrs 01b6b4bae, rev2): extend-with-ceiling on buffered-AHEAD growth.
@@ -858,6 +874,10 @@ internal fun PlayerRuntimeController.scheduleStartupWatchdog() {
         var armedNetworkBytes = PlaybackByteCounter.networkBytes
         var lastBufferedAheadMs = 0L
         var lastNetworkBytes = armedNetworkBytes
+        // Spec 138: decided at arm (TorrServer is Streaming before initializePlayer runs).
+        val torrentStart = isTorrentStartAt(armedUrl)
+        var armedSwarm = torrentSwarmSample(armedUrl)
+        var lastSwarm = armedSwarm
         while (isActive) {
             delay(PlayerRuntimeController.STARTUP_WATCHDOG_TIMEOUT_MS)
             if (hasRenderedFirstFrame || currentStreamUrl != armedUrl) return@launch
@@ -865,11 +885,17 @@ internal fun PlayerRuntimeController.scheduleStartupWatchdog() {
             val networkBytes = PlaybackByteCounter.networkBytes
             // Spec 86 R4: in the background the window restarts instead of firing (as mpv's
             // watchdog): a fire now fails over, and no source is judged while the app is away.
+            val swarm = if (torrentStart) torrentSwarmSample(armedUrl) else null
+            // The swarm's window starts at the first polled sample: at arm, or later when TorrServer's
+            // first poll had not answered yet (or after a background reset that read none).
+            armedSwarm = PlayerStartupWatchdogPolicy.swarmBaseline(armedSwarm, swarm)
             if (isInBackground) {
                 armedAtMs = android.os.SystemClock.elapsedRealtime()
                 armedNetworkBytes = networkBytes
                 lastBufferedAheadMs = 0L
                 lastNetworkBytes = networkBytes
+                armedSwarm = swarm
+                lastSwarm = swarm
                 continue
             }
             val elapsedMs = android.os.SystemClock.elapsedRealtime() - armedAtMs
@@ -882,7 +908,15 @@ internal fun PlayerRuntimeController.scheduleStartupWatchdog() {
                 hasScannedTracksOnce = hasScannedTextTracksOnce,
                 streamHasVideoTrack = currentStreamHasVideoTrack,
                 videoTrackSelected = currentVideoTrackSelected,
-                networkBytesGrew = networkBytes > lastNetworkBytes,
+                // Spec 138: swarm data reaching TorrServer is data arriving, though it is handed over per piece.
+                networkBytesGrew = networkBytes > lastNetworkBytes ||
+                    (swarm != null && PlayerStartupWatchdogPolicy.swarmDelivered(swarm, lastSwarm)),
+            )
+            val swarmProgressed = PlayerStartupWatchdogPolicy.torrentExtendSignal(
+                torrentStart = torrentStart,
+                sample = swarm,
+                last = lastSwarm,
+                fireReason = PlayerStartupWatchdogPolicy.fireReason(fireInput),
             )
             val dataArriving = PlayerStartupWatchdogPolicy.waitsForData(fireInput)
             if (
@@ -891,23 +925,35 @@ internal fun PlayerRuntimeController.scheduleStartupWatchdog() {
                     bufferedAheadMs = bufferedAheadMs,
                     lastBufferedAheadMs = lastBufferedAheadMs,
                     dataArriving = dataArriving,
+                    swarmProgressed = swarmProgressed,
                 )
             ) {
+                val ceilingMs = if (torrentStart) {
+                    PlayerStartupWatchdogPolicy.TORRENT_CEILING_MS
+                } else {
+                    PlayerRuntimeController.STARTUP_WATCHDOG_CEILING_MS
+                }
                 Log.w(
                     PlayerRuntimeController.TAG,
                     "STARTUP_WATCHDOG: no first frame ${elapsedMs}ms after starting_stream " +
                         "but buffered-ahead ${lastBufferedAheadMs}ms -> ${bufferedAheadMs}ms, " +
-                        "network bytes +${networkBytes - lastNetworkBytes} (dataArriving=$dataArriving); " +
-                        "extending (ceiling=${PlayerRuntimeController.STARTUP_WATCHDOG_CEILING_MS}ms)"
+                        "network bytes +${networkBytes - lastNetworkBytes} (dataArriving=$dataArriving" +
+                        (swarm?.let { " torrentCache=${it.cachedBytes} torrentBps=${it.downloadSpeed}" } ?: "") +
+                        " swarmProgressed=$swarmProgressed); extending (ceiling=${ceilingMs}ms)"
                 )
                 com.nuvio.tv.core.util.TtffTrace.mark("startup_watchdog_extended")
                 lastBufferedAheadMs = bufferedAheadMs
                 lastNetworkBytes = networkBytes
+                if (swarm != null) lastSwarm = swarm
                 continue
             }
             val stateName = livePlayer.playbackState.playbackStateName()
             val fireReason = PlayerStartupWatchdogPolicy.fireReason(fireInput)
-            val fire = startupWatchdogFailure(fireReason, elapsedMs, networkBytes - armedNetworkBytes)
+            // Spec 138 D4: a torrent's measured speed is the swarm's (cache bytes over the window).
+            val windowBytes = PlayerStartupWatchdogPolicy.fireWindowBytes(
+                torrentStart, swarm, armedSwarm, loopbackBytes = networkBytes - armedNetworkBytes
+            )
+            val fire = startupWatchdogFailure(fireReason, elapsedMs, windowBytes)
             // Spec 86 R4/D3: a source-facing fire tries the next source before the box; another
             // error already on screen owns its own handling. Only when a failover can happen: the
             // failover marks the source dead and records it before it gives up, and a box the
@@ -1036,6 +1082,9 @@ private suspend fun PlayerRuntimeController.stopPlayerAfterStartupGrace(
             "(state=${livePlayer.playbackState.playbackStateName()} " +
             "bufferedAheadMs=${livePlayer.totalBufferedDuration}); stopping the player"
     )
+    // Spec 138 F1: stop() only posts MSG_STOP and this job ends at once; a loader error thrown in
+    // between survives the stop as onPlayerError (PlayerStartupWatchdogPolicy.keepsBoxOnLateError).
+    startupGraceStopped = true
     livePlayer.stop()
     com.nuvio.tv.core.util.TtffTrace.mark("startup_watchdog_stopped")
 }

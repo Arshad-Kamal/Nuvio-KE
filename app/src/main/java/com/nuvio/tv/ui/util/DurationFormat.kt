@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
  * Playback clock formatting, m:ss or H:mm:ss (G6 consolidation home,
  * 2026-08-30): previously four private copies — PlayerScreen.formatTime
  * (unpadded), SharedTrailerOverlay.formatPlaybackTime and
- * PlayerRuntimeControllerSubtitleTiming.formatAutoSyncTimestamp (both
+ * PlayerRuntimeControllerSubtitleTiming.formatManualSyncTimestamp (both
  * zero-padded), AuthQrSignInScreen.formatDuration (minutes-scale countdown).
  * Per-site padding is preserved exactly via [padMinutesUnderHour]; both
  * conventions ship today and neither is a defect.

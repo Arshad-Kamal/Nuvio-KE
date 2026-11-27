@@ -139,6 +139,15 @@ data class NuvioMarqueeTokens(
  * a [guideNoneEdge] hairline (a [guideWaitEdge] one while the guides load, Spec 115 D5); the guide-end cell
  * [guideEndStripe] stripes. Ruler marks a [guideMarkEdge]
  * hairline ([guideMidnightEdge] at midnight); the now-line [guideNowLineWidth] in `accent`.
+ * Live search (Spec 111, sandbox `s111-live-search` v1, `.s111f`, `.srch`, `mark`): the field
+ * [searchFieldWidth] x [searchFieldHeight] in place of the pills (centred on their row), padded
+ * [searchFieldPaddingStart] / [searchFieldPaddingEnd], a [searchClearSize] clear circle; fills, edge, icon
+ * and gap from `search`; the search button a `pillHeight` glass circle. A match is marked on [searchMark]
+ * ([searchMarkFocused] on a focused row). In full screen's list overlay (`.s111pf`, `.s111c`): the field
+ * [overlaySearchFieldHeight] tall, [overlaySearchFieldInset] from the panel's sides and top and
+ * [overlaySearchFieldGap] above the rows (which start at [overlaySearchListTop]), padded
+ * [overlaySearchFieldPadding], parts [overlaySearchFieldGap] apart, [overlaySearchIconSize] icons (the
+ * search chip's too, a `chipHeight` circle). A list-overlay chip is at most [overlayChipMaxWidth] wide (D12).
  */
 @Immutable
 data class NuvioMarqueeLiveTvTokens(
@@ -294,7 +303,21 @@ data class NuvioMarqueeLiveTvTokens(
     val guideEndStripe: Color,
     val guideMarkEdge: Color,
     val guideMidnightEdge: Color,
-    val guideNowLineWidth: Dp
+    val guideNowLineWidth: Dp,
+    val searchFieldWidth: Dp,
+    val searchFieldHeight: Dp,
+    val searchFieldPaddingStart: Dp,
+    val searchFieldPaddingEnd: Dp,
+    val searchClearSize: Dp,
+    val searchMark: Color,
+    val searchMarkFocused: Color,
+    val overlaySearchFieldHeight: Dp,
+    val overlaySearchFieldInset: Dp,
+    val overlaySearchFieldPadding: Dp,
+    val overlaySearchFieldGap: Dp,
+    val overlaySearchIconSize: Dp,
+    val overlaySearchListTop: Dp,
+    val overlayChipMaxWidth: Dp
 )
 
 /**
@@ -479,7 +502,8 @@ data class NuvioMarqueeFormRowTokens(
  * a caption under its eyebrow [panelTextInset] in; the QR panel (`.l11qp`, stage 12)
  * [qrPanelWidth] wide, its QR [qrSize] square, parts [qrGap] apart, the action [qrActionHeight]
  * tall padded [qrActionPaddingHorizontal]. The TMDB key panel (Spec 52 `.s52msg`, `.btn.busy`): a
- * message line's icon [messageIconSize], [messageIconGap] before the text; the busy action at
+ * message line's icon [messageIconSize], [messageIconGap] before the text (Spec 132 `.s132full`: an
+ * info line's icon [infoIconSize] in [infoIconTint]); the busy action at
  * [busyAlpha]; its phone block (`.s52qrrow`) a white QR tile [keyQrSize] square at [keyQrRadius],
  * the code filling [keyQrFill] of it, [keyQrGap] before the text.
  * `.l11pass` results panel (stage 24): [resultsFill] at [resultsRadius], padded
@@ -580,6 +604,8 @@ data class NuvioMarqueeSettingsTokens(
     val qrActionPaddingHorizontal: Dp,
     val messageIconSize: Dp,
     val messageIconGap: Dp,
+    val infoIconSize: Dp,
+    val infoIconTint: Color,
     val busyAlpha: Float,
     val keyQrSize: Dp,
     val keyQrRadius: Dp,
@@ -771,9 +797,10 @@ data class NuvioMarqueeProfilesTokens(
     val pickerRingGap: Dp,
     val pickerFocusScale: Float,
     /** Editor (stages 7, 8) on the 960x540 canvas: colour field under [editorVeil]; the preview
-     *  column [editorPreviewWidth] wide at [editorPreviewTop] (avatar [editorAvatarSize], items
-     *  [editorPreviewGap] apart, the Name field [editorFieldTop] below the name); a [editorRule]
-     *  hairline [editorRuleStart] from the left, [editorRuleBottom] above the bottom; the picker
+     *  column [editorPreviewWidth] wide (avatar [editorAvatarSize], items [editorPreviewGap] apart,
+     *  the Name field [editorFieldTop] below the name; it starts near the top since Spec 117 S7a, see
+     *  ProfileEditor); a [editorRule] hairline [editorRuleStart] from the left, from [editorPreviewTop]
+     *  to [editorRuleBottom] above the bottom; the picker
      *  column [editorPickerWidth] wide at [editorPickerStart] / [editorPickerTop], items
      *  [editorPickerGap] apart. Name field (`.l10in`, fills and edge from `search`): [fieldHeight],
      *  radius [fieldRadius], padded [fieldPaddingHorizontal]; label to field [fieldLabelGap]. */
@@ -1371,11 +1398,13 @@ data class NuvioMarqueeOsdTokens(
     /** `media.osdScrimBottom`: (fraction of the screen height, black alpha) stops. */
     val scrimBottomStops: List<Pair<Float, Float>>,
     /** Top band: title and clock line boxes start at [topInset]; badges at [badgesTop], [badgeGap]
-     *  apart; a long title ellipsizes [titleEndGap] before the badges (or the clock). */
+     *  apart; the title ends [titleEndGap] before the badges (or the clock); [titleMinFontSize]:
+     *  the floor it shrinks to (Spec 140 D3). */
     val topInset: Dp,
     val badgesTop: Dp,
     val badgeGap: Dp,
     val titleEndGap: Dp,
+    val titleMinFontSize: TextUnit,
     /** Transport row: [iconButtonSize] circles with [iconSize] icons, [rowGap] apart; play/pause
      *  in a [playPauseSize] slot: unfocused a bare [playPauseIconSize] icon, focused a white circle
      *  with a [playPauseFocusedIconSize] icon (Spec 45 Q5). The row's bottom sits [bottomInset]
@@ -2053,6 +2082,7 @@ object NuvioMarquee {
             badgesTop = 41.dp,
             badgeGap = 6.dp,
             titleEndGap = 24.dp,
+            titleMinFontSize = 14.sp,
             iconButtonSize = 44.dp,
             iconSize = 24.dp,
             playPauseSize = 64.dp,
@@ -2719,6 +2749,8 @@ object NuvioMarquee {
             qrActionPaddingHorizontal = 18.dp,
             messageIconSize = 16.dp,
             messageIconGap = 8.dp,
+            infoIconSize = 18.dp,
+            infoIconTint = Color(0xFF9EC3D8),
             busyAlpha = 0.55f,
             keyQrSize = 112.dp,
             keyQrRadius = 10.dp,
@@ -2939,7 +2971,21 @@ object NuvioMarquee {
             guideEndStripe = NuvioPrimitives.white.copy(alpha = 0.035f),
             guideMarkEdge = NuvioPrimitives.white.copy(alpha = 0.18f),
             guideMidnightEdge = NuvioPrimitives.white.copy(alpha = 0.5f),
-            guideNowLineWidth = 2.dp
+            guideNowLineWidth = 2.dp,
+            searchFieldWidth = 420.dp,
+            searchFieldHeight = 40.dp,
+            searchFieldPaddingStart = 14.dp,
+            searchFieldPaddingEnd = 8.dp,
+            searchClearSize = 28.dp,
+            searchMark = NuvioPrimitives.white.copy(alpha = 0.24f),
+            searchMarkFocused = NuvioPrimitives.black.copy(alpha = 0.14f),
+            overlaySearchFieldHeight = 36.dp,
+            overlaySearchFieldInset = 12.dp,
+            overlaySearchFieldPadding = 12.dp,
+            overlaySearchFieldGap = 8.dp,
+            overlaySearchIconSize = 16.dp,
+            overlaySearchListTop = 60.dp,
+            overlayChipMaxWidth = 176.dp
         ),
         tip = NuvioMarqueeTipTokens(
             veil = NuvioPrimitives.black.copy(alpha = 0.94f),

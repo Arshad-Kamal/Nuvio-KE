@@ -6,6 +6,18 @@ import com.nuvio.tv.core.recommendations.TvRecommendationManager
 import com.nuvio.tv.core.recommendations.WatchNextRemoval
 import com.nuvio.tv.core.sync.WatchProgressSyncService
 import com.nuvio.tv.core.sync.WatchedItemsSyncService
+import com.nuvio.tv.core.tracking.TrackingHistoryItem
+import com.nuvio.tv.core.tracking.TrackingMediaReference
+import com.nuvio.tv.core.tracking.TrackingProgressProvider
+import com.nuvio.tv.core.tracking.TrackingProgressRouter
+import com.nuvio.tv.core.tracking.buildTrackingMediaReference
+import com.nuvio.tv.core.tracking.isEpisodeVideoId
+import com.nuvio.tv.core.tracking.mergeEpisodeProgressProjection
+import com.nuvio.tv.core.tracking.mergeNextUpSeedProjection
+import com.nuvio.tv.core.tracking.mergeProgressProjection
+import com.nuvio.tv.core.tracking.mergeWatchedItemProjection
+import com.nuvio.tv.core.tracking.projectProgressEntry
+import com.nuvio.tv.core.tracking.watchedEpisodesByShow
 import android.os.SystemClock
 import android.util.Log
 import com.nuvio.tv.data.local.ContinueWatchingSettingsDataStore
@@ -34,7 +46,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -116,6 +130,8 @@ class WatchProgressRepositoryImpl @Inject constructor(
     private val tmdbService: TmdbService,
     private val profileManager: com.nuvio.tv.core.profile.ProfileManager,
     private val tvRecommendationManager: TvRecommendationManager,
+    // Spec 104 S2b: reads follow the Continue Watching source; trackers get extra writes. Local writes never change.
+    private val trackingRouter: TrackingProgressRouter,
 ) : WatchProgressRepository {
     companion object {
         private const val TAG = "WatchProgressRepo"
@@ -275,7 +291,12 @@ class WatchProgressRepositoryImpl @Inject constructor(
     }
 
     override val allProgress: Flow<List<WatchProgress>>
-        get() = watchProgressPreferences.allProgress
+        get() = trackingRouter.project(localAllProgress(), { allProgress }) { tracker, local ->
+            mergeProgressProjection(tracker, local) { retainsLocalEntry(it) }
+        }
+
+    private fun localAllProgress(): Flow<List<WatchProgress>> =
+        watchProgressPreferences.allProgress
             .onEach { items ->
                 // Captured at the claim: the merge must not land in whichever profile is active
                 // when the fetch ends (T31, P44). A list still in flight across a profile switch
@@ -291,18 +312,38 @@ class WatchProgressRepositoryImpl @Inject constructor(
             }
 
     override val watchedItems: Flow<List<WatchedItem>>
-        get() = watchedItemsPreferences.allItems.distinctUntilChanged()
+        get() = trackingRouter.project(watchedItemsPreferences.allItems, { watchedItems }) { tracker, local ->
+            mergeWatchedItemProjection(tracker, local) { retainsLocalItem(it) }
+        }.distinctUntilChanged()
 
-    override fun getProgress(contentId: String): Flow<WatchProgress?> =
-        watchProgressPreferences.getProgress(contentId)
+    override fun getProgress(contentId: String): Flow<WatchProgress?> {
+        val local = watchProgressPreferences.getProgress(contentId)
+        return trackingRouter.project(local, { allProgress.map { entries -> entries.firstOrNull { it.contentId == contentId } } }) { tracker, own ->
+            projectProgressEntry(tracker, own, own != null && retainsLocalEntry(own))
+        }
+    }
 
-    override fun getEpisodeProgress(contentId: String, season: Int, episode: Int): Flow<WatchProgress?> =
-        watchProgressPreferences.getEpisodeProgress(contentId, season, episode)
+    override fun getEpisodeProgress(contentId: String, season: Int, episode: Int): Flow<WatchProgress?> {
+        val local = watchProgressPreferences.getEpisodeProgress(contentId, season, episode)
+        return trackingRouter.project(local, { episodeProgress(contentId).map { it[season to episode] } }) { tracker, own ->
+            projectProgressEntry(tracker, own, own != null && retainsLocalEntry(own))
+        }
+    }
 
-    override fun getAllEpisodeProgress(contentId: String): Flow<Map<Pair<Int, Int>, WatchProgress>> =
-        watchProgressPreferences.getAllEpisodeProgress(contentId)
+    override fun getAllEpisodeProgress(contentId: String): Flow<Map<Pair<Int, Int>, WatchProgress>> {
+        val local = watchProgressPreferences.getAllEpisodeProgress(contentId)
+        return trackingRouter.project(local, { episodeProgress(contentId) }) { tracker, own ->
+            mergeEpisodeProgressProjection(tracker, own) { retainsLocalEntry(it) }
+        }
+    }
 
     override fun observeNextUpSeeds(): Flow<List<WatchProgress>> {
+        return trackingRouter.project(localNextUpSeeds(), { nextUpSeeds }) { tracker, own ->
+            mergeNextUpSeedProjection(tracker, own) { retainsLocalEntry(it) }
+        }
+    }
+
+    private fun localNextUpSeeds(): Flow<List<WatchProgress>> {
         // Use watched items (fully synced with pagination) to build seeds
         // instead of watch progress (limited to 1000 entries).
         return combine(
@@ -387,8 +428,11 @@ class WatchProgressRepositoryImpl @Inject constructor(
                 .toSet()
             (completedIds + watchedItemIds) - replayingIds
         }.debounce(500)
+        val routedBase = trackingRouter.project(baseFlow, { watchedMovieIds }) { tracker, local ->
+            tracker + local.filter(this::retainsLocal)
+        }
         return combine(
-            baseFlow,
+            routedBase,
             profileManager.activeProfileId,
             optimisticWatchedMovieAdditions,
             optimisticWatchedMovieRemovals
@@ -424,11 +468,18 @@ class WatchProgressRepositoryImpl @Inject constructor(
 
     override suspend fun getWatchedShowEpisodes(): Map<String, Set<Pair<Int, Int>>> {
         val profileId = profileManager.activeProfileId.value
-        return watchedItemsPreferences.getAllItems(profileId)
-            .filter { it.season != null && it.episode != null }
-            .groupBy { it.contentId }
-            .mapValues { (_, items) -> items.map { it.season!! to it.episode!! }.toSet() }
+        val local = watchedItemsPreferences.getAllItems(profileId)
+        val provider = trackingRouter.activeProvider()
+        val items = provider?.let { mergeWatchedItemProjection(it.watchedItems.first(), local) { item -> it.retainsLocalItem(item) } } ?: local
+        return items.watchedEpisodesByShow()
     }
+
+    /** The tracker's per-entry keep check (Spec 105 S6 N4b) for a local progress entry. */
+    private fun TrackingProgressProvider.retainsLocalEntry(entry: WatchProgress): Boolean =
+        retainsLocalEpisode(entry.contentId, entry.season, entry.episode, entry.lastWatched)
+
+    private fun TrackingProgressProvider.retainsLocalItem(item: WatchedItem): Boolean =
+        retainsLocalEpisode(item.contentId, item.season, item.episode, item.watchedAt)
 
     override fun isWatched(contentId: String, season: Int?, episode: Int?): Flow<Boolean> {
         val progressFlow = if (season != null && episode != null) {
@@ -436,19 +487,20 @@ class WatchProgressRepositoryImpl @Inject constructor(
         } else {
             watchProgressPreferences.getProgress(contentId)
         }
-        return combine(
-            progressFlow,
-            watchedItemsPreferences.isWatched(contentId, season, episode)
-        ) { progressEntry, itemWatched ->
+        val itemFlow = watchedItemsPreferences.allItems.map { items ->
+            items.firstOrNull { it.contentId == contentId && it.season == season && it.episode == episode }
+        }
+        // The times of each local watch (a completed play, a mark); empty = not watched here (for the per-entry keep check).
+        val local = combine(progressFlow, itemFlow) { progressEntry, item ->
             val hasStartedReplay = progressEntry?.let { entry ->
                 !entry.isCompleted() &&
                     (entry.position > 0L || entry.progressPercent?.let { it > 0f } == true)
             } == true
-
-            if (hasStartedReplay) {
-                false
-            } else {
-                (progressEntry?.isCompleted() == true) || itemWatched
+            if (hasStartedReplay) emptyList() else listOfNotNull(progressEntry?.takeIf { it.isCompleted() }?.lastWatched, item?.watchedAt)
+        }
+        return trackingRouter.route(local.map { it.isNotEmpty() }) { provider ->
+            combine(provider.isWatched(contentId, season, episode), local, provider.localRetentionChanges) { tracker, watchedAt, _ ->
+                tracker || watchedAt.any { provider.retainsLocalEpisode(contentId, season, episode, it) }
             }
         }
     }
@@ -469,6 +521,8 @@ class WatchProgressRepositoryImpl @Inject constructor(
                 progress = progress,
                 nowMs = SystemClock.elapsedRealtime()
             )
+        // Read next to the profile capture, before the local write (see markOnTrackers).
+        trackingRouter.activeProvider()?.applyOptimisticProgress(progress)
         watchProgressPreferences.saveProgress(progress, profileId = profileId)
 
         if (shouldPushRemote) {
@@ -497,6 +551,8 @@ class WatchProgressRepositoryImpl @Inject constructor(
 
     override suspend fun removeProgress(contentId: String, season: Int?, episode: Int?) {
         val profileId = profileManager.activeProfileId.value
+        // Read next to the profile capture, before the network delete (see markOnTrackers).
+        removeTrackerProgress(profileId, contentId, listOf(season to episode))
         val remoteDeleteKeys = resolveRemoteDeleteKeys(contentId, season, episode, profileId = profileId)
         watchProgressPreferences.removeProgress(contentId, season, episode, profileId = profileId)
         if (authManager.isAuthenticated && remoteDeleteKeys.isNotEmpty()) {
@@ -509,8 +565,17 @@ class WatchProgressRepositoryImpl @Inject constructor(
         pruneWatchNext(listOf(WatchNextRemoval(contentId, season, episode)))
     }
 
-    override suspend fun removeFromHistory(contentId: String, season: Int?, episode: Int?) {
+    override suspend fun removeFromHistory(
+        contentId: String,
+        season: Int?,
+        episode: Int?,
+        contentType: String?,
+        videoId: String?
+    ) {
         val profileId = profileManager.activeProfileId.value
+        val videoIds = if (season != null && episode != null && videoId != null) mapOf((season to episode) to videoId) else emptyMap()
+        unmarkOnTrackers(profileId, contentId, listOf(season to episode), contentType, videoIds)
+        removeTrackerProgress(profileId, contentId, listOf(season to episode))
         val remoteDeleteKeys = resolveRemoteDeleteKeys(contentId, season, episode, profileId = profileId)
         watchProgressPreferences.removeProgress(contentId, season, episode, profileId = profileId)
         watchedItemsPreferences.unmarkAsWatched(contentId, season, episode, profileId = profileId)
@@ -532,10 +597,14 @@ class WatchProgressRepositoryImpl @Inject constructor(
 
     override suspend fun removeFromHistoryBatch(
         contentId: String,
-        episodes: List<Pair<Int, Int>>
+        episodes: List<Pair<Int, Int>>,
+        videoIds: Map<Pair<Int, Int>, String>,
+        contentType: String?
     ) {
         if (episodes.isEmpty()) return
         val profileId = profileManager.activeProfileId.value
+        unmarkOnTrackers(profileId, contentId, episodes, contentType, videoIds)
+        removeTrackerProgress(profileId, contentId, episodes)
         watchProgressPreferences.removeProgressBatch(contentId, episodes, profileId = profileId)
         watchedItemsPreferences.unmarkAsWatchedBatch(contentId, episodes, profileId = profileId)
         val remoteDeleteKeys = episodes.map { (season, episode) ->
@@ -553,13 +622,14 @@ class WatchProgressRepositoryImpl @Inject constructor(
         pruneWatchNext(episodes.map { (season, episode) -> WatchNextRemoval(contentId, season, episode) })
     }
 
-    override suspend fun markAsCompleted(progress: WatchProgress) {
+    override suspend fun markAsCompleted(progress: WatchProgress, broadcastToTrackers: Boolean) {
         val profileId = profileManager.activeProfileId.value
+        val now = System.currentTimeMillis()
+        markOnTrackers(profileId, listOf(progress), now, broadcastToTrackers)
         if (progress.contentType.equals("series", ignoreCase = true) ||
             progress.contentType.equals("tv", ignoreCase = true)) {
             continueWatchingSettings.removeDismissedNextUpKeysForContent(progress.contentId)
         }
-        val now = System.currentTimeMillis()
         watchProgressPreferences.markAsCompleted(progress, profileId = profileId)
         val watchedItem = progress.toWatchedItem(watchedAt = now)
         watchedItemsPreferences.markAsWatched(watchedItem, profileId = profileId)
@@ -571,18 +641,113 @@ class WatchProgressRepositoryImpl @Inject constructor(
     override suspend fun markAsCompletedBatch(progressList: List<WatchProgress>) {
         if (progressList.isEmpty()) return
         val profileId = profileManager.activeProfileId.value
+        val now = System.currentTimeMillis()
+        markOnTrackers(profileId, progressList, now, broadcast = true)
         val firstProgress = progressList.first()
         if (firstProgress.contentType.equals("series", ignoreCase = true) ||
             firstProgress.contentType.equals("tv", ignoreCase = true)) {
             continueWatchingSettings.removeDismissedNextUpKeysForContent(firstProgress.contentId)
         }
-        val now = System.currentTimeMillis()
         watchProgressPreferences.markAsCompletedBatch(progressList, profileId = profileId)
         val watchedItems = progressList.map { progress -> progress.toWatchedItem(watchedAt = now) }
         watchedItemsPreferences.markAsWatchedBatch(watchedItems, profileId = profileId)
         triggerRemoteSync(profileId = profileId)
         triggerWatchedItemsSync(watchedItems, profileId = profileId)
         pruneWatchNext(progressList.map { WatchNextRemoval(it.contentId, it.season, it.episode) })
+    }
+
+    /*
+     * Tracker side of marks and unmarks (Spec 104 S2b). Each runs first in its repository call, right after the profile
+     * is captured, so the tracker state it reads is that profile's; a profile switch inside its short reads (an unmark's
+     * stored-progress read, then the source) can still pair them, an accepted window. Only marks a tracker
+     * can take are shown optimistically or sent: never a whole series (it would mark or wipe every episode there).
+     */
+
+    /**
+     * The Continue Watching tracker shows the marks at once; [broadcast] also sends them to every connected tracker
+     * (off for the player's own completion: its scrobble already reports the play).
+     */
+    private suspend fun markOnTrackers(profileId: Int, marks: List<WatchProgress>, watchedAt: Long, broadcast: Boolean) {
+        val sendable = marks
+            .map { mark ->
+                mark to buildTrackingMediaReference(
+                    contentType = mark.contentType,
+                    parentMetaId = mark.contentId,
+                    videoId = mark.videoId,
+                    title = mark.name,
+                    seasonNumber = mark.season,
+                    episodeNumber = mark.episode,
+                    episodeTitle = mark.episodeTitle
+                )
+            }
+            .filterNot { (_, media) -> media.isWholeSeries }
+        if (sendable.isEmpty()) return
+        // Enqueue first: it reads the connected trackers without suspending, so they are the captured profile's.
+        if (broadcast) {
+            trackingRouter.addToHistory(profileId, sendable.map { (_, media) -> TrackingHistoryItem(media, watchedAt) })
+        }
+        trackingRouter.activeProvider()?.let { provider ->
+            sendable.forEach { (mark, _) -> provider.applyOptimisticProgress(mark.copy(progressPercent = 100f, lastWatched = watchedAt)) }
+        }
+    }
+
+    /**
+     * Drops the resume points on the Continue Watching tracker too (a resume point is not watched history, so a whole
+     * series is fine here); without it the tracker's entry brings the title back at its next refresh.
+     */
+    private suspend fun removeTrackerProgress(profileId: Int, contentId: String, episodes: List<Pair<Int?, Int?>>) {
+        val provider = trackingRouter.activeProvider() ?: return
+        episodes.forEach { (season, episode) ->
+            provider.applyOptimisticRemoval(contentId, season, episode)
+            trackingRouter.removeProgress(profileId, provider, contentId, season, episode)
+        }
+    }
+
+    /**
+     * An unmark is sendable for an episode, or for a title [contentType] names a film; anything else stays with Nuvio.
+     * An episode's reference carries the video id and type its mark was built from, so a tracker files the unmark where
+     * the mark went (Spec 106 D17: an anime addon's `mal:42203:7` under an IMDb title) and both carry one pending-mark
+     * key (D18). Its stored progress (read before it is removed) is the mark's own record, so it wins while its video id
+     * is an episode's own: the caller's screen may show another addon's ids than the mark's surface did. Without one, the
+     * caller's [videoIds] and [contentType] fill the gap (Spec 106 S5b), else whatever is stored.
+     */
+    private suspend fun unmarkOnTrackers(
+        profileId: Int,
+        contentId: String,
+        episodes: List<Pair<Int?, Int?>>,
+        contentType: String?,
+        videoIds: Map<Pair<Int, Int>, String>
+    ) {
+        val stored = if (episodes.any { (season, episode) -> season != null && episode != null }) {
+            watchProgressPreferences.getAllEpisodeProgress(contentId, profileId).firstOrNull().orEmpty()
+        } else {
+            emptyMap()
+        }
+        val references = episodes.mapNotNull { (season, episode) ->
+            val key = if (season != null && episode != null) season to episode else null
+            val progress = key?.let(stored::get)
+            val markRecord = progress?.takeIf { isEpisodeVideoId(it.videoId) }
+            val callerVideoId = key?.let(videoIds::get)
+            // Type and video id come from one source, so the reference's kind matches the id it was marked with.
+            val (type, videoId) = when {
+                key == null -> (contentType ?: return@mapNotNull null) to null
+                markRecord != null -> markRecord.contentType to markRecord.videoId
+                callerVideoId != null -> (contentType ?: progress?.contentType ?: "series") to callerVideoId
+                else -> (progress?.contentType ?: contentType ?: "series") to progress?.videoId
+            }
+            buildTrackingMediaReference(
+                contentType = type,
+                parentMetaId = contentId,
+                videoId = videoId,
+                seasonNumber = season,
+                episodeNumber = episode
+            )
+        }.filterNot(TrackingMediaReference::isWholeSeries)
+        if (references.isEmpty()) return
+        trackingRouter.removeFromHistory(profileId, references)
+        trackingRouter.activeProvider()?.let { provider ->
+            references.forEach { provider.applyOptimisticRemoval(contentId, it.episode?.season, it.episode?.number) }
+        }
     }
 
     private fun WatchProgress.toWatchedItem(watchedAt: Long = System.currentTimeMillis()): WatchedItem =

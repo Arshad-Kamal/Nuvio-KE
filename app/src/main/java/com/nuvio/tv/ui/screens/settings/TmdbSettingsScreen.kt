@@ -18,10 +18,17 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
+import com.nuvio.tv.core.posters.RatingPosterState
 import com.nuvio.tv.core.tmdb.savedKeyEnding
 import com.nuvio.tv.data.local.AVAILABLE_TMDB_LANGUAGES
 import com.nuvio.tv.data.local.displayName
 import com.nuvio.tv.ui.components.marquee.LocalMarqueeToast
+import com.nuvio.tv.core.tracking.TrackingProviderId
+import com.nuvio.tv.ui.screens.settings.trackers.TrackerKeyPanelHost
+import com.nuvio.tv.ui.screens.settings.trackers.toastText
+import com.nuvio.tv.ui.screens.settings.trackers.TrackersEvent
+import com.nuvio.tv.ui.screens.settings.trackers.TrackersViewModel
+import androidx.compose.ui.platform.LocalContext
 
 /** Row key of the TMDB API key row, which Settings' deep entry focuses ([SettingsEntry.TMDB_KEY]). */
 internal const val TMDB_KEY_ROW_KEY = "tmdb_api_key"
@@ -39,17 +46,35 @@ internal const val TMDB_KEY_ROW_KEY = "tmdb_api_key"
  * leaving the pane closes the panel and its phone page, as Spec 44's QR card. [openKeyPanel]
  * (Settings' deep entry [SettingsEntry.TMDB_KEY], once the key row has focus) opens the panel;
  * [onKeyPanelOpened] clears it.
+ *
+ * Spec 100 (sandbox `s100-scout-lite` C1/C2): a Picked for you switch after Collections, the active
+ * profile's, dimmed like the rows above without a key.
+ *
+ * Spec 105 S4 (sandbox `spec-105-mdblist` v5 B1/B2): an MDBList ratings section after the TMDB rows
+ * ([mdbListRatingsSection], D25); Sources opens [MdbListRatingSourcesPanel]; Ratings from, while MDBList is
+ * not connected, opens Trackers' own MDBList key panel through [TrackersViewModel] (D24), which closes with the
+ * pane and toasts Connected as the Trackers pane does; connected, [onOpenMdbListAccount] (Settings' entry to Trackers
+ * with MDBList's account panel open, D28).
+ *
+ * Spec 114 (sandbox `s114-rating-posters` stage 1): a Rating posters section after the TMDB rows, one row
+ * (Off, or the saved address's host); OK opens [RatingPostersSidePanel], which closes with the pane as the
+ * key panel does.
  */
 @Composable
 fun TmdbSettingsContent(
     viewModel: TmdbSettingsViewModel = hiltViewModel(),
+    ratingPosters: RatingPostersViewModel = hiltViewModel(),
+    mdbListRatings: MdbListRatingsViewModel = hiltViewModel(),
+    trackers: TrackersViewModel = hiltViewModel(),
     initialFocusRequester: FocusRequester? = null,
     openKeyPanel: Boolean = false,
-    onKeyPanelOpened: () -> Unit = {}
+    onKeyPanelOpened: () -> Unit = {},
+    onOpenMdbListAccount: () -> Unit = {}
 ) {
     // Null until loaded (see the ViewModel); rows wait for both.
     val settings = viewModel.uiState.collectAsStateWithLifecycle().value
     val keyState = viewModel.keyState.collectAsStateWithLifecycle().value
+    val scoutEnabled = viewModel.scoutEnabled.collectAsStateWithLifecycle().value
     val keyPanel = viewModel.keyPanel.collectAsStateWithLifecycle().value
     val keySavedNotice = viewModel.keySavedNotice.collectAsStateWithLifecycle().value
     val phoneUrl = viewModel.phoneUrl.collectAsStateWithLifecycle().value
@@ -62,9 +87,33 @@ fun TmdbSettingsContent(
     val collectionsSubtitle = stringResource(R.string.tmdb_collections_subtitle)
     val savedToast = stringResource(R.string.tmdb_api_key_saved_toast)
 
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onEvent(TmdbSettingsEvent.CloseKeyPanel) }
+    val posterState = ratingPosters.state.collectAsStateWithLifecycle().value
+    val posterPanel = ratingPosters.panel.collectAsStateWithLifecycle().value
+    val posterPhoneUrl = ratingPosters.phoneUrl.collectAsStateWithLifecycle().value
+    val mdbListState = mdbListRatings.state.collectAsStateWithLifecycle().value
+    var mdbListSourcesOpen by remember { mutableStateOf(false) }
+    val trackersState = trackers.uiState.collectAsStateWithLifecycle().value
+    val mdbListTracker = trackersState.rows.firstOrNull { it.id == TrackingProviderId.MDBLIST }
+    val context = LocalContext.current
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.onEvent(TmdbSettingsEvent.CloseKeyPanel)
+        ratingPosters.close()
+        trackers.closeKeyPanel()
+    }
+    DisposableEffect(trackers) {
+        onDispose { trackers.closeKeyPanel() }
+    }
+    LaunchedEffect(trackers) {
+        trackers.events.collect { event ->
+            if (event is TrackersEvent.Connected) toast?.show(event.toastText(context), success = true)
+        }
+    }
     DisposableEffect(viewModel) {
         onDispose { viewModel.onEvent(TmdbSettingsEvent.CloseKeyPanel) }
+    }
+    DisposableEffect(ratingPosters) {
+        onDispose { ratingPosters.close() }
     }
 
     LaunchedEffect(openKeyPanel) {
@@ -165,6 +214,41 @@ fun TmdbSettingsContent(
                 onCheckedChange = { viewModel.onEvent(TmdbSettingsEvent.ToggleCollections(it)) }
             )
         }
+        // Spec 100 C1/C2: per profile, not behind enrichment (the picks never use it); waits for its read.
+        if (scoutEnabled != null) {
+            item(key = "tmdb_scout") {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.home_scout_row),
+                    subtitle = if (hasKey) stringResource(R.string.tmdb_scout_subtitle) else needsKey,
+                    checked = hasKey && scoutEnabled,
+                    enabled = hasKey,
+                    onCheckedChange = { viewModel.onEvent(TmdbSettingsEvent.ToggleScout(it)) }
+                )
+            }
+        }
+        if (mdbListState != null) {
+            mdbListRatingsSection(
+                state = mdbListState,
+                accountName = mdbListTracker?.accountName,
+                onEnabledChange = mdbListRatings::setEnabled,
+                onOpenSources = { mdbListSourcesOpen = true },
+                onAddKey = { trackers.openKeyPanel(TrackingProviderId.MDBLIST) },
+                onOpenAccount = onOpenMdbListAccount
+            )
+        }
+        item(key = "rating_posters_section") {
+            SettingsSectionLabel(text = stringResource(R.string.rating_posters_title))
+        }
+        item(key = "rating_posters") {
+            val host = (posterState as? RatingPosterState.On)?.template?.displayHost
+            SettingsValueRow(
+                title = stringResource(R.string.rating_posters_title),
+                subtitle = stringResource(R.string.rating_posters_subtitle),
+                value = host ?: stringResource(R.string.rating_posters_off),
+                emphasizedValue = host != null,
+                onClick = ratingPosters::open
+            )
+        }
     }
 
     if (keyPanel != null && keyState != null) {
@@ -177,6 +261,29 @@ fun TmdbSettingsContent(
             onSubmit = { viewModel.onEvent(TmdbSettingsEvent.SubmitKey(it)) },
             onRemove = { viewModel.onEvent(TmdbSettingsEvent.RemoveKey) },
             onDismiss = { viewModel.onEvent(TmdbSettingsEvent.CloseKeyPanel) }
+        )
+    }
+
+    TrackerKeyPanelHost(state = trackersState, onDismiss = trackers::closeKeyPanel)
+
+    if (mdbListSourcesOpen && mdbListState != null) {
+        MdbListRatingSourcesPanel(
+            settings = mdbListState.settings,
+            onToggle = mdbListRatings::toggleSource,
+            onMove = mdbListRatings::move,
+            onDismiss = { mdbListSourcesOpen = false }
+        )
+    }
+
+    if (posterPanel != null) {
+        RatingPostersSidePanel(
+            template = (posterState as? RatingPosterState.On)?.template,
+            confirmOff = posterPanel == RatingPostersPanelState.CONFIRM_OFF,
+            phoneUrl = posterPhoneUrl,
+            onAskTurnOff = ratingPosters::askTurnOff,
+            onConfirmTurnOff = ratingPosters::confirmTurnOff,
+            onCancelTurnOff = ratingPosters::cancelTurnOff,
+            onDismiss = ratingPosters::close
         )
     }
 

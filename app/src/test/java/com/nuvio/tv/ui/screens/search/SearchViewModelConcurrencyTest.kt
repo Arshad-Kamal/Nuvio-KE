@@ -670,7 +670,8 @@ class SearchViewModelConcurrencyTest {
             skip: Int,
             skipStep: Int,
             extraArgs: Map<String, String>,
-            supportsSkip: Boolean
+            supportsSkip: Boolean,
+            packGate: Boolean
         ): Flow<NetworkResult<CatalogRow>> = flow {
             val query = extraArgs.getValue("search")
             emit(NetworkResult.Loading)
@@ -795,7 +796,8 @@ class SearchViewModelConcurrencyTest {
             skip: Int,
             skipStep: Int,
             extraArgs: Map<String, String>,
-            supportsSkip: Boolean
+            supportsSkip: Boolean,
+            packGate: Boolean
         ): Flow<NetworkResult<CatalogRow>> = flow {
             requests += addonId to extraArgs.getValue("search")
             emit(NetworkResult.Loading)
@@ -846,7 +848,8 @@ class SearchViewModelConcurrencyTest {
             skip: Int,
             skipStep: Int,
             extraArgs: Map<String, String>,
-            supportsSkip: Boolean
+            supportsSkip: Boolean,
+            packGate: Boolean
         ): Flow<NetworkResult<CatalogRow>> = flow {
             val query = extraArgs.getValue("search")
             queries += query
@@ -901,7 +904,8 @@ class SearchViewModelConcurrencyTest {
             skip: Int,
             skipStep: Int,
             extraArgs: Map<String, String>,
-            supportsSkip: Boolean
+            supportsSkip: Boolean,
+            packGate: Boolean
         ): Flow<NetworkResult<CatalogRow>> = flow {
             val query = extraArgs.getValue("search")
             if (skip == 0) {

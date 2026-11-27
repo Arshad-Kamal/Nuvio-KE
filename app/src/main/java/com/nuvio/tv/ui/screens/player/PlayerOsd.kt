@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -82,11 +84,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -267,9 +272,10 @@ private fun OsdScrims() {
 }
 
 /**
- * Title block at the start, badges centred, clock at the end. A long title ellipsizes
- * `titleEndGap` before the badges or the clock. With the stats panel open (top start) the title
- * and badges hide (they would sit under it; it shows the same facts); the clock stays.
+ * Title block at the start, badges centred, clock at the end. The title ends `titleEndGap` before
+ * the badges or the clock (how it fits: [OsdTitleBlock]). With the
+ * stats panel open (top start) the title and badges hide (they would sit under it; it shows the
+ * same facts); the clock stays.
  */
 @Composable
 private fun OsdTopBand(
@@ -357,12 +363,21 @@ private fun OsdTitleBlock(uiState: PlayerUiState) {
         title = uiState.title
         line = uiState.releaseYear?.takeIf { it.isNotBlank() }
     }
+    // Spec 140 D3: up to two lines, shrinking 1 sp at a time down to titleMinFontSize to fit them,
+    // then ellipsis on line 2. autoSize swaps only the font size, so the line height goes in em.
+    val titleStyle = NuvioTheme.textStyles.osdTitle
+    val minFontSize = marquee.osd.titleMinFontSize
+    val autoSize = remember(minFontSize, titleStyle.fontSize) {
+        TextAutoSize.StepBased(minFontSize = minFontSize, maxFontSize = titleStyle.fontSize, stepSize = 1.sp)
+    }
+    val fitStyle = remember(titleStyle) { titleStyle.withProportionalLineHeight() }
     Column {
-        Text(
+        BasicText(
             text = title,
-            style = NuvioTheme.textStyles.osdTitle,
-            color = NuvioPrimitives.white,
-            maxLines = 1,
+            style = fitStyle,
+            color = { NuvioPrimitives.white },
+            autoSize = autoSize,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         if (line != null) {
@@ -376,6 +391,17 @@ private fun OsdTitleBlock(uiState: PlayerUiState) {
         }
     }
 }
+
+/**
+ * [this] with its sp line height as a multiple of its sp font size (18/24 -> 1.333 em), so the line
+ * spacing follows a size chosen by autoSize. Anything else is returned as is.
+ */
+internal fun TextStyle.withProportionalLineHeight(): TextStyle =
+    if (fontSize.isSp && lineHeight.isSp && fontSize.value > 0f) {
+        copy(lineHeight = (lineHeight.value / fontSize.value).em)
+    } else {
+        this
+    }
 
 /**
  * The clock + "Ends at" (OSD top-end; the pause overlay's too). It reads the playback timeline,

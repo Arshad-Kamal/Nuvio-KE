@@ -1,6 +1,12 @@
 package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.nuvio.tv.R
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -184,6 +190,7 @@ internal fun MarqueeHeroBlock(
                 modifier = Modifier.staggered(1)
             )
             HeroMetaRow(preview = preview, showImdbRatings = showImdbRatings, modifier = Modifier.staggered(2))
+            val pickReason = preview.pickReason?.takeIf { it.isNotBlank() }
             if (progress != null || progressLabel != null) {
                 MarqueeProgress(
                     fraction = progress,
@@ -192,6 +199,8 @@ internal fun MarqueeHeroBlock(
                     width = home.heroProgressWidth,
                     modifier = Modifier.staggered(3)
                 )
+            } else if (pickReason != null) {
+                PickReasonLine(watched = pickReason, accent = accent, modifier = Modifier.staggered(3))
             }
             if (hasBody) {
                 Column(modifier = Modifier.widthIn(max = descriptionWidth).staggered(4)) {
@@ -227,6 +236,42 @@ internal fun MarqueeHeroBlock(
         }
     }
 }
+
+/**
+ * Spec 100 D2: a Picked for you hero's line in the progress slot (sandbox s100-scout-lite A1): an accent dot,
+ * then "Because you watched X" with X in primary text.
+ */
+@Composable
+private fun PickReasonLine(watched: String, accent: () -> Color, modifier: Modifier) {
+    val marquee = NuvioTheme.marquee
+    val template = stringResource(R.string.home_scout_reason)
+    val primary = NuvioTheme.colors.TextPrimary
+    val text = remember(template, watched, primary) {
+        val (before, after) = template.split("%1\$s", limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+        buildAnnotatedString {
+            append(before)
+            withStyle(SpanStyle(color = primary, fontWeight = FontWeight.SemiBold)) { append(watched) }
+            append(after)
+        }
+    }
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(marquee.metaGap)
+    ) {
+        Box(modifier = Modifier.size(PICK_REASON_DOT).drawBehind { drawCircle(accent()) })
+        Text(
+            text = text,
+            style = NuvioTheme.textStyles.metadata,
+            color = marquee.onImage2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/** The reason line's dot (sandbox s100-scout-lite `.s100why .d`, 6 dp). */
+private val PICK_REASON_DOT = 6.dp
 
 /** One line: episode label, year, age rating, genres, runtime, IMDb, separated by 3 dp dots. */
 @Composable

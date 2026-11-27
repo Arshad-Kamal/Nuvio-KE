@@ -684,7 +684,7 @@
     <string name="settings_p2p_title">P2P Streamelés</string>
     <string name="settings_p2p_subtitle">Engedélyezi a peer-to-peer (torrentek) streameket</string>
     <string name="settings_p2p_hide_stats_title">Torrent statisztikák elrejtése</string>
-    <string name="settings_p2p_hide_stats_subtitle">Elrejti a puffert, megosztókat (seeds), letöltőket (peers) és a letöltési sebességet betöltés és lejátszás közben</string>
+    <string name="settings_p2p_hide_stats_subtitle">Elrejti a puffert, megosztókat (seeds), letöltőket (peers) és a letöltési sebességet lejátszás közben</string>
     <string name="stream_filter_all">Összes</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

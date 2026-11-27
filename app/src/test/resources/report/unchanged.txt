@@ -1,0 +1,22 @@
+11-14 19:42:01.877  8812  8812 I TTFF_STAGE: OPEN source=Torrentio host=29.download.real-debrid.com
+11-14 19:42:06.050  8812  9020 W StartupSyncService: attempt 2 failed for key=watch_progress
+FATAL EXCEPTION: DefaultDispatcher-worker-2
+Process: com.nuvio.tv.ke, PID: 8812
+java.lang.IllegalStateException: Player released
+	at com.nuvio.tv.core.player.PlayerRuntimeControllerInitialization.initializePlayer(PlayerRuntimeControllerInitialization.kt:578)
+	at kotlinx.coroutines.internal.DispatchedContinuation.resumeWith(DispatchedContinuation.kt:46)
+"DefaultDispatcher-worker-12" prio=5 tid=23 Runnable
+  native: #00 pc 0004a1b8  /system/lib/libc++.so (std::__1::basic_string<char, std::__1::char_traits<char>>::append(char const*)+24) (BuildId: 7b3c5d9e1f2a4b6c8d0e1f2a3b4c5d6e7f8a9b0c)
+11-14 19:42:09.884  8812  8812 I PlayerViewModel: AUDIO_TRACK_REJECTION encoding=ENCODING_PCM_24BIT_PACKED route=hdmi
+11-14 19:42:10.101  8812  8977 I NuvioTrackSelector: video codecs=dvhe.07.06 hvc1.2.4.L153.B0
+11-14 19:42:11.000  8812  8812 I ExoPlayerImpl: Init 1a2b3c4 [AndroidXMedia3/1.8.0] [mdarcy, SHIELD Android TV, NVIDIA, 30]
+11-14 19:42:12.000  8812  8812 I SubtitleRepo: fetched manifest.json lang=en count=4
+11-14 19:42:13.000  4321  4321 I NuvioNet: pid line 4321
+11-14 19:42:14.000  8812  8812 I Paths: /storage/emulated/0/Android/data/com.nuvio.tv.ke/files/report
+11-14 19:42:15.000  8812  8812 D AuthManager: Sign in token response tokenType=bearer accessTokenPresent=true
+11-14 19:42:16.000  8812  8812 E AndroidRuntime: 	at com.nuvio.tv.ui.screens.player.PlayerScreenKt$$ExternalSyntheticLambda0.invoke(Unknown Source:12)
+11-14 19:42:17.000  8812  8812 I Hilt: component dagger.hilt.android.internal.managers.ActivityComponentManager2Impl.generatedComponent
+11-14 19:42:18.000  8812  8977 I mpv     : [ffmpeg] demuxer :: probe done
+11-14 19:42:19.000  8812  8977 W Coroutines: Thread[DefaultDispatcher-worker-12,5,main] cancelled
+11-14 19:42:20.000  8812  8977 I PlayerViewModel: file=Movie_2023_2160p_UHD_BluRay_REMUX.mkv size=58.2GB
+11-14 19:42:21.000  8812  8977 I Scraper: matched Show_2023111400_WEB_DL_x264

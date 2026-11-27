@@ -108,12 +108,19 @@ data class PlayerUiState(
     val showSubtitleTimingDialog: Boolean = false,
     val showSubtitleDelayOverlay: Boolean = false,
     val subtitleDelayMs: Int = 0,
-    val subtitleAutoSyncCues: List<SubtitleSyncCue> = emptyList(),
-    val subtitleAutoSyncCapturedVideoMs: Long? = null,
-    val subtitleAutoSyncStatus: String? = null,
-    val subtitleAutoSyncError: String? = null,
-    val subtitleAutoSyncLoading: Boolean = false,
-    val subtitleAutoSyncLoadedTrackKey: String? = null,
+    val subtitleManualSyncCues: List<SubtitleSyncCue> = emptyList(),
+    val subtitleManualSyncCapturedVideoMs: Long? = null,
+    val subtitleManualSyncStatus: String? = null,
+    val subtitleManualSyncError: String? = null,
+    val subtitleManualSyncLoading: Boolean = false,
+    val subtitleManualSyncLoadedTrackKey: String? = null,
+    /**
+     * Spec 108: addonSubtitleKey of the addon subtitle AutoSync retimed, while that retimed attachment is
+     * the one on screen (the Subtitles panel's "Auto synced" chip); null otherwise.
+     */
+    val autoSyncedSubtitleKey: String? = null,
+    /** Spec 108 (D4 Q4): a confirmed no fit waits for the player's Marquee toast. */
+    val autoSyncNoFitNoticePending: Boolean = false,
     val showSpeedPanel: Boolean = false,
     /** F3 chapter list (Spec 25 U6f), opened from the More tray's Chapters pill. */
     val showChaptersPanel: Boolean = false,
@@ -359,9 +366,11 @@ sealed class PlayerEvent {
     data object OnShowSubtitleOverlay : PlayerEvent()
     data object OnShowSubtitleTimingDialog : PlayerEvent()
     data object OnDismissSubtitleTimingDialog : PlayerEvent()
-    data object OnCaptureSubtitleAutoSyncTime : PlayerEvent()
-    data class OnApplySubtitleAutoSyncCue(val cueStartTimeMs: Long) : PlayerEvent()
-    data object OnReloadSubtitleAutoSyncCues : PlayerEvent()
+    data object OnCaptureSubtitleManualSyncTime : PlayerEvent()
+    data class OnApplySubtitleManualSyncCue(val cueStartTimeMs: Long) : PlayerEvent()
+    data object OnReloadSubtitleManualSyncCues : PlayerEvent()
+    /** Spec 108: the AutoSync no-fit toast was shown. */
+    data object OnAutoSyncNoFitNoticeShown : PlayerEvent()
     data object OnShowSubtitleDelayOverlay : PlayerEvent()
     data object OnHideSubtitleDelayOverlay : PlayerEvent()
     data class OnAdjustSubtitleDelay(val deltaMs: Int, val showOverlay: Boolean = true) : PlayerEvent()

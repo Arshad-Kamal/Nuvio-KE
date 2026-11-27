@@ -128,6 +128,34 @@ class PosterOptionsControllerToggleTest {
     }
 
     @Test
+    fun `anime unmark passes each episode's video id and the type its marks were built with, not the fetch type`() = runTest {
+        val seriesIds = MutableStateFlow(setOf(ANIME_ID))
+        val watchProgressRepository = mockk<WatchProgressRepository>(relaxed = true)
+        val controller = newController(
+            watchProgressRepository = watchProgressRepository,
+            watchedSeriesStateHolder = holderMock(seriesIds, mutableListOf()),
+            metaResult = flowOf(NetworkResult.Success(metaWithTwoEpisodes()))
+        )
+        val bindScope = CoroutineScope(coroutineContext + Job())
+        controller.bind(bindScope)
+
+        controller.show(animePreview(), addonBaseUrl = null)
+        runCurrent()
+        controller.toggleSeriesWatched()
+        runCurrent()
+
+        coVerify(exactly = 1) {
+            watchProgressRepository.removeFromHistoryBatch(
+                ANIME_ID,
+                listOf(1 to 1, 1 to 2),
+                mapOf((1 to 1) to "e1", (1 to 2) to "e2"),
+                "anime"
+            )
+        }
+        bindScope.cancel()
+    }
+
+    @Test
     fun `series unmark with failed meta fetch removes whole-series history`() = runTest {
         val holderUpdates = mutableListOf<Set<String>>()
         val seriesIds = MutableStateFlow(setOf(SERIES_ID))

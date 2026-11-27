@@ -167,6 +167,12 @@ object ChannelIdentity {
     fun m3uKey(sourceId: String, tvgId: String?, url: String): String =
         normalizeTvgId(tvgId)?.let { "$sourceId#id:$it" } ?: "$sourceId#url:$url"
 
+    /**
+     * Stable key of an Xtream live stream (Spec 109 S1): its `stream_id`, never its URL, which
+     * carries the account's password, so a password change keeps favourites and recents.
+     */
+    fun xtreamKey(sourceId: String, streamId: String): String = "$sourceId#xt:$streamId"
+
     /** Stable key of a Stremio `tv` meta: id plus name, since addons reuse ids (RTVE `tve:RNE.TV`). */
     fun stremioKey(sourceId: String, id: String, name: String): String = "$sourceId#st:$id|${name.trim()}"
 

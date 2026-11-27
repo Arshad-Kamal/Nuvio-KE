@@ -35,8 +35,8 @@ import java.util.Locale
 
 /**
  * Subtitle delay strip (approved sandbox `u6-player-panels-marquee` stage 8): a centred compact
- * shell with the eyebrow and value, the slider in the OSD seek-bar language and the Reset / Sync
- * Line glass pills. PlayerScreen owns the keys and the focus target (slider, Reset, Sync Line), so
+ * shell with the eyebrow and value, the slider in the OSD seek-bar language and the Reset / Manual
+ * sync glass pills. PlayerScreen owns the keys and the focus target (slider, Reset, Manual sync), so
  * the `is*Focused` flags drive the look; the pills keep their focus requesters for Skip Intro's Up.
  */
 @Composable

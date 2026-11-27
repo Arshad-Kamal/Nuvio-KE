@@ -25,6 +25,8 @@ import com.nuvio.tv.livetv.source.IptvMetadataRepository
 import com.nuvio.tv.livetv.source.LiveSource
 import com.nuvio.tv.livetv.source.LiveSourceManager
 import com.nuvio.tv.livetv.source.SourceKind
+import com.nuvio.tv.livetv.ui.search.LiveChannelSearch
+import com.nuvio.tv.livetv.ui.search.LiveChannelSearchIndex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -75,8 +77,29 @@ data class LiveTvUiState(
     /** List or the guide grid (Spec 67 D7 Q1); switches together with [guide]. */
     val view: LiveTvView = LiveTvView.LIST,
     /** [rows] laid out for the grid; null in [LiveTvView.LIST] (no layout work there). */
-    val guide: GuideRows? = null
+    val guide: GuideRows? = null,
+    /** Live search while open (Spec 111): [rows] and [guide] are then its results, not [filter]'s. */
+    val search: LiveSearch? = null
 )
+
+/**
+ * Open live search (Spec 111 D8, D9): the [query] as typed and its [hits] in rank order (blank = none
+ * yet) out of [total] listable channels (0 while the stores load). [pending] while the index for the
+ * rows' lineup is still being made: [hits] are then the last results still listed (none before the
+ * first index), so the screen neither says "no match" nor drops the focused row meanwhile. [hit] gives
+ * a row's match, for its highlight ([LiveChannelSearchIndex.highlight]).
+ */
+data class LiveSearch(
+    val query: String,
+    val hits: List<LiveChannelSearch.Hit<Channel>>,
+    val pending: Boolean = false,
+    val total: Int = 0
+) {
+    // Built with the state on the derive dispatcher, not by the first row that reads a mark.
+    private val byKey = hits.associateBy { it.item.key }
+
+    fun hit(key: String): LiveChannelSearch.Hit<Channel>? = byKey[key]
+}
 
 /**
  * The side panel's guide facts for one channel (D16, L7d), read when the panel opens: [current] is the
@@ -110,6 +133,9 @@ data class LiveGuidePanel(
  * channels (Favorites and Recents only) are never tuned (L8-D4). Right on a row opens its day
  * schedule ([schedule], Spec 67 G2); the profile's view ([selectView], G3) shows the rows as the
  * list or the guide grid ([LiveTvUiState.guide]). [derive] runs the row derivation.
+ * Live search (Spec 111: [openSearch], [setSearchQuery], [closeSearch]) swaps the rows for its results
+ * while open; the profile's Preview on focus ([previewOnFocus], D10) off stops only the resting tune
+ * (D13: the open's first rest still tunes, and return and resume still play the focused row).
  */
 @HiltViewModel
 class LiveTvViewModel internal constructor(
@@ -141,11 +167,17 @@ class LiveTvViewModel internal constructor(
         screensaver, player, Dispatchers.Default
     )
 
-    // The channel side of the stores is read: rows may show (Spec 115 I2).
+    // The channel side of the stores is read: rows may show (Spec 115 I2). False again after an unload (Spec 146).
     private val loaded = MutableStateFlow(false)
 
     // The cached guides are read: matching may start. Until then rows show without now/next (D5).
     private val guidesRead = MutableStateFlow(false)
+
+    // The screen is started (between its LifecycleStartEffect's start and stop): a read after an unload waits for it.
+    private val shown = MutableStateFlow(false)
+
+    // WhileSubscribed, plus the held values let go once the stores unload (Spec 146): they reach the channels.
+    private val whileSubscribedUntilUnload = whileSubscribedResetOn(STOP_TIMEOUT_MS, sourceManager.unloads)
 
     // The filter shown; null until the opening filter is chosen from the saved one (Q1, L8-D3).
     private val filter = MutableStateFlow<LiveTvFilter?>(null)
@@ -161,6 +193,12 @@ class LiveTvViewModel internal constructor(
     val focusedKey: StateFlow<String?> = _focusedKey
 
     private var previewJob: Job? = null
+
+    // Spec 111 D14: until the first tune, a resting focus tunes even with Preview on focus off, so Off opens
+    // on the row the screen first rests on, as On does. A first focus that cannot tune (a lost row, the pill
+    // of an empty filter, a rest cut short) passes it on to the next rest that can, as On's first tune
+    // would. Any tune (rest, OK, zap, resume) settles it.
+    private var openTuneOwed = true
 
     // The channel tuned before the current one (held Back in full screen; the zap banner's "HOLD BACK Last channel"); in memory (L8-D7).
     private val _previousKey = MutableStateFlow<String?>(null)
@@ -178,7 +216,8 @@ class LiveTvViewModel internal constructor(
         .map { list -> SourceKinds(list.any { it.kind != SourceKind.XMLTV }, hasGuideSource(list)) }
         .distinctUntilChanged()
 
-    private fun hasGuideSource(sources: List<LiveSource>): Boolean = sources.any { it.kind == SourceKind.XMLTV }
+    // The guide sources' one home is guideCountries (an XMLTV guide, an Xtream login's own guide; Spec 109 S2.2).
+    private fun hasGuideSource(sources: List<LiveSource>): Boolean = LiveTvModel.guideCountries(sources).isNotEmpty()
 
     /**
      * Null until the channel stores have loaded and the first lineup is derived from them, so the
@@ -196,7 +235,7 @@ class LiveTvViewModel internal constructor(
         if (loaded) LiveTvModel.lineup(all, ids, meta, hidden, shifts) else null
     }
         .flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
 
     /** The profile's favorites, recents and last filter; null until the store has emitted. */
     private val userState: StateFlow<LiveTvUserState?> = userStore.state
@@ -209,6 +248,11 @@ class LiveTvViewModel internal constructor(
     val favoriteKeys: StateFlow<Set<String>> = userState
         .map { it?.favorites?.toSet().orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** The profile's Preview on focus (Spec 111 D10): on until the store says otherwise. */
+    val previewOnFocus: StateFlow<Boolean> = userState
+        .map { it?.previewOnFocus ?: true }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /** Each source's name by id: a lost row's "<source> no longer lists it" (L8-D4). */
     val sourceNames: StateFlow<Map<String, String>> = sourceManager.sources
@@ -224,16 +268,17 @@ class LiveTvViewModel internal constructor(
     private val listed: StateFlow<Pair<Lineup, UserLists>?> = combine(lineup, userState, shownRecents) { l, user, shown ->
         if (l == null || user == null) null else l to userLists(l, user, shown)
     }.flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
 
     private fun userLists(lineup: Lineup, user: LiveTvUserState, recents: List<String>? = null): UserLists =
         LiveTvModel.userLists(lineup, user.favorites, recents ?: user.recentKeys)
 
     /**
      * Null until the cached guides are read and the first lineup is matched against them (Spec 115 I2):
-     * rows show without now/next meanwhile. [guidesRead] never turns back and `stateIn` keeps its value
-     * through a WhileSubscribed restart, so later changes keep the last refs until rematched: the loading
-     * line shows for the first read only, never during a refresh or on the screen's return (D5).
+     * rows show without now/next meanwhile. [guidesRead] turns back only after an unload (Spec 146) and
+     * `stateIn` keeps its value through a WhileSubscribed restart, so later changes keep the last refs until
+     * rematched: the loading line shows for the first read only (and the first after an unload), never
+     * during a refresh or on a plain return to the screen (D5).
      */
     private val refs: StateFlow<Map<String, EpgRef>?> = combine(
         lineup.filterNotNull(),
@@ -245,7 +290,7 @@ class LiveTvViewModel internal constructor(
         if (read) LiveTvModel.guideRefs(l.channels, countries, guides, overrides) else null
     }
         .flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
 
     /** Whether rows still wait for their first guide match: no [refs] yet and a guide source exists (D5). */
     private fun awaitingFirstMatch(refs: Map<String, EpgRef>?, hasGuideSource: Boolean): Boolean =
@@ -265,6 +310,51 @@ class LiveTvViewModel internal constructor(
 
     private val guidesAtMinute = combine(guideRepository.guides, minute, ::Pair)
 
+    // Spec 111: the search query; null = search closed.
+    private val searchQuery = MutableStateFlow<String?>(null)
+
+    /**
+     * The search index of the rows' lineup (the one [listed] carries), made while search is open (it
+     * folds every name) and only when that lineup changes (not for a favorite or a recent). Held and let
+     * go like the lineup: released on an unload (Spec 146) and when search closes.
+     */
+    private val searchIndex: StateFlow<LiveChannelSearchIndex?> = combine(
+        listed.map { it?.first }.distinctUntilChanged { a, b -> a === b },
+        searchQuery.map { it != null }.distinctUntilChanged()
+    ) { lineup, open -> if (open && lineup != null) LiveChannelSearchIndex(lineup) else null }
+        .flowOn(derive)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
+
+    // The query's hits from the index they came from (uiState checks it is the rows' lineup's); null while closed.
+    private class SearchResult(val index: LiveChannelSearchIndex?, val query: String) {
+        val hits = index?.search(query)
+    }
+
+    // Every listable channel, whatever the filter (D8), ranked (D9).
+    private val search: Flow<SearchResult?> = combine(searchIndex, searchQuery) { index, query ->
+        query?.let { SearchResult(index, it) }
+    }
+
+    /**
+     * [result] against the rows' [lineup]. An index of another lineup (the frames after a hide or a
+     * refresh, until it is made again) gives pending results: its hits that this lineup still lists,
+     * matched again against this lineup's names and numbers (a renamed or renumbered channel gets its
+     * right tier and highlight, or drops out).
+     */
+    private fun liveSearch(result: SearchResult, lineup: Lineup): LiveSearch {
+        val total = lineup.channels.size
+        val index = result.index ?: return LiveSearch(result.query, emptyList(), pending = true, total = total)
+        val hits = result.hits.orEmpty()
+        if (index.lineup === lineup) return LiveSearch(result.query, hits, total = total)
+        if (hits.isEmpty()) return LiveSearch(result.query, emptyList(), pending = true, total = total)
+        val listed = lineup.channels.associateBy { it.key }
+        val still = hits.mapNotNull { listed[it.item.key] }
+        val kept = LiveChannelSearch.search(still, result.query, { LiveChannelSearch.prepare(it.shownName) }) {
+            lineup.numbers[it.key]
+        }
+        return LiveSearch(result.query, kept, pending = true, total = total)
+    }
+
     private data class Selection(
         val filter: LiveTvFilter?,
         val browse: LiveTvFilter.Browse,
@@ -273,20 +363,21 @@ class LiveTvViewModel internal constructor(
     )
 
     // The pickers' options derive with their browse in one step (never a frame of the old counts) and
-    // apart from the minute ticker, which never changes them.
+    // apart from the minute ticker and search, which never change them.
     private val selection = combine(filter, browse, view, listed) { filter, browse, view, listed ->
         Selection(filter, browse, view, listed?.let { (lineup, lists) -> LiveTvModel.pickers(lineup, browse, lists) })
     }
 
     // The grid's layout and what it was made from: laid out again only when one of them changes, not
-    // each minute (bounds move at local midnight). Read and written only by uiState's derivation,
-    // which runs one emission at a time.
+    // each minute (bounds move at local midnight). Written by uiState's derivation, which runs one
+    // emission at a time, and cleared after an unload (Spec 146: it holds the guides and channels).
     private data class GuideInputs(
         val channels: List<Channel>,
         val refs: Map<String, EpgRef>,
         val guides: Map<String, EpgSnapshot>,
         val bounds: GuideBounds
     )
+    @Volatile
     private var guideLayout: Pair<GuideInputs, GuideRows>? = null
 
     // Null in List, which also lets the last layout go.
@@ -310,14 +401,22 @@ class LiveTvViewModel internal constructor(
         sourceKinds,
         listed,
         refs,
-        selection,
+        combine(selection, search, ::Pair),
         guidesAtMinute
-    ) { kinds, listed, refs, (filter, browse, view, pickers), (guides, nowMs) ->
+    ) { kinds, listed, refs, (selection, search), (guides, nowMs) ->
+        val (filter, browse, view, pickers) = selection
         if (listed == null || filter == null) {
-            LiveTvUiState(loading = true, filter = filter ?: LiveTvFilter.initial, browse = browse, view = view)
+            guideLayout = null
+            LiveTvUiState(
+                loading = true, filter = filter ?: LiveTvFilter.initial, browse = browse, view = view,
+                // Open search stays open (pending) while the stores are read again.
+                search = search?.let { LiveSearch(it.query, emptyList(), pending = true) }
+            )
         } else {
             val (lineup, lists) = listed
-            val channels = LiveTvModel.filtered(lineup, filter, lists)
+            val liveSearch = search?.let { liveSearch(it, lineup) }
+            // Open search shows its results in rank order instead of the filter's channels.
+            val channels = liveSearch?.let { s -> s.hits.map { it.item } } ?: LiveTvModel.filtered(lineup, filter, lists)
             val matched = refs.orEmpty()
             LiveTvUiState(
                 loading = false,
@@ -332,11 +431,12 @@ class LiveTvViewModel internal constructor(
                 ),
                 nowMs = nowMs,
                 view = view,
-                guide = guideRows(view, channels, matched, guides, nowMs)
+                guide = guideRows(view, channels, matched, guides, nowMs),
+                search = liveSearch
             )
         }
     }.flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LiveTvUiState())
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, LiveTvUiState())
 
     /** The info block's channel (D16): the focused row, whatever the filter; null before any focus. */
     val info: StateFlow<LiveRow?> = combine(
@@ -353,7 +453,7 @@ class LiveTvViewModel internal constructor(
             guideLoading = awaitingFirstMatch(refs, kinds.hasGuides)
         ).single()
     }.flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
 
     // The open day schedule (Spec 67 G2): its channel and a per-open id; null = closed. The id makes a
     // close-then-reopen of one channel a new value, even when the null between them is conflated.
@@ -389,16 +489,38 @@ class LiveTvViewModel internal constructor(
             )
         }
     }.flowOn(derive)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
+        .stateIn(viewModelScope, whileSubscribedUntilUnload, null)
 
     init {
+        // The one loader: reads the channel side, then the guides ([loaded], [guidesRead]), then refreshes
+        // stale sources until one refresh completes. Spec 146: each unload (a movie started) restarts it,
+        // cancelling a read or refresh in progress; every read after the first waits for the screen to
+        // show (never during the movie), then resumes the preview once the guide matches are back.
         viewModelScope.launch {
             hiddenStore.load()
-            sourceManager.loadChannels()
-            loaded.value = true
-            sourceManager.loadGuides()
-            guidesRead.value = true
-            sourceManager.refreshStale()
+            var started = false
+            var refreshOwed = true
+            sourceManager.unloads.collectLatest {
+                loaded.value = false
+                guidesRead.value = false
+                guideLayout = null
+                val reread = started
+                started = true
+                if (reread) shown.first { it }
+                sourceManager.loadChannels()
+                loaded.value = true
+                sourceManager.loadGuides()
+                guidesRead.value = true
+                if (reread) {
+                    // The preview takes the channel's guide logo from the matches (tune).
+                    refs.first { it != null }
+                    if (shown.value) tuneFocused()
+                }
+                if (refreshOwed) {
+                    sourceManager.refreshStale()
+                    refreshOwed = false
+                }
+            }
         }
         // Zapping reads the cooling records before any tune here has loaded them.
         viewModelScope.launch { health.load() }
@@ -455,8 +577,35 @@ class LiveTvViewModel internal constructor(
     }
 
     /**
-     * A row took focus: the info block follows now, the preview once focus rests (Q2). A lost
-     * channel's row never tunes: the preview keeps its channel (L8-D4).
+     * Preview on focus (Spec 111 D10), kept for the profile; off: a resting focus never tunes, except the
+     * open's first ([openTuneOwed]; D13, Q1 2026-11-23). Return and resume play the focused row either way.
+     */
+    fun togglePreviewOnFocus() {
+        viewModelScope.launch { userStore.togglePreviewOnFocus() }
+    }
+
+    /** Opens live search with an empty query (Spec 111): no results until something is typed. */
+    fun openSearch() {
+        if (searchQuery.value == null) searchQuery.value = ""
+    }
+
+    /** The query being searched, read at once (the derived [LiveTvUiState.search] trails it); null = closed. */
+    val searchText: String? get() = searchQuery.value
+
+    /** The field's text while search is open; ignored once it is closed. */
+    fun setSearchQuery(query: String) {
+        if (searchQuery.value != null) searchQuery.value = query
+    }
+
+    /** Closes live search: the rows are the filter's again. */
+    fun closeSearch() {
+        searchQuery.value = null
+    }
+
+    /**
+     * A row took focus: the info block follows now, the preview once focus rests (Q2) unless Preview
+     * on focus is off (Spec 111 D10). A lost channel's row never tunes: the preview keeps its channel
+     * (L8-D4).
      */
     fun onRowFocused(channel: Channel) {
         _focusedKey.value = channel.key
@@ -464,14 +613,19 @@ class LiveTvViewModel internal constructor(
         if (isTunedTo(channel) || channel.lost) return
         previewJob = viewModelScope.launch {
             delay(PREVIEW_REST_MS)
-            tune(channel)
+            // The loader's resume may have tuned it meanwhile (Spec 146). The setting is read when the rest
+            // ends, so a switch either way made during the rest counts (its store write lands after a hop).
+            if (!isTunedTo(channel) && (previewOnFocus.value || openTuneOwed)) tune(channel)
         }
     }
 
-    /** OK on a row, Next channel, a zap: tune at once (no rest). False for a lost channel (L8-D4). */
+    /**
+     * OK on a row, Next channel, a zap: tune at once (no rest). False for a lost channel (L8-D4) or a
+     * removed source's (Spec 147 F27), so no full screen, banner or schedule opens on nothing.
+     */
     fun tuneNow(channel: Channel): Boolean {
         // Before focus moves: Back to a lost last channel must leave focus on the tuned one.
-        if (channel.lost) return false
+        if (channel.lost || sourceGone(channel)) return false
         _focusedKey.value = channel.key
         previewJob?.cancel()
         if (!isTunedTo(channel)) tune(channel)
@@ -489,7 +643,7 @@ class LiveTvViewModel internal constructor(
         val now = System.currentTimeMillis()
         val records = health.records.value
         val target = LiveTvModel.zapRow(uiState.value.rows, from, step) {
-            it.lost || StreamHealth.allCooling(it.streams, records, now)
+            it.lost || sourceGone(it) || StreamHealth.allCooling(it.streams, records, now)
         } ?: return null
         tuneNow(target.channel)
         return target.channel.key
@@ -509,9 +663,16 @@ class LiveTvViewModel internal constructor(
      * player gets the channel with its guide logo (Spec 94 T1), so the preview tile matches its row.
      */
     private fun tune(channel: Channel) {
+        // Spec 147 F27: back from Sources, [lineup] and the rows may still hold a removed source's channels
+        // (their sharing stopped while the screen was away); the source list is always current. No tune, so
+        // no Unavailable pane for a channel the user just removed ([LiveSourceManager.streamsFor] refuses it too).
+        if (sourceGone(channel)) return
+        openTuneOwed = false
         player.state.value.channel?.key?.takeIf { it != channel.key }?.let { _previousKey.value = it }
         player.tune(LiveTvModel.withGuideLogo(channel, refs.value?.get(channel.key), guideRepository.guides.value))
     }
+
+    private fun sourceGone(channel: Channel) = sourceManager.sources.value.none { it.id == channel.sourceId }
 
     /**
      * Right on a row with a schedule (Spec 67 D3 Q1): starts deriving [channel]'s day schedule and
@@ -552,14 +713,26 @@ class LiveTvViewModel internal constructor(
 
     /** The screen left view (another tab, app in background): no sound from an unseen preview. */
     fun stopPreview() {
+        shown.value = false
         previewJob?.cancel()
         player.stop()
     }
 
-    /** The screen is back: the focused channel plays again ([stopPreview] left the player idle). */
+    /**
+     * The screen is back: the focused channel plays again ([stopPreview] left the player idle). After an
+     * unload (Spec 146) the init loader reads the stores again first, then resumes it.
+     */
     fun resumePreview() {
+        shown.value = true
+        tuneFocused()
+    }
+
+    private fun tuneFocused() {
         val key = _focusedKey.value ?: return
         if (player.state.value !is LiveTuneState.Idle) return
+        // Before the first tune the key may still be the seeded last-watched channel, which the opening filter
+        // need not list (left while loading, D14): only a row the screen shows tunes then.
+        if (openTuneOwed && uiState.value.rows.none { it.channel.key == key }) return
         val channel = lineup.value?.channel(key)?.takeUnless { it.lost } ?: return
         tune(channel)
     }

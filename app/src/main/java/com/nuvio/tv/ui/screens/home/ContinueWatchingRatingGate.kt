@@ -22,9 +22,12 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
-/** A CW title's rating lookup: [Found] is final (its rating may be null = unknown), [Failed] is retried. */
+/**
+ * A CW title's rating lookup: [Found] is final (its ratings may place nothing = unknown), [Failed] is
+ * retried. [Found.nonUsRatings] are the meta's non-US ratings (Spec 102).
+ */
 internal sealed interface CwRatingLookup {
-    data class Found(val rating: String?) : CwRatingLookup
+    data class Found(val rating: String?, val nonUsRatings: Map<String, String> = emptyMap()) : CwRatingLookup
     data object Failed : CwRatingLookup
 }
 
@@ -53,7 +56,7 @@ internal class ContinueWatchingRatingGate(
 
     private val cap = MutableStateFlow<CapState>(CapState.Loading)
     /** Final lookups by [key]; absent = not known yet. */
-    private val ratings = MutableStateFlow<Map<String, String?>>(emptyMap())
+    private val ratings = MutableStateFlow<Map<String, CwRatingLookup.Found>>(emptyMap())
     private val requested = ConcurrentHashMap.newKeySet<String>()
     /** Keys of the CW titles in the latest capped state; a retry stops once its title leaves. */
     @Volatile private var currentKeys: Set<String> = emptySet()
@@ -68,7 +71,7 @@ internal class ContinueWatchingRatingGate(
         combine(states, cap, ratings, ::visible)
             .stateIn(scope, SharingStarted.Eagerly, visible(states.value, cap.value, ratings.value))
 
-    private fun visible(state: HomeUiState, capState: CapState, known: Map<String, String?>): HomeUiState {
+    private fun visible(state: HomeUiState, capState: CapState, known: Map<String, CwRatingLookup.Found>): HomeUiState {
         val cap = when (capState) {
             CapState.Loading -> return state.withContinueWatching(emptyList(), emptyList())
             is CapState.Ready -> capState.cap ?: return state
@@ -78,11 +81,12 @@ internal class ContinueWatchingRatingGate(
         fun allowed(item: ContinueWatchingItem): Boolean {
             val (type, id) = item.typeAndId()
             val key = key(type, id)
-            if (key !in known) {
+            val found = known[key]
+            if (found == null) {
                 request(type, id)
                 return false
             }
-            return isRatingAllowed(known[key], cap)
+            return isRatingAllowed(found.rating, cap, found.nonUsRatings)
         }
         return state.withContinueWatching(
             state.continueWatchingItems.filter(::allowed),
@@ -106,7 +110,7 @@ internal class ContinueWatchingRatingGate(
             while (true) {
                 val result = lookupPermits.withPermit { lookUpRating(type, id) }
                 if (result is CwRatingLookup.Found) {
-                    ratings.update { it + (key to result.rating) }
+                    ratings.update { it + (key to result) }
                     return@launch
                 }
                 delay(retryDelay)
@@ -150,7 +154,7 @@ internal class ContinueWatchingRatingGate(
                             metaRepository.getMetaFromAllAddons(type = type, id = id)
                                 .first { it !is NetworkResult.Loading }
                         }
-                        (result as? NetworkResult.Success)?.let { CwRatingLookup.Found(it.data.ageRating) }
+                        (result as? NetworkResult.Success)?.let { CwRatingLookup.Found(it.data.ageRating, it.data.nonUsRatings) }
                     }
                 } ?: CwRatingLookup.Failed
             } catch (e: CancellationException) {

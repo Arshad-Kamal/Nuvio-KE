@@ -202,6 +202,8 @@ internal fun PlayerRuntimeController.selectSubtitleTrack(trackIndex: Int) {
         val trackId = track?.trackId?.toIntOrNull()
         val changed = trackId != null && mpvView?.selectSubtitleTrackById(trackId) == true
         if (changed) {
+            clearAutoSyncedSubtitle() // Spec 108: mpv has no sidecar stop to clear it
+            mpvAddonSubtitleSelectJob?.cancel() // an addon still loading must not land over this choice
             pendingAddonSubtitleLanguage = null
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
@@ -260,9 +262,11 @@ internal fun PlayerRuntimeController.rememberInternalSubtitleSelection(trackInde
 }
 
 internal fun PlayerRuntimeController.disableSubtitles() {
-    resetSubtitleAutoSyncState()
+    resetSubtitleManualSyncState()
     if (isUsingMpvEngine()) {
         if (mpvView?.disableSubtitles() == true) {
+            clearAutoSyncedSubtitle() // Spec 108: mpv has no sidecar stop to clear it
+            mpvAddonSubtitleSelectJob?.cancel() // an addon still loading must not land over this choice
             pendingAddonSubtitleLanguage = null
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
@@ -377,7 +381,12 @@ internal fun PlayerRuntimeController.isMpvAddonSubtitleTrackActive(
     } == true
 }
 
-internal fun PlayerRuntimeController.addonSubtitleKey(subtitle: Subtitle): String {
+/** Spec 108: key of the addon subtitle mpv's plain selection is still downloading or adding, else null. */
+internal fun PlayerRuntimeController.mpvAddonSubtitleKeyInFlight(): String? =
+    mpvAddonSubtitleSelectKey.takeIf { mpvAddonSubtitleSelectJob?.isActive == true }
+
+/** The one key for an addon subtitle (sidecar attach, AutoSync, the Subtitles panel's Auto synced chip). */
+internal fun addonSubtitleKey(subtitle: Subtitle): String {
     return "${subtitle.id}|${subtitle.url}"
 }
 
@@ -409,8 +418,14 @@ internal fun PlayerRuntimeController.selectAddonSubtitle(subtitle: Subtitle) {
             currentlySelected.url == subtitle.url &&
             isMpvAddonSubtitleTrackActive(subtitle)
         ) {
+            // Spec 108: re-picking the subtitle on screen drops another one still loading, which
+            // would otherwise land over it.
+            if (mpvAddonSubtitleKeyInFlight() != null) mpvAddonSubtitleSelectJob?.cancel()
             return
         }
+        // Spec 108: the same subtitle already loading (a track refresh or the addon fetch re-picking
+        // it) keeps its download, and the AutoSync run waiting on it.
+        if (mpvAddonSubtitleKeyInFlight() == addonSubtitleKey(subtitle)) return
         Log.d(PlayerRuntimeController.TAG, "Selecting ADDON subtitle lang=${subtitle.lang} id=${subtitle.id} (mpv)")
         val wasPlaying = isPlaybackCurrentlyPlaying()
         val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
@@ -418,6 +433,7 @@ internal fun PlayerRuntimeController.selectAddonSubtitle(subtitle: Subtitle) {
         // A newer pick supersedes an in-flight download, so the last pick wins
         // rather than whichever download finishes last.
         mpvAddonSubtitleSelectJob?.cancel()
+        mpvAddonSubtitleSelectKey = addonSubtitleKey(subtitle)
         mpvAddonSubtitleSelectJob = scope.launch {
             val localPath = try {
                 val decodedBody = downloadSubtitleBody(subtitle.url, subtitle.lang, subtitle.headers)
@@ -449,6 +465,8 @@ internal fun PlayerRuntimeController.selectAddonSubtitle(subtitle: Subtitle) {
                 language = normalizedLang
             ) == true
             if (!added) return@launch
+            // Spec 108: the plain file now replaces any retimed copy on screen.
+            clearAutoSyncedSubtitle()
 
             pendingAddonSubtitleLanguage = null
             pendingAddonSubtitleTrackId = null
@@ -475,7 +493,7 @@ internal fun PlayerRuntimeController.selectAddonSubtitle(subtitle: Subtitle) {
             }
             return@let
         }
-        resetSubtitleAutoSyncState()
+        resetSubtitleManualSyncState()
         val normalizedLang = PlayerSubtitleUtils.normalizeLanguageCode(subtitle.lang)
         val inferredMime = PlayerSubtitleUtils.mimeTypeFromUrl(subtitle.url)
         Log.d(

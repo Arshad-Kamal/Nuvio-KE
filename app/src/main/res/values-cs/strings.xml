@@ -656,7 +656,7 @@
     <string name="settings_p2p_title">P2P streamování</string>
     <string name="settings_p2p_subtitle">Povolit peer-to-peer (torrent) streamy</string>
     <string name="settings_p2p_hide_stats_title">Skrýt statistiky torrentu</string>
-    <string name="settings_p2p_hide_stats_subtitle">Skrýt vyrovnávací paměť, seedy, peery a rychlost stahování během načítání a přehrávání</string>
+    <string name="settings_p2p_hide_stats_subtitle">Skrýt vyrovnávací paměť, seedy, peery a rychlost stahování během přehrávání</string>
     <string name="stream_filter_all">Vše</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

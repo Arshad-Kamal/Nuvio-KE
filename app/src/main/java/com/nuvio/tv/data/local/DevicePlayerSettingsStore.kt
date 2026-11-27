@@ -26,8 +26,9 @@ internal const val DEVICE_PLAYER_SETTINGS_STORE_NAME = "device_player_settings"
  * Player keys that belong to this TV, not to a profile (Spec 33 D1): read from and written to
  * [DevicePlayerSettingsStore], so a change on one profile applies to all. Every name is in
  * ProfileSettingsSyncService's localOnlyPlayerProfileSettingsKeys (never synced); that list also
- * holds retired keys (no reader) and last_playback_diagnostics_json (stays per profile: it carries
- * a tokenised stream URL and is wiped on sign-out). PlayerSettingsSyncClassificationTest pins the
+ * holds retired keys (no reader), last_playback_diagnostics_json (stays per profile: it carries
+ * a tokenised stream URL and is wiped on sign-out) and subtitle_font_id / _name (Spec 132: per profile,
+ * naming a font file on this TV). PlayerSettingsSyncClassificationTest pins the
  * partition. Legacy keys (downmix_normalization_enabled, map_dv7_to_hevc, frame_rate_matching,
  * parallel_chunk_size_mb) are in: the merged read falls back to them, and some setters still
  * write or remove them in step.

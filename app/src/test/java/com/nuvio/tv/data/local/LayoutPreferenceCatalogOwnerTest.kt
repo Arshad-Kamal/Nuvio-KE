@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -86,6 +87,28 @@ class LayoutPreferenceCatalogOwnerTest {
         assertEquals(emptyMap<String, String>(), layout.customCatalogTitles.first())
         assertEquals("""["parent.catalog"]""", stores.getValue(1).value[orderKey])
         assertEquals("""["child.catalog"]""", stores.getValue(2).value[orderKey])
+    }
+
+    @Test
+    fun `a cloud pull keeps this TV's MDBList rows, their hidden state and titles`() = runTest {
+        layout.setHomeCatalogOrderKeys(listOf("mdblist_watchlist", "addon_movie_a", "mdblist_7"))
+        layout.setDisabledHomeCatalogKeys(listOf("mdblist_7", "addon_movie_a"))
+        assertTrue(layout.setCustomCatalogTitle("mdblist_7", "Friday films", originalName = "Weekend"))
+        layout.applyCatalogSettingsFromRemote(
+            SyncHomeCatalogPayload(
+                items = listOf(
+                    SyncCatalogItem("addon", "movie", "b", order = 0),
+                    SyncCatalogItem("addon", "movie", "a", order = 1)
+                )
+            ),
+            profileId = 2
+        )
+        assertEquals(
+            listOf("mdblist_watchlist", "addon_movie_b", "addon_movie_a", "mdblist_7"),
+            layout.homeCatalogOrderKeys.first()
+        )
+        assertEquals(listOf("mdblist_7"), layout.disabledHomeCatalogKeys.first())
+        assertEquals(mapOf("mdblist_7" to "Friday films"), layout.customCatalogTitles.first())
     }
 
     @Test

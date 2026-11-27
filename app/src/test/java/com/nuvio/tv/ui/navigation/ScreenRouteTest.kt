@@ -47,12 +47,12 @@ class ScreenRouteTest {
     }
 
     @Test
-    fun `player route carries the sources time last, empty when there was no search`() {
+    fun `player route carries the sources time, empty when there was no search`() {
         val route = Screen.Player.createRoute(streamUrl = "http://h/v", title = "T", launchStartedAtMs = 5L, sourcesFoundMs = 1_400L)
-        assertTrue(route.endsWith("&launchStartedAtMs=5&sourcesFoundMs=1400"))
-        assertTrue(Screen.Player.route.endsWith("&sourcesFoundMs={sourcesFoundMs}"))
+        assertTrue(route.contains("&launchStartedAtMs=5&sourcesFoundMs=1400&"))
+        assertTrue(Screen.Player.route.contains("&sourcesFoundMs={sourcesFoundMs}&"))
         val none = Screen.Player.createRoute(streamUrl = "http://h/v", title = "T", launchStartedAtMs = 5L)
-        assertTrue(none.endsWith("&sourcesFoundMs="))
+        assertTrue(none.contains("&sourcesFoundMs=&"))
     }
 
     @Test
@@ -66,6 +66,20 @@ class ScreenRouteTest {
         assertTrue(PlayerNavigationArgs.from(SavedStateHandle(mapOf("releaseVideo" to "true"))).releaseVideo)
         assertFalse(PlayerNavigationArgs.from(SavedStateHandle(mapOf("releaseVideo" to "false"))).releaseVideo)
         assertFalse(PlayerNavigationArgs.from(SavedStateHandle()).releaseVideo)
+    }
+
+    @Test
+    fun `player route marks a hand pick only when asked, read back by the nav args (Spec 131 D4)`() {
+        assertTrue(Screen.Player.route.endsWith("&handPicked={handPicked}"))
+        assertTrue(Screen.Player.createRoute(streamUrl = "http://h/v", title = "T", launchStartedAtMs = 5L).endsWith("&handPicked=false"))
+        assertTrue(
+            Screen.Player.createRoute(streamUrl = "http://h/v", title = "T", launchStartedAtMs = 5L, handPicked = true)
+                .endsWith("&handPicked=true")
+        )
+        assertTrue(PlayerNavigationArgs.from(SavedStateHandle(mapOf("handPicked" to "true"))).handPicked)
+        assertFalse(PlayerNavigationArgs.from(SavedStateHandle(mapOf("handPicked" to "false"))).handPicked)
+        // An old route (no arg): automatic, today's failover.
+        assertFalse(PlayerNavigationArgs.from(SavedStateHandle()).handPicked)
     }
 
     @Test

@@ -170,6 +170,7 @@ fun AuthQrSignInScreen(
             }
         }
         SignInCard(
+            eyebrow = stringResource(R.string.auth_qr_account_login),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = safeHorizontal, top = tokens.signInCardTop, bottom = tokens.signInCardBottom)
@@ -246,9 +247,9 @@ private fun SignInIntro(useEmailLogin: Boolean, modifier: Modifier, action: @Com
     }
 }
 
-/** `.l11qc`: the opaque card (Spec 80 D9), ACCOUNT LOGIN at its top. */
+/** `.l11qc`: the opaque card (Spec 80 D9), [eyebrow] at its top (ACCOUNT LOGIN; a tracker's sign-in, Spec 104 B1). */
 @Composable
-private fun SignInCard(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun SignInCard(eyebrow: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     val tokens = NuvioTheme.marquee.settings
     val shape = RoundedCornerShape(tokens.signInCardRadius)
     Column(
@@ -265,7 +266,7 @@ private fun SignInCard(modifier: Modifier, content: @Composable ColumnScope.() -
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(tokens.signInCardGap)
     ) {
-        PanelEyebrowText(text = stringResource(R.string.auth_qr_account_login))
+        PanelEyebrowText(text = eyebrow)
         content()
     }
 }
@@ -359,7 +360,7 @@ private const val DEAD_QR_ALPHA = 0.3f
 
 /** `.l11stt`: a dot (amber, red on [error]) and the status. */
 @Composable
-private fun SignInStatusLine(text: String, error: Boolean) {
+internal fun SignInStatusLine(text: String, error: Boolean) {
     val color = if (error) NuvioPrimitives.errorOnImage else NuvioTheme.marquee.onImage2
     Row(
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),

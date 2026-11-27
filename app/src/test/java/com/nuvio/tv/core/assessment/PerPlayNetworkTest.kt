@@ -34,7 +34,7 @@ class PerPlayNetworkTest {
         bufferSettings = BufferSettings(targetBufferSizeMb = 150, maxBufferMs = 120_000, backBufferDurationMs = 0)
     )
 
-    private val limits2Gb = DeviceLimits(325, 16, perfModeSupported = true, afrSupported = null)
+    private val limits2Gb = DeviceLimits(325, 16, Int.MAX_VALUE, perfModeSupported = true, afrSupported = null)
 
     // 20 GB over 120 min = 22.2 Mbit/s: the 2x bar (42.2 with tolerance) passes 2x8 and 4x16.
     private fun play(

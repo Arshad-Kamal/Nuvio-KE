@@ -30,6 +30,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +41,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +53,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
@@ -68,6 +74,7 @@ import com.nuvio.tv.ui.theme.NuvioPrimitives
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.requestFocusAfterFrames
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
@@ -101,7 +108,8 @@ private val PANEL_FADE = Brush.verticalGradient(listOf(Color.Transparent, NuvioP
  * ([LIST_MS] without a key); Back closes the overlay, else leaves through [onExit]; holding Back
  * swaps to the last channel (Arshad 2026-10-20: a press always leaves, so repeated Backs no longer
  * ping-pong between two channels). Left/Right only show the OSD. Tuning and unavailable
- * reuse the preview's veil and box; Retry takes focus while the channel is unavailable.
+ * reuse the preview's veil and box; Retry takes focus while the channel is unavailable. Open search
+ * (Spec 111 D15) keeps the list overlay up until it closes, and zaps move within its results.
  */
 @Composable
 internal fun LiveTvFullScreen(
@@ -120,11 +128,13 @@ internal fun LiveTvFullScreen(
         chrome = c
         poke++
     }
-    LaunchedEffect(chrome, poke) {
+    val searching = ui.search != null
+    LaunchedEffect(chrome, poke, searching) {
         val ms = when (chrome) {
             LiveTvChrome.OSD -> OSD_MS
             LiveTvChrome.BANNER -> BANNER_MS
-            LiveTvChrome.LIST -> LIST_MS
+            // The panel does not hide while search is open (stage 9); closing it restarts the timer.
+            LiveTvChrome.LIST -> if (searching) return@LaunchedEffect else LIST_MS
             LiveTvChrome.NONE -> return@LaunchedEffect
         }
         delay(ms)
@@ -471,7 +481,11 @@ private fun LiveTvZapBanner(row: LiveRow, last: String?, nowMs: Long, timeFormat
  * Stage 11: the shown filter's list over the picture (`.lvpanel`, black .80, no blur) with the
  * filter chips (select on focus, as the pills). Up/Down move focus and the picture follows after
  * the same 600 ms rest (Q2); OK tunes the row at once and closes ([onPicked]). Opens on the tuned
- * channel's row.
+ * channel's row. Spec 111 stages 8-10: a search chip first; open search (also one carried over from the
+ * List screen, D15) puts its field in place of the header and chips, the rows are its results (marked).
+ * Search or Down enters the first result once the typed text's results settle; Up from it returns to the
+ * field; OK on a result tunes it and closes search and the list; Back (after the keyboard's own) closes
+ * search back onto the filter's list, focus on the tuned row as on opening.
  */
 @Composable
 private fun LiveTvListOverlay(
@@ -494,17 +508,65 @@ private fun LiveTvListOverlay(
     val requesterFor = { k: String -> rowRequesters.getOrPut(k) { FocusRequester() } }
     val chipRequester = remember { FocusRequester() }
     val sourceNames by viewModel.sourceNames.collectAsState()
+    val search = ui.search
+    val settledSearch = rememberSettledSearch(search)
+    val fieldRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // Focus once the search state lands: the field + keyboard after the chip's OK, the tuned row after Back.
+    var searchOpening by remember { mutableStateOf(false) }
+    var searchClosing by remember { mutableStateOf(false) }
+    val searchEntry = remember { LiveSearchEntry() }
 
-    // Opens on the tuned row; the selected chip when this filter does not list it (a focused row
-    // would start tuning another channel after the rest).
-    LaunchedEffect(Unit) {
+    // Opens on the tuned row; else the selected chip (the field while searching) when the rows do not
+    // list it (a focused row would start tuning another channel after the rest).
+    val focusTunedRow = suspend {
         val index = rows.indexOfFirst { it.channel.key == tunedKey }
         if (index < 0) {
-            chipRequester.requestFocusAfterFrames()
+            (if (search != null) fieldRequester else chipRequester).requestFocusAfterFrames()
         } else {
             listState.scrollToItem((index - live.focusRowsAbove).coerceAtLeast(0))
             requesterFor(rows[index].channel.key).requestFocusAfterFrames()
         }
+    }
+    LaunchedEffect(Unit) { focusTunedRow() }
+    val enterResults: suspend () -> Unit = {
+        rows.firstOrNull()?.let { first ->
+            listState.scrollToItem(0)
+            requesterFor(first.channel.key).requestFocusAfterFrames()
+        }
+    }
+    val scope = rememberCoroutineScope()
+    val enterSearchResults: (String) -> Unit = { text ->
+        if (searchEntry.submit(text, search)) scope.launch { enterResults() }
+    }
+    // Runs in the composition that first shows the new state, so its focus calls see that state's rows.
+    LaunchedEffect(search != null) {
+        if (search != null && searchOpening) {
+            searchOpening = false
+            fieldRequester.requestFocusAfterFrames()
+            keyboard?.show()
+        } else if (search == null && searchClosing) {
+            searchClosing = false
+            focusTunedRow()
+        }
+    }
+    LaunchedEffect(search?.query, search?.pending, search == null) {
+        if (searchEntry.settled(search)) enterResults()
+    }
+    // A new query starts its results at the top (not the query open search was carried in with).
+    var shownQuery by remember { mutableStateOf(search?.query) }
+    LaunchedEffect(search?.query) {
+        val query = search?.query
+        if (query == shownQuery) return@LaunchedEffect
+        shownQuery = query
+        if (query != null) listState.scrollToItem(0)
+    }
+    // After the keyboard's own Back: closes search back onto the filter's list (the full screen's
+    // handler, composed before this one, closes the list on the next Back).
+    BackHandler(enabled = search != null) {
+        searchClosing = true
+        keyboard?.hide()
+        viewModel.closeSearch()
     }
     // A chip picked another filter: its list starts at the top.
     var shownFilter by remember { mutableStateOf(ui.filter) }
@@ -529,7 +591,24 @@ private fun LiveTvListOverlay(
             .background(live.chromeFill)
             .border(1.dp, live.chromeEdge, shape)
     ) {
-        Column {
+        if (search != null) LiveTvSearchField(
+            initialText = viewModel.searchText ?: search.query,
+            status = liveSearchStatus(search, settledSearch),
+            fieldRequester = fieldRequester,
+            contentRequester = null,
+            onQueryChange = { text ->
+                searchEntry.drop()
+                viewModel.setSearchQuery(text)
+            },
+            onSubmit = enterSearchResults,
+            onDown = enterSearchResults,
+            onHideKeyboard = { keyboard?.hide() },
+            onFocusLeft = searchEntry::drop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = live.overlaySearchFieldInset, end = live.overlaySearchFieldInset, top = live.overlaySearchFieldInset),
+            inPanel = true
+        ) else Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -561,6 +640,10 @@ private fun LiveTvListOverlay(
                     .padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(live.chipGap)
             ) {
+                LiveTvSearchChip(onClick = {
+                    searchOpening = true
+                    viewModel.openSearch()
+                })
                 LiveTvFilter.chips(ui.browse).forEach { filter ->
                     key(filter) {
                         LiveTvChip(
@@ -577,8 +660,14 @@ private fun LiveTvListOverlay(
             LazyColumn(
                 state = listState,
                 modifier = Modifier
-                    .padding(start = live.overlayListInset, end = live.overlayListInset, top = live.overlayListTop)
-                    .fillMaxSize(),
+                    .padding(
+                        start = live.overlayListInset,
+                        end = live.overlayListInset,
+                        top = if (search != null) live.overlaySearchListTop else live.overlayListTop
+                    )
+                    .fillMaxSize()
+                    // A preview still waiting for focus to rest never starts once focus leaves (Q2).
+                    .onFocusChanged { if (!it.hasFocus) viewModel.cancelPendingPreview() },
                 contentPadding = PaddingValues(bottom = live.fadeHeight),
                 verticalArrangement = Arrangement.spacedBy(live.rowGap)
             ) {
@@ -591,14 +680,36 @@ private fun LiveTvListOverlay(
                         muted = rowKey == unavailableKey,
                         timeFormat = timeFormat,
                         sourceName = sourceNames[row.channel.sourceId],
-                        // A lost channel's row does nothing (L8-D4).
-                        onClick = { if (viewModel.tuneNow(row.channel)) onPicked() },
+                        // A lost channel's row does nothing (L8-D4). A result closes search too (stage 10).
+                        onClick = {
+                            if (viewModel.tuneNow(row.channel)) {
+                                if (search != null) {
+                                    keyboard?.hide()
+                                    viewModel.closeSearch()
+                                }
+                                onPicked()
+                            }
+                        },
+                        mark = search.mark(rowKey),
                         modifier = Modifier
                             .focusRequester(requesterFor(rowKey))
+                            // Up from the first result returns to the field.
+                            // Up from the first row: the field while searching, else the selected chip (the
+                            // chips' restorer could bring back the search chip, which selects nothing).
+                            .focusProperties {
+                                if (rowKey == rows.first().channel.key) up = if (search != null) fieldRequester else chipRequester
+                            }
                             .onFocusChanged { if (it.isFocused) viewModel.onRowFocused(row.channel) }
                     )
                 }
             }
+        }
+        if (search != null && rows.isEmpty()) {
+            LiveTvSearchMessage(
+                note = liveSearchStatus(search, settledSearch).note,
+                query = search.query,
+                modifier = Modifier.padding(start = live.overlayListInset, top = live.overlaySearchListTop)
+            )
         }
         Box(
             modifier = Modifier
@@ -610,7 +721,39 @@ private fun LiveTvListOverlay(
     }
 }
 
-/** `.lvch` chip: [chipHeight], `chipFill`; selected = glass + a white ring; focused = white, black text. */
+/** `.s111c`: the chips' first stop, a [chipHeight] circle with the search icon (focused = white); OK opens search. */
+@Composable
+private fun LiveTvSearchChip(onClick: () -> Unit) {
+    val marquee = NuvioTheme.marquee
+    val live = marquee.liveTv
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(live.chipHeight),
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = live.chipFill,
+            contentColor = marquee.onImage2,
+            focusedContainerColor = NuvioPrimitives.white,
+            focusedContentColor = NuvioPrimitives.black,
+            pressedContainerColor = NuvioPrimitives.white,
+            pressedContentColor = NuvioPrimitives.black
+        ),
+        scale = ClickableSurfaceDefaults.scale(scale = 1f, focusedScale = 1f, pressedScale = 1f)
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = stringResource(R.string.live_tv_search),
+                modifier = Modifier.size(live.overlaySearchIconSize)
+            )
+        }
+    }
+}
+
+/**
+ * `.lvch` chip: [chipHeight], `chipFill`; selected = glass + a white ring; focused = white, black text. At
+ * most `overlayChipMaxWidth` wide, its label cut with … (Spec 111 D12 stage 18: the combined filter chip).
+ */
 @Composable
 private fun LiveTvChip(label: String, selected: Boolean, onSelect: () -> Unit, modifier: Modifier = Modifier) {
     val marquee = NuvioTheme.marquee
@@ -621,6 +764,7 @@ private fun LiveTvChip(label: String, selected: Boolean, onSelect: () -> Unit, m
         onClick = onSelect,
         modifier = modifier
             .height(live.chipHeight)
+            .widthIn(max = live.overlayChipMaxWidth)
             .onFocusChanged { if (it.isFocused) onSelect() },
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         colors = ClickableSurfaceDefaults.colors(
@@ -643,7 +787,7 @@ private fun LiveTvChip(label: String, selected: Boolean, onSelect: () -> Unit, m
                 .padding(horizontal = live.chipPaddingHorizontal),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = label, style = NuvioTheme.textStyles.panelPill, maxLines = 1)
+            Text(text = label, style = NuvioTheme.textStyles.panelPill, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

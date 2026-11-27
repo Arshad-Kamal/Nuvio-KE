@@ -1,0 +1,27 @@
+# Spec 116 D5: the report Worker. Deploy only after Arshad's yes on a masked preview (Cloudflare skill).
+name = "nuvio-reports"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+# No Version or Preview URLs beside the one workers.dev URL (one public surface).
+preview_urls = false
+
+# No request logs, traces or metadata kept (D5, D11).
+[observability]
+enabled = false
+
+# Spec 116 A10/A11: one KV namespace holds the reports (reports/KE-XXXXXX.txt, 30-day expiry) and the
+# daily counters (day/<SHA-256 hex>, 24 h expiry). Workers Free: past a daily quota an operation fails
+# (the Worker answers 503); it never bills. Namespace created 2026-11-15 (preview C1).
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "aa88a07badfc453390b520eb27995605"
+
+# 2 reports per minute per IPv4 address or IPv6 /64, per Cloudflare location (E5: period 10 or 60 only).
+[[ratelimits]]
+name = "REPORT_LIMITER"
+namespace_id = "1161"
+
+  [ratelimits.simple]
+  limit = 2
+  period = 60

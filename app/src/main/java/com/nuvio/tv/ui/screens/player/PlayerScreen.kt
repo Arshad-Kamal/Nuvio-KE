@@ -637,6 +637,13 @@ fun PlayerScreen(
         marqueeToast?.show(notice, NETWORK_TEST_NOTICE_MS)
         viewModel.consumeNetworkTestNotice()
     }
+    // Spec 108 (D4 Q4): AutoSync's confirmed no fit, on the app toast for its usual time.
+    val autoSyncNoFitMessage = stringResource(R.string.autosync_toast_no_fit)
+    LaunchedEffect(uiState.autoSyncNoFitNoticePending) {
+        if (!uiState.autoSyncNoFitNoticePending) return@LaunchedEffect
+        marqueeToast?.show(autoSyncNoFitMessage)
+        viewModel.onEvent(PlayerEvent.OnAutoSyncNoFitNoticeShown)
+    }
     LaunchedEffect(uiState.showSubtitleTimingDialog) {
         if (!uiState.showSubtitleTimingDialog) {
             subtitleTimingConsumeNextConfirmKeyUp = false
@@ -714,7 +721,7 @@ fun PlayerScreen(
                 true
             }
             .onKeyEvent { keyEvent ->
-                // KEY_UP confirm for Sync Line is consumed in onPreviewKeyEvent so it still
+                // KEY_UP confirm for Manual sync is consumed in onPreviewKeyEvent so it still
                 // runs after focus moves into the timing dialog.
                 if (uiState.showSubtitleDelayOverlay) {
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -1844,7 +1851,8 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .zIndex(2.6f)
                 .then(controlsDim),
-            hideSourceNames = hideSourceNames
+            hideSourceNames = hideSourceNames,
+            autoSyncedSubtitleKey = uiState.autoSyncedSubtitleKey
         )
 
         PlayerOverlayScaffold(
@@ -1875,14 +1883,14 @@ fun PlayerScreen(
                     .padding(top = panelTokens.syncTop),
                 subtitleDelayMs = uiState.subtitleDelayMs,
                 selectedAddonSubtitle = uiState.selectedAddonSubtitle,
-                cues = uiState.subtitleAutoSyncCues,
-                capturedVideoMs = uiState.subtitleAutoSyncCapturedVideoMs,
-                statusMessage = uiState.subtitleAutoSyncStatus,
-                errorMessage = uiState.subtitleAutoSyncError,
-                isLoadingCues = uiState.subtitleAutoSyncLoading,
-                onCaptureNow = { viewModel.onEvent(PlayerEvent.OnCaptureSubtitleAutoSyncTime) },
+                cues = uiState.subtitleManualSyncCues,
+                capturedVideoMs = uiState.subtitleManualSyncCapturedVideoMs,
+                statusMessage = uiState.subtitleManualSyncStatus,
+                errorMessage = uiState.subtitleManualSyncError,
+                isLoadingCues = uiState.subtitleManualSyncLoading,
+                onCaptureNow = { viewModel.onEvent(PlayerEvent.OnCaptureSubtitleManualSyncTime) },
                 onCueSelected = { cue ->
-                    viewModel.onEvent(PlayerEvent.OnApplySubtitleAutoSyncCue(cue.startTimeMs))
+                    viewModel.onEvent(PlayerEvent.OnApplySubtitleManualSyncCue(cue.startTimeMs))
                 }
             )
         }

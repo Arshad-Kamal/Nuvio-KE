@@ -655,7 +655,7 @@
     <string name="settings_p2p_title">P2P 串流</string>
     <string name="settings_p2p_subtitle">允許點對點 (torrent) 串流</string>
     <string name="settings_p2p_hide_stats_title">隱藏 torrent 統計資料</string>
-    <string name="settings_p2p_hide_stats_subtitle">在載入和播放期間隱藏緩衝、種子、對等節點和下載速度</string>
+    <string name="settings_p2p_hide_stats_subtitle">在播放期間隱藏緩衝、種子、對等節點和下載速度</string>
     <string name="stream_filter_all">全部</string>
     <string name="stream_episode_label">S%1$d E%2$d</string>
 

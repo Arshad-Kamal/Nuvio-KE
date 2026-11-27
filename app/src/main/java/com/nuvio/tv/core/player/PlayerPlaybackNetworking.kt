@@ -6,14 +6,24 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.nuvio.tv.core.network.IPv4FirstDns
 import com.nuvio.tv.core.network.access.AccessHeaderInterceptor
+import okhttp3.Call
 import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.EventListener
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLException
@@ -149,15 +159,79 @@ internal object PlayerPlaybackNetworking {
             .addNetworkInterceptor(AccessHeaderInterceptor)
             .addInterceptor { chain ->
                 val request = chain.request()
+                val startedAtNanos = System.nanoTime()
                 try {
                     chain.proceed(request)
                 } catch (e: SSLException) {
                     // Fallback to trust-all client if standard system SSL fails (e.g. self-signed local server)
-                    trustAllPlaybackHttpClient.newCall(request).execute()
+                    executeTrustAllRetry(chain.call(), request, startedAtNanos, e)
                 }
             }
             .build()
     }
+
+    private val trustAllRetryWatch: ScheduledExecutorService by lazy {
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "NuvioTrustAllRetryWatch").apply { isDaemon = true }
+        }
+    }
+
+    /**
+     * Spec 108 R1: the trust-all retry is a second call, so the outer call's call timeout and cancel
+     * never reach it on their own. It gets the outer call's remaining call timeout, and a watcher
+     * cancels it once the outer call is cancelled, until the retry ends (body closed, failed or
+     * cancelled). Without an outer call timeout only the client's own timeouts bound it, as before.
+     */
+    private fun executeTrustAllRetry(
+        outer: Call,
+        request: Request,
+        startedAtNanos: Long,
+        cause: SSLException
+    ): Response {
+        if (outer.isCanceled()) throw IOException("Canceled", cause)
+        val remainingNanos = remainingCallTimeoutNanos(
+            outerTimeoutNanos = outer.timeout().timeoutNanos(),
+            elapsedNanos = System.nanoTime() - startedAtNanos
+        )
+        if (remainingNanos != null && remainingNanos <= 0L) {
+            throw InterruptedIOException("timeout").apply { initCause(cause) }
+        }
+        val watch = AtomicReference<ScheduledFuture<*>?>()
+        val stopWatch = object : EventListener() {
+            override fun callEnd(call: Call) { watch.get()?.cancel(false) }
+            override fun callFailed(call: Call, ioe: IOException) { watch.get()?.cancel(false) }
+        }
+        val retry = trustAllPlaybackHttpClient.newBuilder()
+            .eventListenerFactory { call -> PlaybackConnectionEvents.create(call) + stopWatch }
+            .build()
+            .newCall(request)
+        if (remainingNanos != null) retry.timeout().timeout(remainingNanos, TimeUnit.NANOSECONDS)
+        watch.set(
+            trustAllRetryWatch.scheduleWithFixedDelay(
+                {
+                    if (outer.isCanceled() || retry.isCanceled()) {
+                        retry.cancel()
+                        watch.get()?.cancel(false)
+                    }
+                },
+                TRUST_ALL_RETRY_WATCH_MS,
+                TRUST_ALL_RETRY_WATCH_MS,
+                TimeUnit.MILLISECONDS
+            )
+        )
+        return try {
+            retry.execute()
+        } catch (e: Throwable) {
+            watch.get()?.cancel(false)
+            throw e
+        }
+    }
+
+    /** Spec 108 R1: what is left of an outer call timeout of [outerTimeoutNanos] (0 = none, null). */
+    internal fun remainingCallTimeoutNanos(outerTimeoutNanos: Long, elapsedNanos: Long): Long? =
+        if (outerTimeoutNanos <= 0L) null else outerTimeoutNanos - elapsedNanos.coerceAtLeast(0L)
+
+    private const val TRUST_ALL_RETRY_WATCH_MS = 100L
 
     /**
      * S1g: warm the playback connection at press.

@@ -104,14 +104,13 @@ class LegacyFeatureDataCleanupTest {
             LegacySecretStore(4, "debrid_settings", setOf("torbox_api_key", "premiumize_api_key", "real_debrid_api_key")),
             legacySecretStoreFor("debrid_settings_p4.preferences_pb")
         )
-        assertEquals(
-            LegacySecretStore(1, "mdblist_settings", setOf("mdblist_api_key")),
-            legacySecretStoreFor("mdblist_settings.preferences_pb")
-        )
-        assertEquals(
-            LegacySecretStore(2, "mdblist_settings", setOf("mdblist_api_key")),
-            legacySecretStoreFor("mdblist_settings_p2.preferences_pb")
-        )
+    }
+
+    @Test
+    fun `mdblist settings are no longer swept (Spec 104 S1, trackers return)`() {
+        assertNull(legacySecretStoreFor("mdblist_settings.preferences_pb"))
+        assertNull(legacySecretStoreFor("mdblist_settings_p2.preferences_pb"))
+        assertFalse("mdblist_settings" in LEGACY_SECRET_KEYS)
     }
 
     @Test
@@ -148,12 +147,12 @@ class LegacyFeatureDataCleanupTest {
 
     @Test
     fun `nothing is chosen when no secret key is present`() {
-        val keys = LEGACY_SECRET_KEYS.getValue("mdblist_settings")
+        val keys = LEGACY_SECRET_KEYS.getValue("debrid_settings")
 
         assertTrue(legacySecretKeysToRemove(emptyPreferences(), keys).isEmpty())
         assertTrue(
             legacySecretKeysToRemove(
-                preferencesOf(booleanPreferencesKey("mdblist_enabled") to true),
+                preferencesOf(booleanPreferencesKey("debrid_enabled") to true),
                 keys
             ).isEmpty()
         )
@@ -164,8 +163,8 @@ class LegacyFeatureDataCleanupTest {
         val dataStoreDir = tmpFolder.newFolder("datastore")
         val emptied = dataStoreDir.write("debrid_settings.preferences_pb", 0)
         val emptiedShadow = dataStoreDir.write("debrid_settings.preferences_pb.bak", 40)
-        val nonEmpty = dataStoreDir.write("mdblist_settings.preferences_pb", 12)
-        val nonEmptyShadow = dataStoreDir.write("mdblist_settings.preferences_pb.bak", 40)
+        val nonEmpty = dataStoreDir.write("debrid_settings_p2.preferences_pb", 12)
+        val nonEmptyShadow = dataStoreDir.write("debrid_settings_p2.preferences_pb.bak", 40)
 
         // Emptied store: writeShadowCopy skips 0-byte files, so the stale shadow must go.
         assertTrue(deleteShadowCopyOfEmptiedStore(emptied))

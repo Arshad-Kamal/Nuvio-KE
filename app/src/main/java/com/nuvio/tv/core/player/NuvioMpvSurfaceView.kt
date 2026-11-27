@@ -10,6 +10,7 @@ import `is`.xyz.mpv.BaseMPVView
 import `is`.xyz.mpv.MPV
 import `is`.xyz.mpv.MPVNode
 import `is`.xyz.mpv.Utils
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -27,6 +28,10 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
     private var pendingInitialMediaUrl: String? = null
     private var pendingInitialStartOption: String? = null
     private var hardwareDecodeMode: MpvHardwareDecodeMode = MpvHardwareDecodeMode.AUTO_SAFE
+    /** Spec 132: the user font for the next core (its file and family); null = Roboto. */
+    private var nextSubtitleFont: Pair<File, String>? = null
+    /** The `sub-font` this core loaded; null = Roboto. */
+    private var subtitleFontFamily: String? = null
     private var currentAspectMode: AspectMode = AspectMode.ORIGINAL
     private var pendingAspectRetryCount = 0
     // readChapters() cache: the list is fixed per load, but the snapshot is read every poll tick.
@@ -92,6 +97,9 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
     fun ensureInitialized() {
         if (initialized) return
         Utils.copyAssets(context)
+        subtitleFontFamily = syncMpvUserSubtitleFont(
+            File(context.filesDir, MPV_FONTS_DIR), nextSubtitleFont?.first, nextSubtitleFont?.second
+        )
         initialize(
             configDir = context.filesDir.path,
             cacheDir = context.cacheDir.path
@@ -321,6 +329,11 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         }.onFailure {
             Log.w(TAG, "Failed to set audio language preference: ${it.message}")
         }
+    }
+
+    /** Spec 132 D2: the chosen font ([file], [family]) for the next core; a running one keeps its font. */
+    fun applySubtitleFont(file: File?, family: String?) {
+        nextSubtitleFont = if (file != null && !family.isNullOrBlank()) file to family else null
     }
 
     fun applyHardwareDecodeMode(mode: MpvHardwareDecodeMode) {
@@ -718,7 +731,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         // Preserve native ASS/SSA styling behavior on MPV.
         mpv.setOptionString("sub-ass-override", "no")
         mpv.setOptionString("sub-codepage", "auto:utf-8")
-        mpv.setOptionString("sub-font", "Roboto")
+        mpv.setOptionString("sub-font", subtitleFontFamily ?: "Roboto")
         mpv.setOptionString("sub-use-margins", "yes")
         mpv.setOptionString("sub-ass-force-margins", "yes")
         mpv.setOptionString("hwdec", hardwareDecodeMode.toMpvHwdecValue())
@@ -830,6 +843,8 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
 }
 
 private const val MIB = 1024L * 1024L
+/** libmpv's `~~/fonts` (configDir = filesDir), read once per core (Spec 98). */
+private const val MPV_FONTS_DIR = "fonts"
 private const val MPV_FORWARD_CACHE_DEFAULT_BYTES = 64 * MIB
 private const val MPV_BACK_CACHE_BYTES = 32 * MIB
 private const val MPV_FORWARD_CACHE_MIN_BYTES = 32 * MIB

@@ -136,6 +136,16 @@ class GuideCursorTest {
     }
 
     @Test
+    fun `an explicit focus wins over a restart pending from results that listed nothing`() {
+        val cursor = GuideCursor()
+        cursor.sync(rows, grid, now, "a")
+        cursor.filterChanged(emptyList(), grid, now) // search typed to no match (Spec 111)
+        assertTrue(cursor.focus("c", rows, grid, now)) // search closed: back on the row it left
+        cursor.sync(rows, grid, now, null) // the filter's rows' sync keeps it
+        assertEquals("c", cursor.key)
+    }
+
+    @Test
     fun `a refocus clamps the strip into the bounds and keeps the time`() {
         val cursor = GuideCursor()
         cursor.sync(rows, grid, now, "a")

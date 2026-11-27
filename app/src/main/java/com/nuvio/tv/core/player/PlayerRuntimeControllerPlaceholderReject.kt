@@ -19,8 +19,8 @@ import kotlinx.coroutines.flow.update
  * or a no-runtime transition.
  *
  * Spec 21 P3 (D3): the next live source is tried first, through the dead-source
- * failover (same cap, Toast and loading line). Only when none is left does it halt
- * with [error].
+ * failover (same cap, Toast and loading line). Only when none is left, or the source
+ * was picked by hand (Spec 131 D1: never replaced), does it halt with [error].
  *
  * [PlayerRuntimeController.placeholderRejectedForStream] (set first, reset when the
  * next stream starts) is what keeps the placeholder out of the title's watch state:
@@ -42,6 +42,11 @@ internal fun PlayerRuntimeController.rejectPlaceholderStream(
             "host=${currentStreamUrl.safeHost()}"
     )
     placeholderRejectedForStream = true
+    // Spec 131 D10: the clip's frame rate may already be cached under the film's filename (the AFR seed
+    // promotion, mpv's probing preflight, a track-format write that landed first); left there it switches
+    // the display for every later play of this release. A track-format write still pending is gated at
+    // its writer (trackAfrMayCache).
+    AfrFpsCache.removeFrameRate(currentStreamUrl, currentHeaders, currentFilename)
     // A stopped placeholder renders nothing: a watchdog left armed would show its own
     // error over a pending advance.
     cancelStartupWatchdog()

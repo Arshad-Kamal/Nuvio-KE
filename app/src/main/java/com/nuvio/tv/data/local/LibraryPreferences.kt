@@ -121,6 +121,22 @@ class LibraryPreferences @Inject constructor(
         }
     }
 
+    /**
+     * Removes every item [select] picks from [profileId]'s library in one edit (each a pending delete for the Nuvio
+     * sync, as [removeItem]). One edit, so a failure removes none (Library transfer Move, Spec 104 S4c).
+     */
+    suspend fun removeItemsWhere(profileId: Int, select: (SavedLibraryItem) -> Boolean) {
+        store(profileId).edit { preferences ->
+            val state = preferences.toLibrarySyncState()
+            val picked = state.items.filter(select)
+            if (picked.isEmpty()) return@edit
+            val updated = picked.fold(state) { current, item ->
+                LibrarySyncReducer.deleteLocal(state = current, contentId = item.id, contentType = item.type)
+            }
+            preferences.writeLibrarySyncState(updated)
+        }
+    }
+
     suspend fun getAllItems(
         profileId: Int = profileManager.activeProfileId.value
     ): List<SavedLibraryItem> {

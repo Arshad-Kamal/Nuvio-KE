@@ -34,7 +34,7 @@ class ServiceNetworkTestRunnerTest {
         bufferSettings = BufferSettings(targetBufferSizeMb = 150, maxBufferMs = 120_000, backBufferDurationMs = 0)
     )
 
-    private val limits2Gb = DeviceLimits(325, 16, perfModeSupported = true, afrSupported = null)
+    private val limits2Gb = DeviceLimits(325, 16, Int.MAX_VALUE, perfModeSupported = true, afrSupported = null)
 
     private fun hold(
         tables: ServiceNetworkTables,

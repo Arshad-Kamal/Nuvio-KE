@@ -6,6 +6,10 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.sync.HomeCatalogOrdering
+import com.nuvio.tv.data.mdblist.MDBLIST_HOME_ADDON_ID
+import com.nuvio.tv.data.mdblist.MdbListHomeRowsState
+import com.nuvio.tv.data.mdblist.isMdbListHomeRow
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import com.nuvio.tv.domain.model.MetaPreview
@@ -38,10 +43,19 @@ import java.time.LocalDate
 import kotlin.coroutines.cancellation.CancellationException
 import com.nuvio.tv.domain.model.requiredExtraDefaults
 
-private data class CatalogUpdateResult(
-    val displayRows: List<CatalogRow>,
-    val heroItems: List<MetaPreview>
-)
+/**
+ * Spec 117 P5b: Home redraws when its content filter may have changed (the active or previewed
+ * profile's settings, 122/V2 N3) and, while it filters, when looked-up tags land (`changes`).
+ */
+internal fun HomeViewModel.observeContentFilterRedrawsPipeline() {
+    viewModelScope.launch {
+        // The first value is the state the first draw reads itself.
+        activeContentFilter.settingsChanges().drop(1).collect { scheduleUpdateCatalogRows() }
+    }
+    viewModelScope.launch {
+        titleTagLookup.changes.collect { if (homeDrawFilter != null) scheduleUpdateCatalogRows() }
+    }
+}
 
 @OptIn(FlowPreview::class)
 internal fun HomeViewModel.observeCollectionsPipeline() {
@@ -53,6 +67,7 @@ internal fun HomeViewModel.observeCollectionsPipeline() {
                 // Deduplicate by collection ID (keep last occurrence) to prevent
                 // duplicate LazyColumn keys when users import overlapping collections.
                 collectionsCache = collections.associateBy { it.id }.values.toList()
+                collectionsLoadedOnce = true
                 rebuildCatalogOrder(addonsCache)
                 scheduleUpdateCatalogRows()
             }
@@ -84,9 +99,12 @@ internal fun HomeViewModel.loadDisabledHomeCatalogPreferencePipeline() {
         layoutPreferenceDataStore.disabledHomeCatalogKeys.collectLatest { keys ->
             val newKeys = keys.toSet()
             if (newKeys == disabledHomeCatalogKeys) return@collectLatest
+            // Spec 105 S5b1: hiding or showing an MDBList row loads no addon catalog (outside the load signature).
+            val catalogsChanged = newKeys.filterNot(HomeCatalogOrdering::isMdbListKey).toSet() !=
+                disabledHomeCatalogKeys.filterNot(HomeCatalogOrdering::isMdbListKey).toSet()
             disabledHomeCatalogKeys = newKeys
             rebuildCatalogOrder(addonsCache)
-            if (addonsCache.isNotEmpty()) {
+            if (catalogsChanged && addonsCache.isNotEmpty()) {
                 loadAllCatalogsPipeline(addonsCache)
             } else {
                 scheduleUpdateCatalogRows()
@@ -156,14 +174,30 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
     // On reload (not first load), keep existing UI data visible while new
     // catalogs load in the background to avoid a flash of empty content.
     val isReload = _uiState.value.catalogRows.isNotEmpty() || _uiState.value.homeRows.isNotEmpty()
+    val catalogsToLoad = addons.flatMap { addon ->
+        addon.catalogs
+            .filter { isHomeCatalog(addon, it) }
+            .map { catalog -> addon to catalog }
+    }
+    // Spec 145: see HomeUiState.homeCatalogsExpected.
+    val homeCatalogsExpected = catalogsToLoad.isNotEmpty()
     if (!isReload) {
-        _uiState.update { it.copy(isLoading = true, error = null, installedAddonsCount = addons.size) }
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                error = null,
+                installedAddonsCount = addons.size,
+                homeCatalogsExpected = homeCatalogsExpected
+            )
+        }
         synchronized(catalogStateLock) {
             catalogOrder.clear()
         }
         clearCatalogData()
     } else {
-        _uiState.update { it.copy(error = null, installedAddonsCount = addons.size) }
+        _uiState.update {
+            it.copy(error = null, installedAddonsCount = addons.size, homeCatalogsExpected = homeCatalogsExpected)
+        }
     }
     resetCatalogGenerationState()
 
@@ -186,12 +220,6 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
             catalogsLoadInProgress = false
             _uiState.update { it.copy(isLoading = false, error = appContext.getString(R.string.home_error_no_catalog_addons)) }
             return
-        }
-
-        val catalogsToLoad = addons.flatMap { addon ->
-            addon.catalogs
-                .filter { isHomeCatalog(addon, it) }
-                .map { catalog -> addon to catalog }
         }
 
         if (catalogsToLoad.isEmpty()) {
@@ -353,7 +381,8 @@ internal fun HomeViewModel.loadCatalogPipeline(
                 skip = 0,
                 skipStep = skipStep,
                 extraArgs = catalog.requiredExtraDefaults(),
-                supportsSkip = supportsSkip
+                supportsSkip = supportsSkip,
+                packGate = false // Spec 117 P5b: Home applies the packs when it draws
             ).collect { result ->
                 if (generation != catalogLoadGeneration) return@collect
                 when (result) {
@@ -406,7 +435,38 @@ internal fun HomeViewModel.loadCatalogPipeline(
     return loadJob
 }
 
+/**
+ * Spec 105 S5b1: MdbListHomeRows' rows into [HomeViewModel.catalogsMap] under their order keys (stale ones out). A
+ * title already stored keeps its stored (possibly enriched) copy, as a catalog's next page keeps loaded titles. The order
+ * is rebuilt when the keys change. Main-only, like the order's other writers.
+ */
+internal fun HomeViewModel.applyMdbListRowsPipeline(state: MdbListHomeRowsState) {
+    synchronized(catalogStateLock) {
+        catalogsMap.keys
+            .filter { HomeCatalogOrdering.isMdbListKey(it) && it !in state.rows }
+            .forEach { removeCatalogRow(it) }
+        // A row equal to the one last applied (its titles the same list) is skipped: no remerge of up to 5,000 titles.
+        mdbListAppliedRows.keys.retainAll(state.rows.keys)
+        state.rows.forEach { (key, row) ->
+            if (mdbListAppliedRows[key] == row) return@forEach
+            mdbListAppliedRows[key] = row
+            val stored = catalogsMap[key]?.items?.associateBy { it.apiType to it.id }.orEmpty()
+            replaceCatalogRow(key, row.copy(items = row.items.map { stored[it.apiType to it.id] ?: it }))
+        }
+    }
+    if (state.keys != mdbListKeys) {
+        mdbListKeys = state.keys
+        rebuildCatalogOrder(addonsCache)
+    }
+    scheduleUpdateCatalogRows()
+}
+
 internal fun HomeViewModel.loadMoreCatalogItemsPipeline(catalogId: String, addonId: String, type: String) {
+    // MDBList rows page through their own reader (cursor pages), stored under their order key.
+    if (addonId == MDBLIST_HOME_ADDON_ID && readCatalogRow(catalogId)?.isMdbListHomeRow() == true) {
+        mdbListHomeRows.loadMore(catalogId)
+        return
+    }
     val key = catalogKey(addonId = addonId, type = type, catalogId = catalogId)
     val currentRow = readCatalogRow(key)
 
@@ -436,7 +496,8 @@ internal fun HomeViewModel.loadMoreCatalogItemsPipeline(catalogId: String, addon
             skip = nextSkip,
             skipStep = currentRow.skipStep,
             extraArgs = currentRow.extraArgs,
-            supportsSkip = currentRow.supportsSkip
+            supportsSkip = currentRow.supportsSkip,
+            packGate = false // Spec 117 P5b: Home applies the packs when it draws
         ).collect { result ->
             when (result) {
                 is NetworkResult.Success -> {
@@ -457,62 +518,39 @@ internal fun HomeViewModel.loadMoreCatalogItemsPipeline(catalogId: String, addon
 }
 
 internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
+    // Read on every draw (117/P5b): a settings edit applies at the next draw. Read before the snapshot,
+    // so the rows drawn are never older than this suspension.
+    val drawFilter = HomeDrawFilter.of(activeContentFilter.current(), titleTagLookup)
+    homeDrawFilter = drawFilter
     val (orderedKeys, catalogSnapshot) = snapshotCatalogState()
     val collectionsSnapshot = collectionsCache.associateBy { "collection_${it.id}" }
+    // Spec 145: published with the rows built from this snapshot.
+    val collectionsLoaded = collectionsLoadedOnce
     val hideUnreleased = _uiState.value.hideUnreleasedContent
     val titlesSnapshot = customCatalogTitles
-
-    val (displayRows, baseHeroItems) = withContext(Dispatchers.Default) {
-        val rawRows = orderedKeys.mapNotNull { key ->
+    val (drawnKeys, drawn) = withContext(Dispatchers.Default) {
+        val keyedRows = orderedKeys.mapNotNull { key ->
             val row = catalogSnapshot[key] ?: return@mapNotNull null
             val custom = titlesSnapshot[key]
-            if (!custom.isNullOrBlank()) row.copy(catalogName = custom) else row
+            key to if (!custom.isNullOrBlank()) row.copy(catalogName = custom) else row
         }
-        val orderedRows = if (hideUnreleased) {
+        val rawRows = keyedRows.map { it.second }
+        val releasedRows = if (hideUnreleased) {
             val today = LocalDate.now()
             rawRows.map { it.filterReleasedItems(today) }
         } else {
             rawRows
         }
-        fun stableHeroCandidates(row: CatalogRow, candidates: kotlin.collections.Collection<MetaPreview>): List<MetaPreview> {
-            return candidates.sortedWith(
-                compareBy<MetaPreview> { stableHeroSortKey(row, it) }
-                    .thenBy { it.id }
-            )
-        }
-        // Deterministic 7-slot hero fill: the 7 slots are split across rows in order
-        // (7 / rows each, the first 7 % rows rows get one extra). Each row contributes its
-        // filtered items in stableHeroSortKey order, skipping any id already seen in an
-        // earlier row (every candidate of an earlier row counts, not only the picked ones).
-        // Short rows are not backfilled, so the result can hold fewer than 7 items. No state
-        // is carried between runs: the same catalog contents always yield the same picks.
-        fun pickHeroSlots(rows: List<CatalogRow>): List<MetaPreview> {
-            val totalCatalogs = rows.size.coerceAtLeast(1)
-            val baseSlot = 7 / totalCatalogs
-            val remainder = 7 % totalCatalogs
-            val seen = mutableSetOf<String>()
-            val result = mutableListOf<MetaPreview>()
-            rows.forEachIndexed { index, row ->
-                val slot = baseSlot + if (index < remainder) 1 else 0
-                val candidates = stableHeroCandidates(
-                    row = row,
-                    candidates = row.items.filter { it.hasHeroArtwork() }.associateBy { it.id }.values
-                )
-                // Filter out duplicates but keep taking until slot is filled
-                val unique = candidates.filter { seen.add(it.id) }
-                result += unique.take(slot)
-            }
-            return result
-        }
-
-        val computedHeroItems = pickHeroSlots(orderedRows)
-
-        CatalogUpdateResult(orderedRows, computedHeroItems)
+        keyedRows.map { it.first } to drawCatalogRows(releasedRows, drawFilter)
     }
+    val (displayRows, baseHeroItems, heldRowKeys) = drawn
+    val strTypeMovie = appContext.getString(R.string.type_movie)
+    val strTypeSeries = appContext.getString(R.string.type_series)
 
     val computedHomeRows = withContext(Dispatchers.Default) {
         buildList {
-            val displayRowsByKey = displayRows.associateBy { it.legacyKey() }
+            // By order key: an MDBList row's (Spec 105 S5b1) is not its legacyKey; drawn rows keep the keyed rows' order.
+            val displayRowsByKey = drawnKeys.zip(displayRows).toMap()
             // Build a lookup of placeholder descriptors by key for lazy catalogs
             val placeholdersByKey = synchronized(catalogStateLock) {
                 placeholderDescriptors.associateBy { it.catalogKey }
@@ -533,29 +571,13 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
                     }
                 } else {
                     val catalogRow = displayRowsByKey[key]
-                    if (catalogRow != null && catalogRow.items.isNotEmpty()) {
-                        add(HomeRow.Catalog(catalogRow))
-                    } else {
-                        val placeholder = placeholdersByKey[key]
-                        if (placeholder != null) {
-                            add(HomeRow.PlaceholderCatalog(
-                                catalogKey = placeholder.catalogKey,
-                                stableCatalogKey = catalogRowStableKey(
-                                    placeholder.addonId,
-                                    placeholder.addonBaseUrl,
-                                    placeholder.apiType,
-                                    placeholder.catalogId
-                                ),
-                                addonId = placeholder.addonId,
-                                addonName = placeholder.addonName,
-                                addonBaseUrl = placeholder.addonBaseUrl,
-                                catalogId = placeholder.catalogId,
-                                catalogName = placeholder.catalogName,
-                                apiType = placeholder.apiType,
-                                displayTitle = placeholder.displayTitle
-                            ))
-                        }
-                    }
+                    catalogHomeRow(
+                        catalogRow = catalogRow,
+                        held = catalogRow != null && catalogRow.legacyKey() in heldRowKeys,
+                        lazyPlaceholder = placeholdersByKey[key],
+                        strTypeMovie = strTypeMovie,
+                        strTypeSeries = strTypeSeries
+                    )?.let(::add)
                 }
             }
         }
@@ -570,12 +592,45 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
             catalogRows = if (state.catalogRows == displayRows) state.catalogRows else displayRows,
             heroItems = if (state.heroItems == baseHeroItems) state.heroItems else baseHeroItems,
             homeRows = if (state.homeRows == computedHomeRows) state.homeRows else computedHomeRows,
+            collectionsLoaded = state.collectionsLoaded || collectionsLoaded,
             isLoading = false,
             error = if (hasContent) null else state.error
         )
     }
 
     schedulePosterStatusReconcilePipeline(displayRows)
+}
+
+private fun stableHeroCandidates(row: CatalogRow, candidates: kotlin.collections.Collection<MetaPreview>): List<MetaPreview> {
+    return candidates.sortedWith(
+        compareBy<MetaPreview> { stableHeroSortKey(row, it) }
+            .thenBy { it.id }
+    )
+}
+
+// Deterministic 7-slot hero fill: the 7 slots are split across rows in order
+// (7 / rows each, the first 7 % rows rows get one extra). Each row contributes its
+// filtered items in stableHeroSortKey order, skipping any id already seen in an
+// earlier row (every candidate of an earlier row counts, not only the picked ones).
+// Short rows are not backfilled, so the result can hold fewer than 7 items. No state
+// is carried between runs: the same catalog contents always yield the same picks.
+internal fun pickHeroSlots(rows: List<CatalogRow>): List<MetaPreview> {
+    val totalCatalogs = rows.size.coerceAtLeast(1)
+    val baseSlot = 7 / totalCatalogs
+    val remainder = 7 % totalCatalogs
+    val seen = mutableSetOf<String>()
+    val result = mutableListOf<MetaPreview>()
+    rows.forEachIndexed { index, row ->
+        val slot = baseSlot + if (index < remainder) 1 else 0
+        val candidates = stableHeroCandidates(
+            row = row,
+            candidates = row.items.filter { it.hasHeroArtwork() }.associateBy { it.id }.values
+        )
+        // Filter out duplicates but keep taking until slot is filled
+        val unique = candidates.filter { seen.add(it.id) }
+        result += unique.take(slot)
+    }
+    return result
 }
 
 private fun stableHeroSortKey(

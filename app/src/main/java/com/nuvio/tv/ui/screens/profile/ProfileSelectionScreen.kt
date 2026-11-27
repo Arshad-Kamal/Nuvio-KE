@@ -205,6 +205,10 @@ fun ProfileSelectionScreen(
     val storedActiveProfileId by viewModel.storedActiveProfileId.collectAsState()
     // Spec 64 K2: null until loaded; Edit, and Add / Delete outside primary-managed Manage, wait for it.
     val ratingCapById by viewModel.ratingCapById.collectAsState()
+    // Spec 117 P9: null until loaded; Edit waits for the edited profile's read and the built-in packs.
+    val contentFiltersById by viewModel.contentFiltersById.collectAsState()
+    val tmdbKeyState by viewModel.tmdbKeyState.collectAsState()
+    val builtInPacks by viewModel.builtInPacks.collectAsState()
     val loadedLookEntries by viewModel.lookEntriesById.collectAsState()
     val lookEntriesById = loadedLookEntries.orEmpty()
     // My photos (Spec 44): null until read; Edit waits for it as for the look entries.
@@ -522,6 +526,7 @@ fun ProfileSelectionScreen(
 
         editorDraft?.let { draft ->
             val editorRatingAccess = ratingLimitAccess(managedByPrimary, isPrimary = draft.original?.isPrimary == true)
+            val editorFilterAccess = contentFilterAccess(managedByPrimary)
             ProfileEditor(
                 draft = draft,
                 avatarCatalog = avatarCatalog,
@@ -538,6 +543,19 @@ fun ProfileSelectionScreen(
                 ratingLimitAccess = editorRatingAccess,
                 openProfiles = noPinUnlimitedProfiles(draft.original?.id, profiles, profilePinEnabled, ratingCapById)
                     .map(UserProfile::name),
+                contentFilterAccess = editorFilterAccess,
+                builtInPacks = builtInPacks.orEmpty(),
+                tagSearch = viewModel::searchTags.takeIf { tmdbKeyState?.hasKey == true },
+                // Spec 122 D3: only the primary's own page previews; a pick is written at once.
+                filterPreview = if (previewPickerShown(draft.original, editorFilterAccess)) {
+                    FilterPreviewInputs(profiles, contentFiltersById, avatarArtById) { id ->
+                        viewModel.setFilterPreview(id) { saved ->
+                            if (!saved) toast.show(context.getString(R.string.content_filters_preview_failed))
+                        }
+                    }
+                } else {
+                    null
+                },
                 library = library,
                 photoUserNames = { photo -> photoUsers(photo.id, profiles, lookEntriesById, library.sets).map { it.name } },
                 onRemovePhoto = { photo ->
@@ -564,6 +582,7 @@ fun ProfileSelectionScreen(
                     val liveTvNotSaved = { toast.show(context.getString(R.string.profile_live_tv_save_failed)) }
                     val lookNotSaved = { toast.show(context.getString(R.string.profile_look_save_failed)) }
                     val ratingCapNotSaved = { toast.show(context.getString(R.string.rating_limit_save_failed)) }
+                    val filtersNotSaved = { toast.show(context.getString(R.string.content_filters_save_failed)) }
                     val report: (Boolean) -> Unit = { saved ->
                         onResult(saved)
                         if (saved) {
@@ -580,7 +599,9 @@ fun ProfileSelectionScreen(
                         viewModel.createProfile(
                             draft.name, draft.colorHex, draft.avatarId, draft.liveTvEnabled, liveTvNotSaved,
                             localAvatar = draft.localAvatar, onLookNotSaved = lookNotSaved,
-                            ratingCap = draft.ratingCap, onRatingCapNotSaved = ratingCapNotSaved, onResult = report
+                            ratingCap = draft.ratingCap, onRatingCapNotSaved = ratingCapNotSaved,
+                            contentFilters = draft.contentFilters, onContentFiltersNotSaved = filtersNotSaved,
+                            onResult = report
                         )
                     } else {
                         viewModel.updateProfile(
@@ -588,7 +609,9 @@ fun ProfileSelectionScreen(
                             localAvatar = draft.localAvatar, localBackground = draft.localBackground,
                             onLookNotSaved = lookNotSaved,
                             ratingCap = ratingCapEditFor(editorRatingAccess, draft.ratingCap),
-                            onRatingCapNotSaved = ratingCapNotSaved, onResult = report
+                            onRatingCapNotSaved = ratingCapNotSaved,
+                            contentFilters = contentFilterEditFor(editorFilterAccess, draft.contentFiltersChanged, draft.contentFilters),
+                            onContentFiltersNotSaved = filtersNotSaved, onResult = report
                         )
                     }
                 }
@@ -624,18 +647,22 @@ fun ProfileSelectionScreen(
                     val target = profileOptionTarget(option, profile, hasPin, request.verifiedPin)
                     optionsRequest = null
                     when (target) {
-                        // Not before the look entries, My photos and the rating cap load: a save would
-                        // clear a look (or a photo pick) the draft never saw, and the editor would show
-                        // the wrong limit.
+                        // Not before the look entries, My photos, the rating cap and the content filters
+                        // load: a save would clear a look (or a photo pick) the draft never saw, and the
+                        // editor would show the wrong limit or save over the stored filters.
                         ProfileOptionTarget.Edit -> loadedLookEntries
-                            ?.takeIf { loadedPhotos != null && ratingCapLoaded(profile.id, ratingCapById) }
+                            ?.takeIf {
+                                loadedPhotos != null && ratingCapLoaded(profile.id, ratingCapById) &&
+                                    contentFiltersReady(profile.id, contentFiltersById, builtInPacks)
+                            }
                             ?.let { looks ->
                                 editorDraft = ProfileEditorDraft.edit(
                                     profile,
                                     liveTvEnabledById[profile.id] ?: true,
                                     ratingCapById?.get(profile.id),
                                     looks[profile.id],
-                                    library.sets
+                                    library.sets,
+                                    contentFiltersById?.get(profile.id)?.storedOrNull()
                                 )
                             }
                         ProfileOptionTarget.ConfirmDelete -> profileToDelete = profile

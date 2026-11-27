@@ -72,7 +72,8 @@ class PackSourceTest {
             state = server.url("/monitor/state.tsv").toString(),
             streams = server.url("/pool/streams.tsv").toString(),
             summary = server.url("/monitor/pack.json").toString()
-        )
+        ),
+        accounts = XtreamAccountStore(tmp.root, io)
     )
 
     private val stateTsv = listOf(
